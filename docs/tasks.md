@@ -94,7 +94,7 @@ Goal: add one real provider end to end.
 - [x] Implement configuration requirements.
 - [x] Implement adapter fetch logic.
 - [x] Normalize provider result into `UsageSnapshot`.
-- [ ] Add structured error handling.
+- [x] Add structured error handling.
 - [ ] Add connection test.
 - [ ] Add manual refresh.
 - [ ] Verify no secrets are logged or persisted outside Keychain.

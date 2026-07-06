@@ -112,7 +112,7 @@ final class AppModel: ObservableObject {
                 let snapshot = errorSnapshot(
                     providerID: providerID,
                     displayName: adapter.displayName,
-                    message: error.localizedDescription
+                    error: error
                 )
                 upsert(snapshot)
                 saveSnapshots()
@@ -144,7 +144,7 @@ final class AppModel: ObservableObject {
                 let snapshot = errorSnapshot(
                     providerID: adapter.id,
                     displayName: adapter.displayName,
-                    message: error.localizedDescription
+                    error: error
                 )
                 upsert(snapshot)
             }
@@ -197,8 +197,13 @@ final class AppModel: ObservableObject {
         }
     }
 
-    private func errorSnapshot(providerID: String, displayName: String, message: String) -> UsageSnapshot {
-        UsageSnapshot(
+    private func errorSnapshot(providerID: String, displayName: String, error: Error) -> UsageSnapshot {
+        var warnings = [error.localizedDescription]
+        if let recoverySuggestion = (error as? LocalizedError)?.recoverySuggestion {
+            warnings.append(recoverySuggestion)
+        }
+
+        return UsageSnapshot(
             providerID: providerID,
             displayName: displayName,
             status: .error,
@@ -206,7 +211,7 @@ final class AppModel: ObservableObject {
             lastUpdatedAt: Date(),
             confidence: .unknown,
             source: "Provider adapter error",
-            warnings: [message]
+            warnings: warnings
         )
     }
 }
