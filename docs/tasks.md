@@ -90,7 +90,7 @@ Acceptance:
 
 Goal: add one real provider end to end.
 
-- [ ] Pick first provider based on research results.
+- [x] Pick first provider based on research results.
 - [ ] Implement configuration requirements.
 - [ ] Implement adapter fetch logic.
 - [ ] Normalize provider result into `UsageSnapshot`.
@@ -104,6 +104,14 @@ Acceptance:
 - One real provider returns a useful snapshot.
 - Errors are visible and actionable.
 - The mock provider still works.
+
+Decision:
+
+- Claude Code is the first real provider target.
+- Initial mode is opt-in `local-estimate` from an AI Limitbar-owned JSON
+  snapshot file.
+- The provider must not parse Claude's interactive `/usage` screen,
+  undocumented local session files, browser pages, or private provider state.
 
 ## Milestone 6: Refresh Coordination
 

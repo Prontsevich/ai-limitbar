@@ -201,6 +201,17 @@ session files, or status-line JSON as an account quota source. A future opt-in
 mechanism, such as a documented telemetry export or a user-installed status-line
 helper with a clearly scoped snapshot schema.
 
+First real provider decision: Claude Code is the initial Milestone 5 provider.
+The first implementation should not attempt to parse Claude's interactive
+screens or private local files. It should add an opt-in local-estimate mode that
+reads an AI Limitbar-owned JSON snapshot file written by a future helper. The
+snapshot contract must be documented, versioned, and clearly labeled as local
+machine data rather than authoritative account-level quota.
+
+OpenAI Codex remains manual-first because the checked sources do not document a
+non-interactive personal quota API. Ollama Cloud remains manual-first because
+the checked API docs do not expose account usage or remaining-limit endpoints.
+
 ### Ollama Cloud
 
 Ollama Cloud supports cloud model access and account usage pages. The first
