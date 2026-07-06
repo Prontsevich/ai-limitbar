@@ -134,6 +134,32 @@ documented source for the target account type is confirmed.
 MVP status: manual-confidence placeholder only. The app can open the provider
 surface, but it does not parse Codex usage or store Codex credentials.
 
+Research date: 2026-07-07.
+
+Official sources checked:
+
+- <https://developers.openai.com/codex/auth>
+- <https://developers.openai.com/codex/pricing>
+- <https://developers.openai.com/codex/cli/slash-commands>
+- <https://developers.openai.com/codex/enterprise/governance>
+
+Supported source strategy by account type:
+
+| Account type | Supported source | Fit for AI Limitbar |
+| --- | --- | --- |
+| ChatGPT Plus, Pro, Business, Edu, or Enterprise signed in through Codex | Codex usage dashboard for current limits; CLI `/status` for remaining limits during an active CLI session; CLI `/usage` for daily, weekly, or cumulative token activity when service account auth is present. | MVP should use `manual` confidence and open the Codex usage dashboard or instruct the user to inspect `/status` or `/usage`. There is no documented non-interactive local API for current remaining quota in the checked docs. |
+| API key auth | Usage-based access charged through the OpenAI Platform account. | Treat as separate from ChatGPT Codex included limits. A future API-key mode may link to Platform usage, but it should not be displayed as ChatGPT Codex remaining quota. |
+| Enterprise/Edu admin or analytics viewer | Codex Analytics Dashboard and Analytics API. The API returns daily or weekly workspace/per-user usage buckets and requires `codex.enterprise.analytics.read`. The dashboard data can lag by up to 12 hours. | Future admin-only mode can use `delayed` confidence for workspace reporting. It is not a personal live limit source and should not be the default provider mode. |
+| Enterprise compliance workflows | Compliance API exports audit records and token metadata for ChatGPT-authenticated Codex activity. | Useful for governance/audit integrations, not for a compact remaining-limit widget. |
+
+Selected initial confidence level: `manual`.
+
+Selected MVP source mode: open the Codex usage dashboard and label the snapshot
+as manual. Do not parse browser pages, raw local auth state, CLI TUI output, or
+undocumented Codex service endpoints. Revisit implementation only if an
+official non-interactive source for current personal Codex limits is documented
+or if an enterprise user explicitly configures the delayed Analytics API mode.
+
 ### Claude Code
 
 Claude Code has local usage visibility and plan usage displays. Some data may be
