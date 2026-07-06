@@ -5,26 +5,26 @@
 - [x] Create project directory.
 - [x] Initialize git repository.
 - [x] Draft MVP plan.
-- [ ] Create initial macOS project scaffold.
-- [ ] Add basic build/run script for local development.
-- [ ] Add project README.
+- [x] Create initial macOS project scaffold.
+- [x] Add basic build/run script for local development.
+- [x] Add project README.
 
 ## Milestone 1: App Skeleton
 
 Goal: produce a runnable macOS menu bar app with mock data and no real provider
 credentials.
 
-- [ ] Create SwiftUI macOS app target.
-- [ ] Add `MenuBarExtra` as the primary app surface.
-- [ ] Add settings scene placeholder.
-- [ ] Add `UsageSnapshot` model.
-- [ ] Add `ProviderAdapter` protocol.
-- [ ] Add mock provider adapter.
-- [ ] Add in-memory snapshot store.
-- [ ] Render provider rows in the menu bar panel.
-- [ ] Add manual refresh action.
-- [ ] Show last updated state.
-- [ ] Show confidence/source labels.
+- [x] Create SwiftUI macOS app target.
+- [x] Add `MenuBarExtra` as the primary app surface.
+- [x] Add settings scene placeholder.
+- [x] Add `UsageSnapshot` model.
+- [x] Add `ProviderAdapter` protocol.
+- [x] Add mock provider adapter.
+- [x] Add app-level snapshot state.
+- [x] Render provider rows in the menu bar panel.
+- [x] Add manual refresh action.
+- [x] Show last updated state.
+- [x] Show confidence/source labels.
 
 Acceptance:
 
@@ -38,12 +38,12 @@ Acceptance:
 
 Goal: persist normalized snapshots locally without storing secrets.
 
-- [ ] Add application support directory resolver.
-- [ ] Add JSON snapshot store.
-- [ ] Load snapshots on app launch.
-- [ ] Save snapshots after refresh.
-- [ ] Handle missing/corrupt snapshot files gracefully.
-- [ ] Add lightweight error state for failed loads or saves.
+- [x] Add application support directory resolver.
+- [x] Add JSON snapshot store.
+- [x] Load snapshots on app launch.
+- [x] Save snapshots after refresh.
+- [x] Handle missing/corrupt snapshot files gracefully.
+- [x] Add lightweight error state for failed loads or saves.
 
 Acceptance:
 
@@ -54,13 +54,13 @@ Acceptance:
 
 Goal: let users enable providers and prepare for real credentials.
 
-- [ ] Add provider registry.
-- [ ] Add provider enabled/disabled state.
-- [ ] Add settings UI for provider toggles.
-- [ ] Add placeholder connection test action.
-- [ ] Add provider usage URL action.
-- [ ] Add Keychain service interface.
-- [ ] Keep credential entry disabled until real provider requirements are known.
+- [x] Add provider registry.
+- [x] Add provider enabled/disabled state.
+- [x] Add settings UI for provider toggles.
+- [x] Add placeholder connection test action.
+- [x] Add provider usage URL action.
+- [x] Add Keychain service interface.
+- [x] Keep credential entry disabled until real provider requirements are known.
 
 Acceptance:
 
@@ -78,7 +78,7 @@ Goal: determine what each provider can support reliably before implementation.
 - [ ] Claude Code: decide whether usage can be parsed reliably.
 - [ ] Ollama Cloud: determine whether a documented usage API exists.
 - [ ] Ollama Cloud: decide MVP source mode and confidence level.
-- [ ] Document unsupported or manual-only cases in the plan.
+- [x] Document unsupported or manual-only cases in the plan.
 
 Acceptance:
 
@@ -145,3 +145,9 @@ Acceptance:
 - [ ] Add notifications for near-limit state.
 - [ ] Add export/debug bundle without secrets.
 - [ ] Add Linear backlog if the project grows beyond local docs.
+
+## MVP Verification
+
+- [x] `swift build`
+- [x] `swift test`
+- [x] `./script/build_and_run.sh --verify`

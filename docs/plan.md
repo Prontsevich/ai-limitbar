@@ -32,6 +32,25 @@ The MVP should provide a working macOS menu bar app with:
 The MVP does not need a WidgetKit widget yet. The widget should come after the
 menu bar app can reliably produce normalized snapshots.
 
+## MVP Implementation Status
+
+The current implementation is a SwiftPM-based macOS app with a SwiftUI
+`MenuBarExtra`, a settings scene, normalized provider snapshots, local JSON
+storage, provider enablement settings, and a project-local build/run script.
+
+The app ships with:
+
+- `MockProviderAdapter`, enabled by default, for refreshable local-estimate data.
+- Manual placeholder adapters for OpenAI Codex, Claude Code, and Ollama Cloud.
+- `snapshots.json` for persisted normalized snapshots.
+- `providers.json` for persisted provider enablement state.
+- A disabled credential surface plus a Keychain service interface for future
+  real provider integrations.
+
+The MVP deliberately does not fetch real OpenAI, Claude, or Ollama usage yet.
+Those providers are visible as manual-confidence placeholders until the research
+spikes confirm stable machine-readable usage sources.
+
 ## Non-Goals For MVP
 
 - Perfect real-time quota accuracy for every provider.
@@ -112,6 +131,9 @@ remaining quota.
 Initial integration should be treated as best-effort until a stable,
 documented source for the target account type is confirmed.
 
+MVP status: manual-confidence placeholder only. The app can open the provider
+surface, but it does not parse Codex usage or store Codex credentials.
+
 ### Claude Code
 
 Claude Code has local usage visibility and plan usage displays. Some data may be
@@ -121,6 +143,9 @@ other Claude surfaces.
 Initial integration should separate local estimates from official account-level
 usage if both become available.
 
+MVP status: manual-confidence placeholder only. The app does not parse local
+Claude Code files or CLI output until the source format is verified.
+
 ### Ollama Cloud
 
 Ollama Cloud supports cloud model access and account usage pages. The first
@@ -129,6 +154,9 @@ documented API endpoint or only through authenticated web settings.
 
 Initial integration should prefer API-key based access if usage data is exposed
 there.
+
+MVP status: manual-confidence placeholder only. The app does not call Ollama
+Cloud APIs until a documented usage endpoint is confirmed.
 
 ## App Architecture
 
@@ -216,3 +244,23 @@ Build a macOS app skeleton with:
 - Manual refresh.
 
 Real provider integrations should be added only after this skeleton is working.
+
+## Local Development
+
+Build:
+
+```zsh
+swift build
+```
+
+Test:
+
+```zsh
+swift test
+```
+
+Run and verify the menu bar app process:
+
+```zsh
+./script/build_and_run.sh --verify
+```
