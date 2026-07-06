@@ -95,7 +95,7 @@ Goal: add one real provider end to end.
 - [x] Implement adapter fetch logic.
 - [x] Normalize provider result into `UsageSnapshot`.
 - [x] Add structured error handling.
-- [ ] Add connection test.
+- [x] Add connection test.
 - [ ] Add manual refresh.
 - [ ] Verify no secrets are logged or persisted outside Keychain.
 
@@ -112,6 +112,8 @@ Decision:
   snapshot file.
 - The provider must not parse Claude's interactive `/usage` screen,
   undocumented local session files, browser pages, or private provider state.
+- The settings `Test` action uses the configured adapter fetch path and surfaces
+  structured adapter errors as snapshot warnings.
 
 ## Milestone 6: Refresh Coordination
 
