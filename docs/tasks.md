@@ -96,7 +96,7 @@ Goal: add one real provider end to end.
 - [x] Normalize provider result into `UsageSnapshot`.
 - [x] Add structured error handling.
 - [x] Add connection test.
-- [ ] Add manual refresh.
+- [x] Add manual refresh.
 - [ ] Verify no secrets are logged or persisted outside Keychain.
 
 Acceptance:
@@ -114,6 +114,8 @@ Decision:
   undocumented local session files, browser pages, or private provider state.
 - The settings `Test` action uses the configured adapter fetch path and surfaces
   structured adapter errors as snapshot warnings.
+- Manual refresh uses the same configured adapter fetch path for every enabled
+  provider and persists the resulting normalized snapshot.
 
 ## Milestone 6: Refresh Coordination
 
