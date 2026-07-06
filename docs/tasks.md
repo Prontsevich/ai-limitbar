@@ -74,10 +74,10 @@ Goal: determine what each provider can support reliably before implementation.
 
 - [x] OpenAI Codex: identify supported usage sources by account type.
 - [x] OpenAI Codex: decide MVP source mode and confidence level.
-- [ ] Claude Code: identify CLI/local usage source and output format.
-- [ ] Claude Code: decide whether usage can be parsed reliably.
-- [ ] Ollama Cloud: determine whether a documented usage API exists.
-- [ ] Ollama Cloud: decide MVP source mode and confidence level.
+- [x] Claude Code: identify CLI/local usage source and output format.
+- [x] Claude Code: decide whether usage can be parsed reliably.
+- [x] Ollama Cloud: determine whether a documented usage API exists.
+- [x] Ollama Cloud: decide MVP source mode and confidence level.
 - [x] Document unsupported or manual-only cases in the plan.
 
 Acceptance:

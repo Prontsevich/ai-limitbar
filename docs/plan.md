@@ -172,6 +172,35 @@ usage if both become available.
 MVP status: manual-confidence placeholder only. The app does not parse local
 Claude Code files or CLI output until the source format is verified.
 
+Research date: 2026-07-07.
+
+Official sources checked:
+
+- <https://code.claude.com/docs/en/costs>
+- <https://code.claude.com/docs/en/commands>
+- <https://code.claude.com/docs/en/statusline>
+- <https://code.claude.com/docs/en/monitoring-usage>
+- <https://code.claude.com/docs/en/analytics>
+
+Supported source strategy:
+
+| Source | Output shape | Fit for AI Limitbar |
+| --- | --- | --- |
+| Claude Code `/usage`, `/cost`, and `/stats` commands | Interactive session screen showing session cost, plan usage limits, activity stats, and per-feature breakdown on supported plans. API session cost is computed locally from token counts. Pro, Max, Team, and Enterprise plans include plan usage bars and breakdowns; day/week breakdown is approximate and computed from local session history on the current machine. | Good manual source. Not a reliable parser target for MVP because the checked docs describe an interactive command, not a stable JSON CLI/API output for current remaining plan quota. |
+| Claude Code status line | User-configured command receives JSON session data on stdin and can render context window usage, costs, model, git state, or custom data. | Useful for a future opt-in local helper if the user chooses to install an AI Limitbar status-line script. It measures current-session/context data, not authoritative account-level plan usage. |
+| OpenTelemetry export | Metrics and logs/events for organization usage, cost, token counters, active time, tool activity, and API request events when telemetry is enabled. | Future team/admin mode can ingest telemetry with `local-estimate` or organization-reporting confidence. It requires explicit telemetry configuration and is not a default personal account source. |
+| Claude Code analytics dashboard | Team/Enterprise usage and contribution dashboards, with CSV export; API customers have Console team insights. | Future admin/reporting mode only. Not a live personal remaining-limit source. |
+| Claude Console Usage page | Authoritative billing for API users. | Manual source for API billing. It should not be shown as Claude subscription plan remaining quota. |
+
+Selected initial confidence level: `manual`.
+
+Selected MVP source mode: open or instruct the user to inspect Claude Code
+`/usage`. Do not parse the interactive `/usage` screen, undocumented local
+session files, or status-line JSON as an account quota source. A future opt-in
+`local-estimate` mode can be added only if AI Limitbar owns the collection
+mechanism, such as a documented telemetry export or a user-installed status-line
+helper with a clearly scoped snapshot schema.
+
 ### Ollama Cloud
 
 Ollama Cloud supports cloud model access and account usage pages. The first
@@ -183,6 +212,34 @@ there.
 
 MVP status: manual-confidence placeholder only. The app does not call Ollama
 Cloud APIs until a documented usage endpoint is confirmed.
+
+Research date: 2026-07-07.
+
+Official sources checked:
+
+- <https://docs.ollama.com/cloud>
+- <https://docs.ollama.com/api/introduction>
+- <https://docs.ollama.com/api/authentication>
+- <https://docs.ollama.com/api/usage>
+- <https://docs.ollama.com/api/tags>
+- <https://docs.ollama.com/llms.txt>
+
+Supported source strategy:
+
+| Source | Output shape | Fit for AI Limitbar |
+| --- | --- | --- |
+| Local Ollama API at `http://localhost:11434/api` | Per-request response metrics such as `total_duration`, `load_duration`, `prompt_eval_count`, `eval_count`, and related timing fields. Streaming responses include usage fields in the final chunk. | Useful for request-level local model accounting only when AI Limitbar observes or proxies requests. It does not provide account-level Ollama Cloud usage or remaining quota. |
+| Ollama Cloud API at `https://ollama.com/api` | Same Ollama model interaction API for cloud models, authenticated with an API key. Documented endpoints include model generation/chat, embeddings, tags, running models, model details, and model management. | Supports cloud model calls, but the checked docs do not list a billing, account usage, quota, or remaining-limit endpoint. |
+| Ollama API keys/settings | API keys for programmatic access to `ollama.com`; keys can be revoked and currently do not expire. | Required for future cloud model API calls. Not enough to expose usage limits. |
+| Ollama account pages | Authenticated web settings may show account or billing state. | Manual source only unless Ollama documents a usage endpoint. Do not scrape. |
+
+Selected initial confidence level: `manual`.
+
+Selected MVP source mode: open Ollama account/settings pages and label the
+snapshot as manual. Do not call Ollama Cloud for usage monitoring until a
+documented account usage endpoint exists. If AI Limitbar later becomes an
+Ollama request proxy, it can expose its own `local-estimate` counters for
+observed requests, but that must be labeled as partial and not account-wide.
 
 ## App Architecture
 
