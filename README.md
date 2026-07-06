@@ -31,13 +31,14 @@ This is a local estimate, not authoritative account-level quota.
   "usedPercent": 64,
   "remainingLabel": "Approx. 36% remaining",
   "resetAt": "2026-07-07T18:00:00Z",
-  "lastUpdatedAt": "2026-07-07T10:15:00Z",
-  "warnings": ["Current-machine estimate."]
+  "lastUpdatedAt": "2026-07-07T10:15:00Z"
 }
 ```
 
 `schemaVersion` and `lastUpdatedAt` are required. Dates must be ISO 8601
 strings. `usedPercent`, when present, must be between 0 and 100.
+The local snapshot must not contain credentials, cookies, tokens, raw provider
+responses, or free-form provider warnings.
 
 ## Build
 

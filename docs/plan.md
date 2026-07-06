@@ -226,8 +226,7 @@ Local snapshot schema version 1:
   "usedPercent": 64,
   "remainingLabel": "Approx. 36% remaining",
   "resetAt": "2026-07-07T18:00:00Z",
-  "lastUpdatedAt": "2026-07-07T10:15:00Z",
-  "warnings": ["Current-machine estimate."]
+  "lastUpdatedAt": "2026-07-07T10:15:00Z"
 }
 ```
 
@@ -235,6 +234,9 @@ Local snapshot schema version 1:
 `usedPercent` is optional, but if present it must be in the inclusive `0...100`
 range. The adapter maps this payload to a normalized `UsageSnapshot` with
 `local-estimate` confidence and adds a warning that the data is local only.
+The schema intentionally excludes free-form provider warnings, raw responses,
+credentials, cookies, and tokens so the app does not persist arbitrary provider
+text outside Keychain.
 
 OpenAI Codex remains manual-first because the checked sources do not document a
 non-interactive personal quota API. Ollama Cloud remains manual-first because

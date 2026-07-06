@@ -93,9 +93,6 @@ public struct ClaudeCodeProviderAdapter: ProviderAdapter {
             status = .unavailable
         }
 
-        var warnings = payload.warnings ?? []
-        warnings.append("Local estimate only; usage from other machines or Claude surfaces may be missing.")
-
         return UsageSnapshot(
             providerID: id,
             displayName: displayName,
@@ -108,7 +105,7 @@ public struct ClaudeCodeProviderAdapter: ProviderAdapter {
             lastUpdatedAt: payload.lastUpdatedAt,
             confidence: .localEstimate,
             source: "Claude Code local snapshot file",
-            warnings: warnings
+            warnings: ["Local estimate only; usage from other machines or Claude surfaces may be missing."]
         )
     }
 }
@@ -121,7 +118,6 @@ public struct ClaudeCodeLocalSnapshot: Codable, Equatable, Sendable {
     public let remainingLabel: String?
     public let resetAt: Date?
     public let lastUpdatedAt: Date
-    public let warnings: [String]?
 
     public init(
         schemaVersion: Int,
@@ -130,8 +126,7 @@ public struct ClaudeCodeLocalSnapshot: Codable, Equatable, Sendable {
         usedPercent: Double? = nil,
         remainingLabel: String? = nil,
         resetAt: Date? = nil,
-        lastUpdatedAt: Date,
-        warnings: [String]? = nil
+        lastUpdatedAt: Date
     ) {
         self.schemaVersion = schemaVersion
         self.planName = planName
@@ -140,6 +135,5 @@ public struct ClaudeCodeLocalSnapshot: Codable, Equatable, Sendable {
         self.remainingLabel = remainingLabel
         self.resetAt = resetAt
         self.lastUpdatedAt = lastUpdatedAt
-        self.warnings = warnings
     }
 }

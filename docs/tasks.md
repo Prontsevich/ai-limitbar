@@ -97,7 +97,7 @@ Goal: add one real provider end to end.
 - [x] Add structured error handling.
 - [x] Add connection test.
 - [x] Add manual refresh.
-- [ ] Verify no secrets are logged or persisted outside Keychain.
+- [x] Verify no secrets are logged or persisted outside Keychain.
 
 Acceptance:
 
@@ -116,6 +116,9 @@ Decision:
   structured adapter errors as snapshot warnings.
 - Manual refresh uses the same configured adapter fetch path for every enabled
   provider and persists the resulting normalized snapshot.
+- The Claude Code local snapshot schema excludes credentials, cookies, tokens,
+  raw provider responses, and free-form provider warnings; the app persists only
+  normalized snapshot fields and app-generated warnings.
 
 ## Milestone 6: Refresh Coordination
 

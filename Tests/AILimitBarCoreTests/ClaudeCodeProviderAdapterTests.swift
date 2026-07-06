@@ -23,8 +23,7 @@ final class ClaudeCodeProviderAdapterTests: XCTestCase {
               "usedPercent": 64,
               "remainingLabel": "Approx. 36% remaining",
               "resetAt": "2026-07-07T18:00:00Z",
-              "lastUpdatedAt": "2026-07-07T10:15:00Z",
-              "warnings": ["Current-machine estimate."]
+              "lastUpdatedAt": "2026-07-07T10:15:00Z"
             }
             """
         )
@@ -47,7 +46,7 @@ final class ClaudeCodeProviderAdapterTests: XCTestCase {
         XCTAssertEqual(snapshot.remainingLabel, "Approx. 36% remaining")
         XCTAssertEqual(snapshot.confidence, .localEstimate)
         XCTAssertEqual(snapshot.source, "Claude Code local snapshot file")
-        XCTAssertEqual(snapshot.warnings.count, 2)
+        XCTAssertEqual(snapshot.warnings, ["Local estimate only; usage from other machines or Claude surfaces may be missing."])
     }
 
     func testLocalSnapshotModeRequiresConfiguredPath() async {
