@@ -91,7 +91,7 @@ Acceptance:
 Goal: add one real provider end to end.
 
 - [x] Pick first provider based on research results.
-- [ ] Implement configuration requirements.
+- [x] Implement configuration requirements.
 - [ ] Implement adapter fetch logic.
 - [ ] Normalize provider result into `UsageSnapshot`.
 - [ ] Add structured error handling.

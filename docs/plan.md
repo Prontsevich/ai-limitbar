@@ -208,6 +208,14 @@ reads an AI Limitbar-owned JSON snapshot file written by a future helper. The
 snapshot contract must be documented, versioned, and clearly labeled as local
 machine data rather than authoritative account-level quota.
 
+Configuration requirements:
+
+- Provider settings persist a source mode for each provider.
+- Claude Code supports `manual` and `local-snapshot` source modes.
+- Claude Code local-snapshot mode persists a user-provided JSON file path.
+- Existing provider settings without source fields must continue to load as
+  `manual` mode.
+
 OpenAI Codex remains manual-first because the checked sources do not document a
 non-interactive personal quota API. Ollama Cloud remains manual-first because
 the checked API docs do not expose account usage or remaining-limit endpoints.

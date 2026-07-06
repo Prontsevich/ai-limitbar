@@ -75,6 +75,22 @@ final class AppModel: ObservableObject {
         saveConfiguration()
     }
 
+    func setProviderSourceMode(_ providerID: String, sourceMode: ProviderSourceMode) {
+        guard let index = providerConfigurations.firstIndex(where: { $0.providerID == providerID }) else {
+            return
+        }
+        providerConfigurations[index].sourceMode = sourceMode
+        saveConfiguration()
+    }
+
+    func setProviderLocalSnapshotPath(_ providerID: String, path: String) {
+        guard let index = providerConfigurations.firstIndex(where: { $0.providerID == providerID }) else {
+            return
+        }
+        providerConfigurations[index].localSnapshotPath = path.trimmingCharacters(in: .whitespacesAndNewlines)
+        saveConfiguration()
+    }
+
     func refresh() {
         guard !isRefreshing else { return }
 

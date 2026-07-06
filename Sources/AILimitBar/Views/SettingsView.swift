@@ -1,3 +1,4 @@
+import AILimitBarCore
 import SwiftUI
 
 struct SettingsView: View {
@@ -22,7 +23,7 @@ struct SettingsView: View {
         }
         .formStyle(.grouped)
         .padding(20)
-        .frame(width: 520, height: 360)
+        .frame(width: 620, height: 400)
     }
 
     private func binding(for providerID: String) -> Binding<Bool> {
@@ -41,28 +42,68 @@ private struct ProviderSettingsRow: View {
     @Binding var isEnabled: Bool
 
     var body: some View {
-        HStack {
-            Toggle(providerName, isOn: $isEnabled)
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Toggle(providerName, isOn: $isEnabled)
 
-            Spacer()
+                Spacer()
 
-            Button {
-                appModel.testConnection(providerID: providerID)
-            } label: {
-                Label("Test", systemImage: "checkmark.circle")
+                Button {
+                    appModel.testConnection(providerID: providerID)
+                } label: {
+                    Label("Test", systemImage: "checkmark.circle")
+                }
+                .disabled(!isEnabled)
+
+                Button {
+                    appModel.openUsagePage(providerID: providerID)
+                } label: {
+                    Label("Open Usage", systemImage: "arrow.up.forward.square")
+                }
+                .disabled(appModel.adapter(for: providerID)?.usageURL == nil)
             }
+
+            if providerID == "claude-code" {
+                claudeCodeConfiguration
+            }
+        }
+    }
+
+    private var claudeCodeConfiguration: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Picker("Source", selection: sourceModeBinding) {
+                Text(ProviderSourceMode.manual.displayName).tag(ProviderSourceMode.manual)
+                Text(ProviderSourceMode.localSnapshot.displayName).tag(ProviderSourceMode.localSnapshot)
+            }
+            .pickerStyle(.segmented)
             .disabled(!isEnabled)
 
-            Button {
-                appModel.openUsagePage(providerID: providerID)
-            } label: {
-                Label("Open Usage", systemImage: "arrow.up.forward.square")
-            }
-            .disabled(appModel.adapter(for: providerID)?.usageURL == nil)
+            TextField("Local snapshot JSON path", text: localSnapshotPathBinding)
+                .textFieldStyle(.roundedBorder)
+                .disabled(!isEnabled || currentConfiguration.sourceMode != .localSnapshot)
         }
     }
 
     private var providerName: String {
         appModel.adapter(for: providerID)?.displayName ?? providerID
+    }
+
+    private var currentConfiguration: ProviderConfiguration {
+        appModel.providerConfigurations.first(where: { $0.providerID == providerID })
+            ?? ProviderConfiguration(providerID: providerID, isEnabled: false)
+    }
+
+    private var sourceModeBinding: Binding<ProviderSourceMode> {
+        Binding(
+            get: { currentConfiguration.sourceMode },
+            set: { appModel.setProviderSourceMode(providerID, sourceMode: $0) }
+        )
+    }
+
+    private var localSnapshotPathBinding: Binding<String> {
+        Binding(
+            get: { currentConfiguration.localSnapshotPath ?? "" },
+            set: { appModel.setProviderLocalSnapshotPath(providerID, path: $0) }
+        )
     }
 }
