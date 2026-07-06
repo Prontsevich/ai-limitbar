@@ -104,7 +104,8 @@ final class AppModel: ObservableObject {
 
         Task {
             do {
-                let snapshot = try await adapter.fetchSnapshot()
+                let configuration = providerConfiguration(for: providerID)
+                let snapshot = try await adapter.fetchSnapshot(configuration: configuration)
                 upsert(snapshot)
                 saveSnapshots()
             } catch {
@@ -136,7 +137,8 @@ final class AppModel: ObservableObject {
 
         for adapter in enabledAdapters {
             do {
-                let snapshot = try await adapter.fetchSnapshot()
+                let configuration = providerConfiguration(for: adapter.id)
+                let snapshot = try await adapter.fetchSnapshot(configuration: configuration)
                 upsert(snapshot)
             } catch {
                 let snapshot = errorSnapshot(
@@ -172,6 +174,11 @@ final class AppModel: ObservableObject {
         let result = snapshotStore.load()
         snapshots = result.snapshots
         storageWarning = storageWarning ?? result.warning
+    }
+
+    private func providerConfiguration(for providerID: String) -> ProviderConfiguration {
+        providerConfigurations.first(where: { $0.providerID == providerID })
+            ?? ProviderConfiguration(providerID: providerID, isEnabled: false)
     }
 
     private func saveSnapshots() {

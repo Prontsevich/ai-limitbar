@@ -92,8 +92,8 @@ Goal: add one real provider end to end.
 
 - [x] Pick first provider based on research results.
 - [x] Implement configuration requirements.
-- [ ] Implement adapter fetch logic.
-- [ ] Normalize provider result into `UsageSnapshot`.
+- [x] Implement adapter fetch logic.
+- [x] Normalize provider result into `UsageSnapshot`.
 - [ ] Add structured error handling.
 - [ ] Add connection test.
 - [ ] Add manual refresh.

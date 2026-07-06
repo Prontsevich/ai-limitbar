@@ -216,6 +216,26 @@ Configuration requirements:
 - Existing provider settings without source fields must continue to load as
   `manual` mode.
 
+Local snapshot schema version 1:
+
+```json
+{
+  "schemaVersion": 1,
+  "planName": "Max",
+  "periodLabel": "5-hour window",
+  "usedPercent": 64,
+  "remainingLabel": "Approx. 36% remaining",
+  "resetAt": "2026-07-07T18:00:00Z",
+  "lastUpdatedAt": "2026-07-07T10:15:00Z",
+  "warnings": ["Current-machine estimate."]
+}
+```
+
+`schemaVersion` and `lastUpdatedAt` are required. Dates use ISO 8601 strings.
+`usedPercent` is optional, but if present it must be in the inclusive `0...100`
+range. The adapter maps this payload to a normalized `UsageSnapshot` with
+`local-estimate` confidence and adds a warning that the data is local only.
+
 OpenAI Codex remains manual-first because the checked sources do not document a
 non-interactive personal quota API. Ollama Cloud remains manual-first because
 the checked API docs do not expose account usage or remaining-limit endpoints.

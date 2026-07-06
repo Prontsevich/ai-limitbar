@@ -8,7 +8,7 @@ public struct MockProviderAdapter: ProviderAdapter {
 
     public init() {}
 
-    public func fetchSnapshot() async throws -> UsageSnapshot {
+    public func fetchSnapshot(configuration: ProviderConfiguration) async throws -> UsageSnapshot {
         let now = Date()
         let minute = Calendar.current.component(.minute, from: now)
         let second = Calendar.current.component(.second, from: now)

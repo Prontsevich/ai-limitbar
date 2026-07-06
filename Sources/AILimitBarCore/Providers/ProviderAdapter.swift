@@ -20,5 +20,5 @@ public protocol ProviderAdapter: Sendable {
     var defaultEnabled: Bool { get }
     var usageURL: URL? { get }
 
-    func fetchSnapshot() async throws -> UsageSnapshot
+    func fetchSnapshot(configuration: ProviderConfiguration) async throws -> UsageSnapshot
 }

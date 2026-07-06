@@ -9,13 +9,35 @@ unknown.
 
 - SwiftUI `MenuBarExtra` primary interface.
 - Mock provider with refreshable local-estimate data.
-- Manual placeholder adapters for OpenAI Codex, Claude Code, and Ollama Cloud.
+- Manual placeholder adapters for OpenAI Codex and Ollama Cloud.
+- Claude Code local snapshot adapter for opt-in local-estimate data.
 - Provider enablement settings.
 - Local JSON storage in Application Support.
 - Disabled credential surface and a Keychain service interface for future real
   integrations.
 
 No real provider credentials are required for the MVP.
+
+## Claude Code Local Snapshot
+
+Claude Code can be configured to read an AI Limitbar-owned local JSON snapshot.
+This is a local estimate, not authoritative account-level quota.
+
+```json
+{
+  "schemaVersion": 1,
+  "planName": "Max",
+  "periodLabel": "5-hour window",
+  "usedPercent": 64,
+  "remainingLabel": "Approx. 36% remaining",
+  "resetAt": "2026-07-07T18:00:00Z",
+  "lastUpdatedAt": "2026-07-07T10:15:00Z",
+  "warnings": ["Current-machine estimate."]
+}
+```
+
+`schemaVersion` and `lastUpdatedAt` are required. Dates must be ISO 8601
+strings. `usedPercent`, when present, must be between 0 and 100.
 
 ## Build
 

@@ -21,7 +21,7 @@ public struct ManualProviderAdapter: ProviderAdapter {
         self.sourceDescription = sourceDescription
     }
 
-    public func fetchSnapshot() async throws -> UsageSnapshot {
+    public func fetchSnapshot(configuration: ProviderConfiguration) async throws -> UsageSnapshot {
         UsageSnapshot(
             providerID: id,
             displayName: displayName,

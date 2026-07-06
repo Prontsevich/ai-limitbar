@@ -19,12 +19,7 @@ public struct ProviderRegistry: Sendable {
             usageURL: URL(string: "https://chatgpt.com/codex"),
             sourceDescription: "OpenAI Codex product surfaces"
         ),
-        ManualProviderAdapter(
-            id: "claude-code",
-            displayName: "Claude Code",
-            usageURL: URL(string: "https://claude.ai/settings/usage"),
-            sourceDescription: "Claude account usage page"
-        ),
+        ClaudeCodeProviderAdapter(),
         ManualProviderAdapter(
             id: "ollama-cloud",
             displayName: "Ollama Cloud",
