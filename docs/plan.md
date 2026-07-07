@@ -318,6 +318,11 @@ Shared snapshot format version: `1`. `snapshots.json` is a JSON document with
 `formatVersion` and `snapshots` fields. Version 1 stores normalized
 `UsageSnapshot` values only.
 
+Local-to-shared migration path: `SnapshotStorageMigrator` copies `snapshots.json`
+from the current local container to a destination container only when the
+destination file does not exist. The migrator reads through `JSONSnapshotStore`,
+so legacy array files are rewritten as versioned format-1 documents.
+
 Stored snapshots must not contain raw tokens, API keys, cookies, or provider
 session data.
 
