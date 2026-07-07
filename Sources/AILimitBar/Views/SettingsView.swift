@@ -16,6 +16,15 @@ struct SettingsView: View {
                 }
             }
 
+            Section("Refresh") {
+                Picker("Interval", selection: refreshIntervalBinding) {
+                    ForEach(RefreshInterval.allCases) { interval in
+                        Text(interval.displayName).tag(interval)
+                    }
+                }
+                .pickerStyle(.segmented)
+            }
+
             Section("Credentials") {
                 Text("Credential entry is disabled until real provider requirements are verified.")
                     .foregroundStyle(.secondary)
@@ -23,7 +32,7 @@ struct SettingsView: View {
         }
         .formStyle(.grouped)
         .padding(20)
-        .frame(width: 620, height: 400)
+        .frame(width: 620, height: 460)
     }
 
     private func binding(for providerID: String) -> Binding<Bool> {
@@ -32,6 +41,13 @@ struct SettingsView: View {
                 appModel.providerConfigurations.first(where: { $0.providerID == providerID })?.isEnabled ?? false
             },
             set: { appModel.setProvider(providerID, enabled: $0) }
+        )
+    }
+
+    private var refreshIntervalBinding: Binding<RefreshInterval> {
+        Binding(
+            get: { appModel.refreshSettings.interval },
+            set: { appModel.setRefreshInterval($0) }
         )
     }
 }

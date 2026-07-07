@@ -7,13 +7,16 @@ final class AppModel: ObservableObject {
     @Published private(set) var snapshots: [UsageSnapshot] = []
     @Published private(set) var providerConfigurations: [ProviderConfiguration] = []
     @Published private(set) var providerRefreshStatuses: [String: ProviderRefreshStatus] = [:]
+    @Published private(set) var refreshSettings = RefreshSettings()
     @Published private(set) var isRefreshing = false
     @Published var storageWarning: String?
 
     private let registry: ProviderRegistry
     private let snapshotStore: JSONSnapshotStore
     private let configurationStore: ProviderConfigurationStore
+    private let refreshSettingsStore: RefreshSettingsStore
     private let refreshCoordinator: ProviderRefreshCoordinator
+    private var scheduledRefreshTimer: Timer?
 
     init(
         registry: ProviderRegistry = ProviderRegistry(),
@@ -34,8 +37,15 @@ final class AppModel: ObservableObject {
 
         self.snapshotStore = JSONSnapshotStore(directory: directory)
         self.configurationStore = ProviderConfigurationStore(directory: directory)
+        self.refreshSettingsStore = RefreshSettingsStore(directory: directory)
         loadConfiguration()
+        loadRefreshSettings()
         loadSnapshots()
+        configureScheduledRefresh()
+    }
+
+    deinit {
+        scheduledRefreshTimer?.invalidate()
     }
 
     var enabledSnapshots: [UsageSnapshot] {
@@ -100,6 +110,12 @@ final class AppModel: ObservableObject {
         }
         providerConfigurations[index].localSnapshotPath = path.trimmingCharacters(in: .whitespacesAndNewlines)
         saveConfiguration()
+    }
+
+    func setRefreshInterval(_ interval: RefreshInterval) {
+        refreshSettings.interval = interval
+        saveRefreshSettings()
+        configureScheduledRefresh()
     }
 
     func refresh() {
@@ -190,6 +206,20 @@ final class AppModel: ObservableObject {
         }
     }
 
+    private func loadRefreshSettings() {
+        let result = refreshSettingsStore.load()
+        refreshSettings = result.settings
+        storageWarning = storageWarning ?? result.warning
+    }
+
+    private func saveRefreshSettings() {
+        do {
+            try refreshSettingsStore.save(refreshSettings)
+        } catch {
+            storageWarning = "Refresh settings could not be saved."
+        }
+    }
+
     private func loadSnapshots() {
         let result = snapshotStore.load()
         snapshots = result.snapshots
@@ -219,6 +249,19 @@ final class AppModel: ObservableObject {
 
     private func setRefreshStatus(_ status: ProviderRefreshStatus, for providerID: String) {
         providerRefreshStatuses[providerID] = status
+    }
+
+    private func configureScheduledRefresh() {
+        scheduledRefreshTimer?.invalidate()
+        scheduledRefreshTimer = nil
+
+        guard let timeInterval = refreshSettings.interval.timeInterval else { return }
+
+        scheduledRefreshTimer = Timer.scheduledTimer(withTimeInterval: timeInterval, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                self?.refresh()
+            }
+        }
     }
 
 }

@@ -12,6 +12,7 @@ unknown.
 - Manual placeholder adapters for OpenAI Codex and Ollama Cloud.
 - Claude Code local snapshot adapter for opt-in local-estimate data.
 - Provider enablement settings.
+- Configurable refresh interval with manual-only as the default.
 - Local JSON storage in Application Support.
 - Disabled credential surface and a Keychain service interface for future real
   integrations.
@@ -77,6 +78,7 @@ Application Support directory:
 
 - `snapshots.json`
 - `providers.json`
+- `refresh-settings.json`
 
 These files must not contain provider credentials, raw tokens, cookies, or raw
 provider responses.
