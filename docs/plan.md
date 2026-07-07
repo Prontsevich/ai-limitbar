@@ -312,6 +312,10 @@ Snapshots are considered stale after 24 hours in manual-only mode or after two
 missed configured refresh intervals in scheduled mode. Staleness is runtime UI
 state derived from `lastUpdatedAt`; it is not persisted into the snapshot file.
 
+Provider refreshes retry transient `ProviderAdapterError` failures with a small
+exponential backoff. Configuration, schema, and validation errors are permanent
+by default and are surfaced immediately without retry.
+
 ## Security
 
 - Store provider credentials in Keychain.

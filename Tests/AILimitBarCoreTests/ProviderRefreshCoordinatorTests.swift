@@ -47,6 +47,46 @@ final class ProviderRefreshCoordinatorTests: XCTestCase {
         XCTAssertEqual(snapshots[0].confidence, .unknown)
         XCTAssertEqual(snapshots[0].warnings, ["Snapshot file is missing.", "Choose a readable JSON file."])
     }
+
+    func testRefreshRetriesTransientErrors() async {
+        let counter = FetchCounter()
+        let coordinator = ProviderRefreshCoordinator(
+            retryPolicy: ProviderRetryPolicy(maxAttempts: 2, initialDelay: 0)
+        )
+        let requests = [
+            ProviderRefreshRequest(
+                adapter: FlakyProviderAdapter(counter: counter),
+                configuration: ProviderConfiguration(providerID: "flaky", isEnabled: true)
+            )
+        ]
+
+        let snapshots = await coordinator.refresh(requests)
+        let attempts = await counter.attempts
+
+        XCTAssertEqual(attempts, 2)
+        XCTAssertEqual(snapshots.count, 1)
+        XCTAssertEqual(snapshots[0].providerID, "flaky")
+        XCTAssertEqual(snapshots[0].status, .ok)
+    }
+
+    func testRefreshDoesNotRetryPermanentErrors() async {
+        let counter = FetchCounter()
+        let coordinator = ProviderRefreshCoordinator(
+            retryPolicy: ProviderRetryPolicy(maxAttempts: 2, initialDelay: 0)
+        )
+        let requests = [
+            ProviderRefreshRequest(
+                adapter: FailingProviderAdapter(counter: counter, isTransient: false),
+                configuration: ProviderConfiguration(providerID: "permanent", isEnabled: true)
+            )
+        ]
+
+        let snapshots = await coordinator.refresh(requests)
+        let attempts = await counter.attempts
+
+        XCTAssertEqual(attempts, 1)
+        XCTAssertEqual(snapshots[0].status, .error)
+    }
 }
 
 private struct TestProviderAdapter: ProviderAdapter {
@@ -74,6 +114,61 @@ private struct TestProviderAdapter: ProviderAdapter {
             lastUpdatedAt: Date(timeIntervalSince1970: 1_200),
             confidence: .localEstimate,
             source: "Test adapter"
+        )
+    }
+}
+
+private actor FetchCounter {
+    private(set) var attempts = 0
+
+    func increment() -> Int {
+        attempts += 1
+        return attempts
+    }
+}
+
+private struct FlakyProviderAdapter: ProviderAdapter {
+    let id = "flaky"
+    let displayName = "Flaky"
+    let defaultEnabled = false
+    let usageURL: URL? = nil
+    let counter: FetchCounter
+
+    func fetchSnapshot(configuration: ProviderConfiguration) async throws -> UsageSnapshot {
+        let attempt = await counter.increment()
+        if attempt == 1 {
+            throw ProviderAdapterError(
+                providerID: id,
+                message: "Network timeout.",
+                isTransient: true
+            )
+        }
+
+        return UsageSnapshot(
+            providerID: id,
+            displayName: displayName,
+            status: .ok,
+            lastUpdatedAt: Date(timeIntervalSince1970: 1_200),
+            confidence: .localEstimate,
+            source: "Flaky adapter"
+        )
+    }
+}
+
+private struct FailingProviderAdapter: ProviderAdapter {
+    let id = "permanent"
+    let displayName = "Permanent"
+    let defaultEnabled = false
+    let usageURL: URL? = nil
+    let counter: FetchCounter
+    let isTransient: Bool
+
+    func fetchSnapshot(configuration: ProviderConfiguration) async throws -> UsageSnapshot {
+        _ = await counter.increment()
+        throw ProviderAdapterError(
+            providerID: id,
+            message: "Configuration is missing.",
+            isTransient: isTransient
         )
     }
 }
