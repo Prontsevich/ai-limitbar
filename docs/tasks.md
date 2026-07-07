@@ -169,14 +169,125 @@ Widget constraints:
 - Timeline reload policy should be derived from stored snapshot freshness and
   the app's configured refresh interval.
 
+## Milestone 8: Account Model
+
+Goal: make the menu bar app model provider accounts explicitly before adding
+more real data sources.
+
+- [ ] Add `ProviderAccount` model.
+- [ ] Add stable account identifiers scoped by provider.
+- [ ] Add account display name and enabled state.
+- [ ] Migrate current provider-level settings into one default account per
+  provider.
+- [ ] Add account identity to stored snapshots.
+- [ ] Group menu bar rows by provider and account.
+- [ ] Update settings to configure accounts instead of only providers.
+- [ ] Keep existing single-provider mock and Claude local snapshot behavior
+  working through default accounts.
+
+Acceptance:
+
+- A provider can have more than one configured account.
+- Existing users keep their current provider settings as default accounts.
+- Menu bar rows clearly identify both provider and account.
+- No provider credentials are introduced outside Keychain.
+
+## Milestone 9: Account Details Panel
+
+Goal: make the menu bar item open a useful compact window with details for each
+account.
+
+- [ ] Add account row selection.
+- [ ] Add account details view.
+- [ ] Show usage, source, confidence, warnings, reset time, stale state, and
+  last refresh state.
+- [ ] Add per-account refresh action.
+- [ ] Add per-account connection test action.
+- [ ] Add per-account open usage page action.
+- [ ] Add empty, unavailable, stale, and error states.
+- [ ] Keep the panel compact enough for repeated menu bar use.
+
+Acceptance:
+
+- Clicking an account row reveals detailed account state.
+- Account actions affect only the selected account.
+- Errors and stale data are visible without hiding the last known snapshot.
+
+## Milestone 10: Claude Code Data Source
+
+Goal: make Claude Code useful without relying on hand-edited JSON files.
+
+- [ ] Define the first supported Claude Code local data source contract.
+- [ ] Add a helper/import path that writes AI Limitbar local snapshot JSON.
+- [ ] Validate helper output before storing snapshots.
+- [ ] Add source diagnostics for missing file, invalid schema, stale helper
+  output, and invalid percentage values.
+- [ ] Document how to configure Claude Code local snapshot updates.
+- [ ] Avoid parsing Claude interactive screens, private local state, or browser
+  pages.
+
+Acceptance:
+
+- Claude Code can produce useful local-estimate data without manually editing
+  JSON.
+- The source remains clearly labeled as local-estimate, not account-authoritative
+  live usage.
+- Invalid helper output does not corrupt stored snapshots.
+
+## Milestone 11: Provider And Account Readiness
+
+Goal: prepare the app for more providers and account-level credentials while
+keeping provider implementations conservative.
+
+- [ ] Add provider/account source diagnostics model.
+- [ ] Track last successful refresh separately from failed refresh attempts.
+- [ ] Add account-level credential slots backed by Keychain.
+- [ ] Add credential presence checks without exposing secret values.
+- [ ] Add provider capability metadata for manual, local snapshot, live, and
+  delayed modes.
+- [ ] Improve error copy for missing credentials, unsupported source modes, and
+  unavailable provider APIs.
+
+Acceptance:
+
+- The app can explain why each account is or is not refreshable.
+- Credentials have a clear account-level home without touching JSON storage.
+- Provider adapters can advertise supported source modes.
+
+## Milestone 12: Daily Use Polish
+
+Goal: make the menu bar app useful as a daily status tool before starting the
+WidgetKit extension.
+
+- [ ] Improve menu bar summary title and icon based on worst account state.
+- [ ] Add near-limit state.
+- [ ] Add compact and detailed row display modes.
+- [ ] Add account sorting controls.
+- [ ] Add option to hide manual-only accounts from the main list.
+- [ ] Add export/debug bundle without secrets.
+- [ ] Add smoke verification for app launch, refresh, settings persistence, and
+  snapshot persistence.
+
+Acceptance:
+
+- The menu bar item surfaces the most important account state at a glance.
+- The panel remains usable with multiple providers and accounts.
+- Debug output helps diagnose issues without leaking credentials or raw provider
+  responses.
+
 ## Later
 
-- [ ] Add WidgetKit extension.
-- [ ] Add multiple account support per provider.
-- [ ] Add provider-specific detail windows.
 - [ ] Add notifications for near-limit state.
-- [ ] Add export/debug bundle without secrets.
 - [ ] Add Linear backlog if the project grows beyond local docs.
+
+## Final: WidgetKit Extension
+
+- [ ] Add WidgetKit extension.
+- [ ] Read snapshots from the App Group container.
+- [ ] Render account-aware snapshot summaries.
+- [ ] Respect stale, unavailable, manual, and error states.
+- [ ] Keep all provider refresh, auth, and parsing inside the app, not the
+  widget.
 
 ## MVP Verification
 
