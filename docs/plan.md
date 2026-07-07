@@ -291,6 +291,8 @@ The app should be structured around:
 - `UsageSnapshotStore` for persisted snapshots.
 - `ProviderRegistry` for available adapters.
 - `ProviderAdapter` protocol for provider-specific logic.
+- `ProviderRefreshCoordinator` for converting configured adapter refresh
+  requests into normalized snapshots.
 - Keychain-backed credential storage.
 - A refresh coordinator that can run manual and scheduled refreshes.
 

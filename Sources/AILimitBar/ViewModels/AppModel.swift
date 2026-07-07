@@ -12,12 +12,14 @@ final class AppModel: ObservableObject {
     private let registry: ProviderRegistry
     private let snapshotStore: JSONSnapshotStore
     private let configurationStore: ProviderConfigurationStore
+    private let refreshCoordinator: ProviderRefreshCoordinator
 
     init(
         registry: ProviderRegistry = ProviderRegistry(),
         directoryResolver: ApplicationSupportDirectoryResolver = ApplicationSupportDirectoryResolver()
     ) {
         self.registry = registry
+        self.refreshCoordinator = ProviderRefreshCoordinator()
 
         let directory: URL
         do {
@@ -109,7 +111,7 @@ final class AppModel: ObservableObject {
                 upsert(snapshot)
                 saveSnapshots()
             } catch {
-                let snapshot = errorSnapshot(
+                let snapshot = refreshCoordinator.errorSnapshot(
                     providerID: providerID,
                     displayName: adapter.displayName,
                     error: error
@@ -135,19 +137,16 @@ final class AppModel: ObservableObject {
 
         guard !enabledAdapters.isEmpty else { return }
 
-        for adapter in enabledAdapters {
-            do {
-                let configuration = providerConfiguration(for: adapter.id)
-                let snapshot = try await adapter.fetchSnapshot(configuration: configuration)
-                upsert(snapshot)
-            } catch {
-                let snapshot = errorSnapshot(
-                    providerID: adapter.id,
-                    displayName: adapter.displayName,
-                    error: error
-                )
-                upsert(snapshot)
-            }
+        let requests = enabledAdapters.map { adapter in
+            ProviderRefreshRequest(
+                adapter: adapter,
+                configuration: providerConfiguration(for: adapter.id)
+            )
+        }
+
+        let refreshedSnapshots = await refreshCoordinator.refresh(requests)
+        for snapshot in refreshedSnapshots {
+            upsert(snapshot)
         }
 
         saveSnapshots()
@@ -197,21 +196,4 @@ final class AppModel: ObservableObject {
         }
     }
 
-    private func errorSnapshot(providerID: String, displayName: String, error: Error) -> UsageSnapshot {
-        var warnings = [error.localizedDescription]
-        if let recoverySuggestion = (error as? LocalizedError)?.recoverySuggestion {
-            warnings.append(recoverySuggestion)
-        }
-
-        return UsageSnapshot(
-            providerID: providerID,
-            displayName: displayName,
-            status: .error,
-            remainingLabel: "Refresh failed",
-            lastUpdatedAt: Date(),
-            confidence: .unknown,
-            source: "Provider adapter error",
-            warnings: warnings
-        )
-    }
 }

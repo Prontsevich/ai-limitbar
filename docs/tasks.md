@@ -124,7 +124,7 @@ Decision:
 
 Goal: make refresh behavior predictable and respectful of provider limits.
 
-- [ ] Add refresh coordinator.
+- [x] Add refresh coordinator.
 - [ ] Add per-provider refresh status.
 - [ ] Prevent overlapping refreshes.
 - [ ] Add configurable refresh interval.
