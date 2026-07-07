@@ -39,8 +39,18 @@ public final class JSONSnapshotStore: Sendable {
 
         do {
             let data = try Data(contentsOf: fileURL)
-            let snapshots = try decoder.decode([UsageSnapshot].self, from: data)
-            return SnapshotLoadResult(snapshots: snapshots)
+            if let document = try? decoder.decode(UsageSnapshotDocument.self, from: data) {
+                guard document.formatVersion == UsageSnapshotDocument.currentFormatVersion else {
+                    return SnapshotLoadResult(
+                        snapshots: [],
+                        warning: "Stored snapshots use an unsupported format version."
+                    )
+                }
+                return SnapshotLoadResult(snapshots: document.snapshots)
+            }
+
+            let legacySnapshots = try decoder.decode([UsageSnapshot].self, from: data)
+            return SnapshotLoadResult(snapshots: legacySnapshots)
         } catch {
             return SnapshotLoadResult(
                 snapshots: [],
@@ -50,7 +60,8 @@ public final class JSONSnapshotStore: Sendable {
     }
 
     public func save(_ snapshots: [UsageSnapshot]) throws {
-        let data = try encoder.encode(snapshots)
+        let document = UsageSnapshotDocument(snapshots: snapshots)
+        let data = try encoder.encode(document)
         try data.write(to: fileURL, options: [.atomic])
     }
 }

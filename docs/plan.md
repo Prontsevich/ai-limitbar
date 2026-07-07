@@ -314,6 +314,10 @@ Provisional App Group identifier: `group.com.lestroy.ai-limitbar`. This must be
 verified against the final Apple Developer Team and bundle identifiers before
 signing a WidgetKit build.
 
+Shared snapshot format version: `1`. `snapshots.json` is a JSON document with
+`formatVersion` and `snapshots` fields. Version 1 stores normalized
+`UsageSnapshot` values only.
+
 Stored snapshots must not contain raw tokens, API keys, cookies, or provider
 session data.
 
