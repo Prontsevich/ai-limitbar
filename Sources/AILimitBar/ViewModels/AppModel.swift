@@ -49,6 +49,10 @@ final class AppModel: ObservableObject {
         providerConfigurations.contains(where: \.isEnabled)
     }
 
+    var hasActiveProviderRefresh: Bool {
+        providerRefreshStatuses.values.contains(.refreshing)
+    }
+
     var menuBarTitle: String {
         guard let highestUsage = enabledSnapshots.compactMap(\.usedPercent).max() else {
             return "AI Limits"
@@ -99,15 +103,19 @@ final class AppModel: ObservableObject {
     }
 
     func refresh() {
-        guard !isRefreshing else { return }
+        guard !isRefreshing, !hasActiveProviderRefresh else { return }
+        isRefreshing = true
 
         Task {
             await refreshEnabledProviders()
+            isRefreshing = false
         }
     }
 
     func testConnection(providerID: String) {
         guard let adapter = adapter(for: providerID) else { return }
+        guard !isRefreshing else { return }
+        guard refreshStatus(for: providerID) != .refreshing else { return }
         setRefreshStatus(.refreshing, for: providerID)
 
         Task {
@@ -136,9 +144,6 @@ final class AppModel: ObservableObject {
     }
 
     private func refreshEnabledProviders() async {
-        isRefreshing = true
-        defer { isRefreshing = false }
-
         let enabledAdapters = providerConfigurations
             .filter(\.isEnabled)
             .compactMap { registry.adaptersByID[$0.providerID] }

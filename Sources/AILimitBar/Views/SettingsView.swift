@@ -53,7 +53,7 @@ private struct ProviderSettingsRow: View {
                 } label: {
                     Label("Test", systemImage: "checkmark.circle")
                 }
-                .disabled(!isEnabled)
+                .disabled(!isEnabled || appModel.isRefreshing || appModel.refreshStatus(for: providerID) == .refreshing)
 
                 Button {
                     appModel.openUsagePage(providerID: providerID)

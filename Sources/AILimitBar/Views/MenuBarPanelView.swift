@@ -53,7 +53,7 @@ struct MenuBarPanelView: View {
                 } label: {
                     Label(appModel.isRefreshing ? "Refreshing" : "Refresh", systemImage: "arrow.clockwise")
                 }
-                .disabled(appModel.isRefreshing || !appModel.hasEnabledProviders)
+                .disabled(appModel.isRefreshing || appModel.hasActiveProviderRefresh || !appModel.hasEnabledProviders)
 
                 Button("Quit") {
                     NSApplication.shared.terminate(nil)
