@@ -299,6 +299,24 @@ The app should be structured around:
 The first scaffold can use a mock provider and local JSON storage before adding
 real provider clients.
 
+## Snapshot Model Direction
+
+`UsageSnapshot` should continue to represent normalized account state, but the
+dashboard needs more than one usage percentage per account. Future snapshot
+versions should add provider-defined limit windows while keeping the existing
+summary fields for compatibility and menu bar title calculations.
+
+A limit window should describe one visible quota window, not a hardcoded app
+category. Common examples include a weekly window plus rolling 3-hour, 4-hour,
+5-hour, or provider-specific hourly windows. Each window should carry a stable
+kind or identifier when known, a display label, optional used percentage,
+optional remaining/reset text, optional `resetAt`, and confidence/source
+metadata inherited from or compatible with the parent snapshot.
+
+When a provider exposes only one value, the dashboard can render that value as a
+single limit window. When no machine-readable value exists, the account row
+should show an unavailable/manual state instead of inventing progress bars.
+
 ## Storage
 
 The initial snapshot store can be a JSON file stored in application support.
@@ -356,19 +374,31 @@ by default and are surfaced immediately without retry.
 
 ## UI Direction
 
-The menu bar UI should be compact and utility-focused:
+The menu bar UI should behave like a compact dashboard. Opening the panel should
+let the user assess all enabled accounts quickly and then move on.
 
-- Provider name.
-- Status indicator.
-- Usage percent or textual status.
-- Reset time when known.
-- Last updated age.
-- Confidence/source label.
-- Refresh and settings actions.
+Dashboard rows should:
+
+- Show accounts in user-defined order, not grouped by provider by default.
+- Treat the account name as the primary label and provider name as secondary
+  context.
+- Render one compact progress bar per known limit window, such as weekly plus
+  provider-defined 3-hour, 4-hour, 5-hour, or other rolling windows.
+- Keep unavailable, manual, stale, warning, and error states visible inline
+  without hiding other accounts.
+- Avoid scrolling for common small setups; 3-5 accounts should remain readable
+  at a glance.
+
+Account details should be available on demand rather than permanently occupying
+the dashboard. Use an explicit `?` or info button to open a popover with source,
+confidence, warnings, last refresh state, reset details, and per-account
+actions. Hover may be added as a convenience, but it must not be the only way to
+access details.
 
 The settings UI should support:
 
 - Enabling/disabling providers.
+- Ordering accounts with simple move up/down controls.
 - Selecting auth/source mode where applicable.
 - Testing provider connection.
 - Opening the provider's usage page.

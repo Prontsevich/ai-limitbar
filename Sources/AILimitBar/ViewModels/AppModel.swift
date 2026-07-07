@@ -7,8 +7,10 @@ final class AppModel: ObservableObject {
     @Published private(set) var snapshots: [UsageSnapshot] = []
     @Published private(set) var providerAccounts: [ProviderAccount] = []
     @Published private(set) var providerRefreshStatuses: [String: ProviderRefreshStatus] = [:]
+    @Published private(set) var accountRefreshIssues: [String: AccountRefreshIssue] = [:]
     @Published private(set) var refreshSettings = RefreshSettings()
     @Published private(set) var isRefreshing = false
+    @Published private(set) var selectedAccountKey: String?
     @Published var storageWarning: String?
 
     private let registry: ProviderRegistry
@@ -75,6 +77,54 @@ final class AppModel: ObservableObject {
         }
     }
 
+    var enabledAccountRows: [AccountSnapshotRow] {
+        providerAccounts
+            .filter(\.isEnabled)
+            .filter { registry.adaptersByID[$0.providerID] != nil }
+            .map { account in
+                AccountSnapshotRow(
+                    account: account,
+                    providerDisplayName: providerDisplayName(for: account.providerID),
+                    snapshot: snapshot(for: account),
+                    refreshStatus: refreshStatus(for: account),
+                    refreshIssue: accountRefreshIssues[account.id]
+                )
+            }
+            .sorted {
+                if $0.providerDisplayName == $1.providerDisplayName {
+                    return $0.account.displayName < $1.account.displayName
+                }
+                return $0.providerDisplayName < $1.providerDisplayName
+            }
+    }
+
+    var enabledAccountGroups: [AccountSnapshotGroup] {
+        let rowsByProviderID = Dictionary(grouping: enabledAccountRows, by: \.account.providerID)
+        return registry.adapters.compactMap { adapter in
+            guard let rows = rowsByProviderID[adapter.id], !rows.isEmpty else {
+                return nil
+            }
+            return AccountSnapshotGroup(
+                providerID: adapter.id,
+                displayName: adapter.displayName,
+                rows: rows
+            )
+        }
+    }
+
+    var effectiveSelectedAccountKey: String? {
+        let rows = enabledAccountRows
+        if let selectedAccountKey, rows.contains(where: { $0.id == selectedAccountKey }) {
+            return selectedAccountKey
+        }
+        return rows.first?.id
+    }
+
+    var selectedAccountRow: AccountSnapshotRow? {
+        guard let accountKey = effectiveSelectedAccountKey else { return nil }
+        return enabledAccountRows.first { $0.id == accountKey }
+    }
+
     var hasEnabledAccounts: Bool {
         providerAccounts.contains(where: \.isEnabled)
     }
@@ -136,8 +186,18 @@ final class AppModel: ObservableObject {
         providerRefreshStatuses[snapshot.id] ?? .idle
     }
 
+    func snapshot(for account: ProviderAccount) -> UsageSnapshot? {
+        snapshots.first { $0.id == account.id }
+    }
+
     func isSnapshotStale(_ snapshot: UsageSnapshot, now: Date = Date()) -> Bool {
         now.timeIntervalSince(snapshot.lastUpdatedAt) > refreshSettings.interval.staleAfter
+    }
+
+    func selectAccount(providerID: String, accountID: String) {
+        let accountKey = "\(providerID):\(accountID)"
+        guard enabledAccountRows.contains(where: { $0.id == accountKey }) else { return }
+        selectedAccountKey = accountKey
     }
 
     func setAccount(_ providerID: String, accountID: String, enabled: Bool) {
@@ -147,6 +207,9 @@ final class AppModel: ObservableObject {
             return
         }
         providerAccounts[index].isEnabled = enabled
+        if !enabled, selectedAccountKey == providerAccounts[index].id {
+            selectedAccountKey = nil
+        }
         saveConfiguration()
     }
 
@@ -222,6 +285,10 @@ final class AppModel: ObservableObject {
         }
         snapshots.removeAll { $0.id == accountKey }
         providerRefreshStatuses.removeValue(forKey: accountKey)
+        accountRefreshIssues.removeValue(forKey: accountKey)
+        if selectedAccountKey == accountKey {
+            selectedAccountKey = nil
+        }
         saveConfiguration()
         saveSnapshots()
     }
@@ -248,6 +315,22 @@ final class AppModel: ObservableObject {
         }
     }
 
+    func refreshAccount(providerID: String, accountID: String) {
+        guard let adapter = adapter(for: providerID) else { return }
+        guard let account = account(providerID: providerID, accountID: accountID), account.isEnabled else { return }
+        guard !isRefreshing else { return }
+        guard refreshStatus(for: account) != .refreshing else { return }
+        setRefreshStatus(.refreshing, for: account.id)
+
+        Task {
+            let snapshot = await refreshCoordinator.refresh(
+                ProviderRefreshRequest(adapter: adapter, account: account)
+            )
+            handleRefreshedSnapshot(snapshot)
+            saveSnapshots()
+        }
+    }
+
     func testConnection(providerID: String, accountID: String) {
         guard let adapter = adapter(for: providerID) else { return }
         guard let account = account(providerID: providerID, accountID: accountID) else { return }
@@ -259,6 +342,7 @@ final class AppModel: ObservableObject {
             do {
                 let snapshot = try await adapter.fetchSnapshot(account: account)
                 upsert(snapshot)
+                accountRefreshIssues.removeValue(forKey: snapshot.id)
                 setRefreshStatus(.succeeded(snapshot.lastUpdatedAt), for: snapshot.id)
                 saveSnapshots()
             } catch {
@@ -267,15 +351,17 @@ final class AppModel: ObservableObject {
                     providerDisplayName: adapter.displayName,
                     error: error
                 )
-                upsert(snapshot)
-                setRefreshStatus(.failed(snapshot.lastUpdatedAt), for: snapshot.id)
+                handleFailedSnapshot(snapshot)
                 saveSnapshots()
             }
         }
     }
 
-    func openUsagePage(providerID: String) {
+    func openUsagePage(providerID: String, accountID: String? = nil) {
         guard let url = adapter(for: providerID)?.usageURL else { return }
+        if let accountID {
+            guard account(providerID: providerID, accountID: accountID) != nil else { return }
+        }
         NSWorkspace.shared.open(url)
     }
 
@@ -300,11 +386,7 @@ final class AppModel: ObservableObject {
 
         let refreshedSnapshots = await refreshCoordinator.refresh(requests)
         for snapshot in refreshedSnapshots {
-            upsert(snapshot)
-            setRefreshStatus(
-                snapshot.status == .error ? .failed(snapshot.lastUpdatedAt) : .succeeded(snapshot.lastUpdatedAt),
-                for: snapshot.id
-            )
+            handleRefreshedSnapshot(snapshot)
         }
 
         saveSnapshots()
@@ -360,6 +442,32 @@ final class AppModel: ObservableObject {
         }
     }
 
+    private func handleRefreshedSnapshot(_ snapshot: UsageSnapshot) {
+        if snapshot.status == .error {
+            handleFailedSnapshot(snapshot)
+        } else {
+            upsert(snapshot)
+            accountRefreshIssues.removeValue(forKey: snapshot.id)
+            setRefreshStatus(.succeeded(snapshot.lastUpdatedAt), for: snapshot.id)
+        }
+    }
+
+    private func handleFailedSnapshot(_ snapshot: UsageSnapshot) {
+        if self.snapshot(for: snapshot) == nil {
+            upsert(snapshot)
+        }
+        accountRefreshIssues[snapshot.id] = AccountRefreshIssue(
+            accountKey: snapshot.id,
+            occurredAt: snapshot.lastUpdatedAt,
+            warnings: snapshot.warnings
+        )
+        setRefreshStatus(.failed(snapshot.lastUpdatedAt), for: snapshot.id)
+    }
+
+    private func snapshot(for snapshot: UsageSnapshot) -> UsageSnapshot? {
+        snapshots.first { $0.id == snapshot.id }
+    }
+
     private func updateSnapshotAccountDisplayName(providerID: String, accountID: String, displayName: String) {
         guard let index = snapshots.firstIndex(where: {
             $0.providerID == providerID && $0.accountID == accountID
@@ -413,6 +521,30 @@ struct ProviderSnapshotGroup: Identifiable {
     let providerID: String
     let displayName: String
     let snapshots: [UsageSnapshot]
+
+    var id: String { providerID }
+}
+
+struct AccountRefreshIssue: Equatable {
+    let accountKey: String
+    let occurredAt: Date
+    let warnings: [String]
+}
+
+struct AccountSnapshotRow: Identifiable {
+    let account: ProviderAccount
+    let providerDisplayName: String
+    let snapshot: UsageSnapshot?
+    let refreshStatus: ProviderRefreshStatus
+    let refreshIssue: AccountRefreshIssue?
+
+    var id: String { account.id }
+}
+
+struct AccountSnapshotGroup: Identifiable {
+    let providerID: String
+    let displayName: String
+    let rows: [AccountSnapshotRow]
 
     var id: String { providerID }
 }

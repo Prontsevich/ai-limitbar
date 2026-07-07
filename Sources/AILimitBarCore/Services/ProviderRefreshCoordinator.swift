@@ -40,7 +40,7 @@ public struct ProviderRefreshCoordinator: Sendable {
         return snapshots
     }
 
-    private func refresh(_ request: ProviderRefreshRequest) async -> UsageSnapshot {
+    public func refresh(_ request: ProviderRefreshRequest) async -> UsageSnapshot {
         var attempt = 1
         var delay = retryPolicy.initialDelay
 

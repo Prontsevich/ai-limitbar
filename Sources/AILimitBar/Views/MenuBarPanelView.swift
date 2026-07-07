@@ -2,6 +2,7 @@ import SwiftUI
 
 struct MenuBarPanelView: View {
     @ObservedObject var appModel: AppModel
+    @Environment(\.openSettings) private var openSettings
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -21,29 +22,12 @@ struct MenuBarPanelView: View {
                     description: Text("Create an account in Settings.")
                 )
                 .frame(width: 320, height: 140)
-            } else if appModel.enabledSnapshots.isEmpty {
-                ContentUnavailableView(
-                    "No Usage Data",
-                    systemImage: "clock.arrow.circlepath",
-                    description: Text("Refresh to load current usage.")
-                )
-                .frame(width: 320, height: 140)
             } else {
                 VStack(alignment: .leading, spacing: 10) {
-                    ForEach(appModel.enabledSnapshotGroups) { group in
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text(group.displayName)
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(.secondary)
+                    accountList
 
-                            ForEach(group.snapshots) { snapshot in
-                                ProviderRowView(
-                                    snapshot: snapshot,
-                                    refreshStatus: appModel.refreshStatus(for: snapshot),
-                                    isStale: appModel.isSnapshotStale(snapshot)
-                                )
-                            }
-                        }
+                    if let selectedRow = appModel.selectedAccountRow {
+                        AccountDetailsView(appModel: appModel, row: selectedRow)
                     }
                 }
             }
@@ -51,7 +35,10 @@ struct MenuBarPanelView: View {
             Divider()
 
             HStack {
-                SettingsLink {
+                Button {
+                    NSApp.activate(ignoringOtherApps: true)
+                    openSettings()
+                } label: {
                     Label("Settings", systemImage: "gearshape")
                 }
 
@@ -70,12 +57,48 @@ struct MenuBarPanelView: View {
             }
         }
         .padding(14)
-        .frame(width: 360)
+        .frame(width: 380)
         .onAppear {
             if appModel.enabledSnapshots.isEmpty {
                 appModel.refresh()
             }
         }
+    }
+
+    private var accountList: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Accounts")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 10) {
+                    ForEach(appModel.enabledAccountGroups) { group in
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text(group.displayName)
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(.tertiary)
+
+                            ForEach(group.rows) { row in
+                                ProviderRowView(
+                                    row: row,
+                                    isSelected: row.id == appModel.effectiveSelectedAccountKey,
+                                    isStale: row.snapshot.map { appModel.isSnapshotStale($0) } ?? false
+                                ) {
+                                    appModel.selectAccount(
+                                        providerID: row.account.providerID,
+                                        accountID: row.account.accountID
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            .frame(height: accountListHeight)
+        }
+        .padding(8)
+        .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 
     private var header: some View {
@@ -92,5 +115,12 @@ struct MenuBarPanelView: View {
                     .controlSize(.small)
             }
         }
+    }
+
+    private var accountListHeight: CGFloat {
+        let rowCount = max(appModel.enabledAccountRows.count, 1)
+        let groupCount = max(appModel.enabledAccountGroups.count, 1)
+        let desiredHeight = CGFloat(rowCount * 42 + groupCount * 18)
+        return min(max(desiredHeight, 62), 170)
     }
 }

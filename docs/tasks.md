@@ -196,15 +196,15 @@ Acceptance:
 Goal: make the menu bar item open a useful compact window with details for each
 account.
 
-- [ ] Add account row selection.
-- [ ] Add account details view.
-- [ ] Show usage, source, confidence, warnings, reset time, stale state, and
+- [x] Add account row selection.
+- [x] Add account details view.
+- [x] Show usage, source, confidence, warnings, reset time, stale state, and
   last refresh state.
-- [ ] Add per-account refresh action.
-- [ ] Add per-account connection test action.
-- [ ] Add per-account open usage page action.
-- [ ] Add empty, unavailable, stale, and error states.
-- [ ] Keep the panel compact enough for repeated menu bar use.
+- [x] Add per-account refresh action.
+- [x] Add per-account connection test action.
+- [x] Add per-account open usage page action.
+- [x] Add empty, unavailable, stale, and error states.
+- [x] Keep the panel compact enough for repeated menu bar use.
 
 Acceptance:
 
@@ -212,7 +212,45 @@ Acceptance:
 - Account actions affect only the selected account.
 - Errors and stale data are visible without hiding the last known snapshot.
 
-## Milestone 10: Claude Code Data Source
+## Milestone 10: Dashboard Panel Redesign
+
+Goal: make the menu bar panel a glanceable dashboard for all enabled accounts,
+not a list with a permanently visible inspector.
+
+- [ ] Replace the selected-detail-first layout with compact dashboard rows.
+- [ ] Show every enabled account in user-defined order without grouping by
+  provider.
+- [ ] Add account ordering controls in Settings with move up/down actions.
+- [ ] Add normalized limit-window rows for provider-defined windows such as
+  weekly limits and 3-hour, 4-hour, 5-hour, or other rolling windows.
+- [ ] Render one compact progress bar per known limit window.
+- [ ] Keep unavailable, manual, stale, warning, and error states visible in the
+  account row without hiding other accounts.
+- [ ] Move source, confidence, warnings, last refresh state, reset details, and
+  account actions into an explicit details popover.
+- [ ] Use a `?` or info button for details; hover may preview or highlight but
+  must not be the only way to access details.
+- [ ] Avoid scrolling for common small setups and keep 3-5 accounts readable at
+  a glance.
+
+Acceptance:
+
+- Opening the menu bar panel gives a fast account-wide status overview.
+- Accounts are not grouped by provider unless the user later chooses that sort.
+- Each known limit window has its own label, progress bar, and reset/remaining
+  text when available.
+- Details are available on demand without occupying the main dashboard surface.
+
+Decision:
+
+- Milestone 9 remains the technical foundation for per-account selection,
+  actions, and details. Milestone 10 replaces its visible panel layout with a
+  dashboard-first design before adding more data-source work.
+- Limit windows are provider-defined and must not be hardcoded to only hourly or
+  weekly categories. A provider may expose weekly plus 3-hour, 4-hour, 5-hour,
+  or other rolling windows.
+
+## Milestone 11: Claude Code Data Source
 
 Goal: make Claude Code useful without relying on hand-edited JSON files.
 
@@ -233,7 +271,7 @@ Acceptance:
   live usage.
 - Invalid helper output does not corrupt stored snapshots.
 
-## Milestone 11: Provider And Account Readiness
+## Milestone 12: Provider And Account Readiness
 
 Goal: prepare the app for more providers and account-level credentials while
 keeping provider implementations conservative.
@@ -253,15 +291,13 @@ Acceptance:
 - Credentials have a clear account-level home without touching JSON storage.
 - Provider adapters can advertise supported source modes.
 
-## Milestone 12: Daily Use Polish
+## Milestone 13: Daily Use Polish
 
 Goal: make the menu bar app useful as a daily status tool before starting the
 WidgetKit extension.
 
 - [ ] Improve menu bar summary title and icon based on worst account state.
 - [ ] Add near-limit state.
-- [ ] Add compact and detailed row display modes.
-- [ ] Add account sorting controls.
 - [ ] Add option to hide manual-only accounts from the main list.
 - [ ] Add export/debug bundle without secrets.
 - [ ] Add smoke verification for app launch, refresh, settings persistence, and

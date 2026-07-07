@@ -2,133 +2,119 @@ import AILimitBarCore
 import SwiftUI
 
 struct ProviderRowView: View {
-    let snapshot: UsageSnapshot
-    let refreshStatus: ProviderRefreshStatus
+    let row: AccountSnapshotRow
+    let isSelected: Bool
     let isStale: Bool
+    let onSelect: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .firstTextBaseline) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Label(snapshot.accountDisplayName, systemImage: statusImage)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(statusColor)
+        Button(action: onSelect) {
+            HStack(spacing: 10) {
+                Image(systemName: statusImage)
+                    .foregroundStyle(statusColor)
+                    .frame(width: 16)
 
-                    Text(snapshot.displayName)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(row.account.displayName)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+
+                    Text(row.providerDisplayName)
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                        .lineLimit(1)
                 }
 
-                Spacer()
+                Spacer(minLength: 8)
 
-                Text(primaryValue)
-                    .font(.subheadline.monospacedDigit())
-                    .foregroundStyle(.primary)
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(primaryValue)
+                        .font(.subheadline.monospacedDigit())
+                        .foregroundStyle(.primary)
+
+                    Text(statusText)
+                        .font(.caption2)
+                        .foregroundStyle(isStale ? .orange : .secondary)
+                }
             }
-
-            ProgressView(value: progressValue, total: 100)
-                .opacity(snapshot.usedPercent == nil ? 0.25 : 1)
-
-            HStack(spacing: 8) {
-                Text(snapshot.remainingLabel ?? snapshot.status.displayName)
-                Spacer()
-                refreshStatusView
-            }
-            .font(.caption)
-            .foregroundStyle(.secondary)
-
-            HStack(spacing: 6) {
-                Text(snapshot.confidence.displayName)
-                    .font(.caption2.weight(.medium))
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 3)
-                    .background(.quaternary, in: Capsule())
-
-                Text(snapshot.source)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-            }
-
-            if let warning = snapshot.warnings.first {
-                Text(warning)
-                    .font(.caption2)
-                    .foregroundStyle(isStale ? .orange : .secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            } else if isStale {
-                Text("Snapshot is older than the configured freshness window.")
-                    .font(.caption2)
-                    .foregroundStyle(.orange)
-                    .fixedSize(horizontal: false, vertical: true)
+            .contentShape(Rectangle())
+            .padding(.horizontal, 8)
+            .padding(.vertical, 7)
+            .background(selectionBackground, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    .stroke(isSelected ? Color.accentColor.opacity(0.35) : Color.clear, lineWidth: 1)
             }
         }
-        .padding(10)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .buttonStyle(.plain)
+    }
+
+    private var snapshot: UsageSnapshot? {
+        row.snapshot
     }
 
     private var primaryValue: String {
+        guard let snapshot else { return "--" }
         guard let usedPercent = snapshot.usedPercent else {
             return snapshot.status.displayName
         }
         return "\(Int(usedPercent.rounded()))%"
     }
 
-    private var progressValue: Double {
-        snapshot.usedPercent ?? 0
-    }
-
-    @ViewBuilder
-    private var refreshStatusView: some View {
-        switch refreshStatus {
-        case .refreshing:
-            HStack(spacing: 4) {
-                ProgressView()
-                    .controlSize(.mini)
-                Text(refreshStatus.displayName)
-            }
-        case .succeeded:
-            Label(updatedText, systemImage: "arrow.clockwise.circle")
-        case .failed:
-            Label(refreshStatus.displayName, systemImage: "exclamationmark.arrow.triangle.2.circlepath")
-        case .idle:
-            Text(updatedText)
+    private var statusText: String {
+        if row.refreshStatus == .refreshing {
+            return row.refreshStatus.displayName
         }
-    }
-
-    private var updatedText: String {
+        if row.refreshIssue != nil {
+            return "Failed"
+        }
+        if snapshot == nil {
+            return "No data"
+        }
         if isStale {
             return "Stale"
         }
+        return snapshot?.remainingLabel ?? snapshot?.status.displayName ?? "No data"
+    }
 
-        let elapsed = max(0, Date().timeIntervalSince(snapshot.lastUpdatedAt))
-        if elapsed < 60 {
-            return "Updated just now"
-        }
-
-        let formatter = DateComponentsFormatter()
-        formatter.allowedUnits = elapsed < 3_600 ? [.minute] : [.hour, .minute]
-        formatter.maximumUnitCount = 1
-        formatter.unitsStyle = .abbreviated
-
-        let formatted = formatter.string(from: elapsed) ?? "recently"
-        return "Updated \(formatted) ago"
+    private var selectionBackground: Color {
+        isSelected ? Color.accentColor.opacity(0.14) : Color.clear
     }
 
     private var statusImage: String {
-        switch snapshot.status {
-        case .ok: "checkmark.circle"
-        case .warning: "exclamationmark.triangle"
-        case .error: "xmark.octagon"
-        case .unavailable: "questionmark.circle"
+        if row.refreshStatus == .refreshing {
+            return "arrow.clockwise.circle"
+        }
+        if row.refreshIssue != nil {
+            return "exclamationmark.arrow.triangle.2.circlepath"
+        }
+        guard let status = snapshot?.status else {
+            return "circle.dashed"
+        }
+        switch status {
+        case .ok: return "checkmark.circle"
+        case .warning: return "exclamationmark.triangle"
+        case .error: return "xmark.octagon"
+        case .unavailable: return "questionmark.circle"
         }
     }
 
     private var statusColor: Color {
-        switch snapshot.status {
-        case .ok: .primary
-        case .warning: .orange
-        case .error: .red
-        case .unavailable: .secondary
+        if row.refreshStatus == .refreshing {
+            return .secondary
+        }
+        if row.refreshIssue != nil {
+            return .red
+        }
+        guard let status = snapshot?.status else {
+            return .secondary
+        }
+        switch status {
+        case .ok: return .primary
+        case .warning: return .orange
+        case .error: return .red
+        case .unavailable: return .secondary
         }
     }
 }
