@@ -305,6 +305,11 @@ The initial snapshot store can be a JSON file stored in application support.
 Later, when WidgetKit is added, snapshots should move to an App Group container
 so the widget extension can read them.
 
+Snapshot storage location is represented by `SnapshotStorageContainer`. The
+current `LocalSnapshotStorageContainer` points at Application Support, while a
+future App Group container can replace it without changing provider adapters or
+the JSON snapshot store format.
+
 Stored snapshots must not contain raw tokens, API keys, cookies, or provider
 session data.
 

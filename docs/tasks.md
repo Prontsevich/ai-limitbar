@@ -141,7 +141,7 @@ Acceptance:
 
 Goal: prepare snapshots for WidgetKit without adding the widget yet.
 
-- [ ] Move snapshot storage behind a container abstraction.
+- [x] Move snapshot storage behind a container abstraction.
 - [ ] Decide App Group identifier.
 - [ ] Add shared snapshot format version.
 - [ ] Add migration path for local snapshot files.

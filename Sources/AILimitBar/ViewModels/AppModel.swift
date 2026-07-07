@@ -35,7 +35,8 @@ final class AppModel: ObservableObject {
             self.storageWarning = "Application Support is unavailable. Temporary storage is active."
         }
 
-        self.snapshotStore = JSONSnapshotStore(directory: directory)
+        let snapshotContainer = LocalSnapshotStorageContainer(snapshotsDirectory: directory)
+        self.snapshotStore = JSONSnapshotStore(container: snapshotContainer)
         self.configurationStore = ProviderConfigurationStore(directory: directory)
         self.refreshSettingsStore = RefreshSettingsStore(directory: directory)
         loadConfiguration()

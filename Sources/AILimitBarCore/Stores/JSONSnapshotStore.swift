@@ -15,6 +15,10 @@ public final class JSONSnapshotStore: Sendable {
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
 
+    public convenience init(container: any SnapshotStorageContainer, filename: String = "snapshots.json") {
+        self.init(directory: container.snapshotsDirectory, filename: filename)
+    }
+
     public init(directory: URL, filename: String = "snapshots.json") {
         self.fileURL = directory.appendingPathComponent(filename)
 
