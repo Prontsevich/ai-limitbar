@@ -323,6 +323,17 @@ from the current local container to a destination container only when the
 destination file does not exist. The migrator reads through `JSONSnapshotStore`,
 so legacy array files are rewritten as versioned format-1 documents.
 
+Widget constraints:
+
+- The widget is passive: it reads versioned normalized snapshots from the App
+  Group container and renders them.
+- The widget must not authenticate, call providers, read Keychain credentials,
+  parse local provider files, or write provider configuration.
+- Missing, stale, unavailable, or manual-confidence snapshots must be displayed
+  honestly without invented usage values.
+- Timeline reloads should follow stored snapshot freshness and the app's
+  configured refresh interval; provider refresh remains the app's job.
+
 Stored snapshots must not contain raw tokens, API keys, cookies, or provider
 session data.
 

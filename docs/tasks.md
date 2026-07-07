@@ -145,7 +145,7 @@ Goal: prepare snapshots for WidgetKit without adding the widget yet.
 - [x] Decide App Group identifier.
 - [x] Add shared snapshot format version.
 - [x] Add migration path for local snapshot files.
-- [ ] Document widget constraints.
+- [x] Document widget constraints.
 
 Acceptance:
 
@@ -157,6 +157,17 @@ Decision:
 - Provisional App Group identifier: `group.com.lestroy.ai-limitbar`.
 - The identifier must be verified against the final Apple Developer Team and
   bundle identifiers before signing a WidgetKit build.
+
+Widget constraints:
+
+- The widget must be passive and read only versioned normalized snapshots from
+  the App Group container.
+- The widget must not fetch providers, authenticate, read Keychain credentials,
+  parse local provider state, or write provider configuration.
+- Widget UI must handle stale, unavailable, and missing snapshots without
+  inventing usage values.
+- Timeline reload policy should be derived from stored snapshot freshness and
+  the app's configured refresh interval.
 
 ## Later
 
