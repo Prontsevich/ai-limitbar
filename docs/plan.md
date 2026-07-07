@@ -310,6 +310,10 @@ current `LocalSnapshotStorageContainer` points at Application Support, while a
 future App Group container can replace it without changing provider adapters or
 the JSON snapshot store format.
 
+Provisional App Group identifier: `group.com.lestroy.ai-limitbar`. This must be
+verified against the final Apple Developer Team and bundle identifiers before
+signing a WidgetKit build.
+
 Stored snapshots must not contain raw tokens, API keys, cookies, or provider
 session data.
 

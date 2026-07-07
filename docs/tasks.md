@@ -142,7 +142,7 @@ Acceptance:
 Goal: prepare snapshots for WidgetKit without adding the widget yet.
 
 - [x] Move snapshot storage behind a container abstraction.
-- [ ] Decide App Group identifier.
+- [x] Decide App Group identifier.
 - [ ] Add shared snapshot format version.
 - [ ] Add migration path for local snapshot files.
 - [ ] Document widget constraints.
@@ -151,6 +151,12 @@ Acceptance:
 
 - The app can switch storage locations without changing provider adapters.
 - Widget work can start without redesigning snapshot storage.
+
+Decision:
+
+- Provisional App Group identifier: `group.com.lestroy.ai-limitbar`.
+- The identifier must be verified against the final Apple Developer Team and
+  bundle identifiers before signing a WidgetKit build.
 
 ## Later
 
