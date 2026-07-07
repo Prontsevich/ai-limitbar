@@ -88,6 +88,10 @@ final class AppModel: ObservableObject {
         providerRefreshStatuses[providerID] ?? .idle
     }
 
+    func isSnapshotStale(_ snapshot: UsageSnapshot, now: Date = Date()) -> Bool {
+        now.timeIntervalSince(snapshot.lastUpdatedAt) > refreshSettings.interval.staleAfter
+    }
+
     func setProvider(_ providerID: String, enabled: Bool) {
         guard let index = providerConfigurations.firstIndex(where: { $0.providerID == providerID }) else {
             return

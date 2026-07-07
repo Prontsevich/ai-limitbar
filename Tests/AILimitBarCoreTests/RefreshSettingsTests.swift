@@ -5,15 +5,19 @@ final class RefreshSettingsTests: XCTestCase {
     func testRefreshIntervalDisplayNamesAndDurations() {
         XCTAssertEqual(RefreshInterval.manualOnly.displayName, "Manual only")
         XCTAssertNil(RefreshInterval.manualOnly.timeInterval)
+        XCTAssertEqual(RefreshInterval.manualOnly.staleAfter, 24 * 60 * 60)
 
         XCTAssertEqual(RefreshInterval.fifteenMinutes.displayName, "15 min")
         XCTAssertEqual(RefreshInterval.fifteenMinutes.timeInterval, 15 * 60)
+        XCTAssertEqual(RefreshInterval.fifteenMinutes.staleAfter, 30 * 60)
 
         XCTAssertEqual(RefreshInterval.thirtyMinutes.displayName, "30 min")
         XCTAssertEqual(RefreshInterval.thirtyMinutes.timeInterval, 30 * 60)
+        XCTAssertEqual(RefreshInterval.thirtyMinutes.staleAfter, 60 * 60)
 
         XCTAssertEqual(RefreshInterval.oneHour.displayName, "1 hr")
         XCTAssertEqual(RefreshInterval.oneHour.timeInterval, 60 * 60)
+        XCTAssertEqual(RefreshInterval.oneHour.staleAfter, 2 * 60 * 60)
     }
 
     func testRefreshSettingsStoreLoadsDefaultsWhenMissing() throws {

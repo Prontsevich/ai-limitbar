@@ -25,6 +25,14 @@ public enum RefreshInterval: String, Codable, CaseIterable, Identifiable, Sendab
         case .oneHour: 60 * 60
         }
     }
+
+    public var staleAfter: TimeInterval {
+        switch self {
+        case .manualOnly: 24 * 60 * 60
+        case .fifteenMinutes, .thirtyMinutes, .oneHour:
+            (timeInterval ?? 0) * 2
+        }
+    }
 }
 
 public struct RefreshSettings: Codable, Equatable, Sendable {

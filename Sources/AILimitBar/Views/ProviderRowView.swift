@@ -4,6 +4,7 @@ import SwiftUI
 struct ProviderRowView: View {
     let snapshot: UsageSnapshot
     let refreshStatus: ProviderRefreshStatus
+    let isStale: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -25,6 +26,10 @@ struct ProviderRowView: View {
             HStack(spacing: 8) {
                 Text(snapshot.remainingLabel ?? snapshot.status.displayName)
                 Spacer()
+                if isStale {
+                    Label("Stale", systemImage: "clock.badge.exclamationmark")
+                        .foregroundStyle(.orange)
+                }
                 refreshStatusView
             }
             .font(.caption)
@@ -46,7 +51,12 @@ struct ProviderRowView: View {
             if let warning = snapshot.warnings.first {
                 Text(warning)
                     .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(isStale ? .orange : .secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else if isStale {
+                Text("Snapshot is older than the configured freshness window.")
+                    .font(.caption2)
+                    .foregroundStyle(.orange)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }

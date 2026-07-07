@@ -128,7 +128,7 @@ Goal: make refresh behavior predictable and respectful of provider limits.
 - [x] Add per-provider refresh status.
 - [x] Prevent overlapping refreshes.
 - [x] Add configurable refresh interval.
-- [ ] Add stale snapshot detection.
+- [x] Add stale snapshot detection.
 - [ ] Add retry/backoff policy for transient failures.
 
 Acceptance:

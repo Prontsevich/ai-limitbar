@@ -33,7 +33,8 @@ struct MenuBarPanelView: View {
                     ForEach(appModel.enabledSnapshots) { snapshot in
                         ProviderRowView(
                             snapshot: snapshot,
-                            refreshStatus: appModel.refreshStatus(for: snapshot.providerID)
+                            refreshStatus: appModel.refreshStatus(for: snapshot.providerID),
+                            isStale: appModel.isSnapshotStale(snapshot)
                         )
                     }
                 }

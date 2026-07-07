@@ -308,6 +308,10 @@ so the widget extension can read them.
 Stored snapshots must not contain raw tokens, API keys, cookies, or provider
 session data.
 
+Snapshots are considered stale after 24 hours in manual-only mode or after two
+missed configured refresh intervals in scheduled mode. Staleness is runtime UI
+state derived from `lastUpdatedAt`; it is not persisted into the snapshot file.
+
 ## Security
 
 - Store provider credentials in Keychain.
