@@ -7,17 +7,18 @@ final class ProviderRefreshCoordinatorTests: XCTestCase {
         let requests = [
             ProviderRefreshRequest(
                 adapter: TestProviderAdapter(id: "first", displayName: "First"),
-                configuration: ProviderConfiguration(providerID: "first", isEnabled: true)
+                account: ProviderAccount(providerID: "first", isEnabled: true)
             ),
             ProviderRefreshRequest(
                 adapter: TestProviderAdapter(id: "second", displayName: "Second"),
-                configuration: ProviderConfiguration(providerID: "second", isEnabled: true)
+                account: ProviderAccount(providerID: "second", accountID: "work", displayName: "Work", isEnabled: true)
             )
         ]
 
         let snapshots = await coordinator.refresh(requests)
 
         XCTAssertEqual(snapshots.map(\.providerID), ["first", "second"])
+        XCTAssertEqual(snapshots.map(\.accountID), ["default", "work"])
         XCTAssertEqual(snapshots.map(\.status), [.ok, .ok])
     }
 
@@ -34,7 +35,7 @@ final class ProviderRefreshCoordinatorTests: XCTestCase {
                         recoverySuggestion: "Choose a readable JSON file."
                     )
                 ),
-                configuration: ProviderConfiguration(providerID: "failing", isEnabled: true)
+                account: ProviderAccount(providerID: "failing", accountID: "work", displayName: "Work", isEnabled: true)
             )
         ]
 
@@ -42,6 +43,8 @@ final class ProviderRefreshCoordinatorTests: XCTestCase {
 
         XCTAssertEqual(snapshots.count, 1)
         XCTAssertEqual(snapshots[0].providerID, "failing")
+        XCTAssertEqual(snapshots[0].accountID, "work")
+        XCTAssertEqual(snapshots[0].accountDisplayName, "Work")
         XCTAssertEqual(snapshots[0].status, .error)
         XCTAssertEqual(snapshots[0].remainingLabel, "Refresh failed")
         XCTAssertEqual(snapshots[0].confidence, .unknown)
@@ -56,7 +59,7 @@ final class ProviderRefreshCoordinatorTests: XCTestCase {
         let requests = [
             ProviderRefreshRequest(
                 adapter: FlakyProviderAdapter(counter: counter),
-                configuration: ProviderConfiguration(providerID: "flaky", isEnabled: true)
+                account: ProviderAccount(providerID: "flaky", isEnabled: true)
             )
         ]
 
@@ -77,7 +80,7 @@ final class ProviderRefreshCoordinatorTests: XCTestCase {
         let requests = [
             ProviderRefreshRequest(
                 adapter: FailingProviderAdapter(counter: counter, isTransient: false),
-                configuration: ProviderConfiguration(providerID: "permanent", isEnabled: true)
+                account: ProviderAccount(providerID: "permanent", isEnabled: true)
             )
         ]
 
@@ -92,7 +95,6 @@ final class ProviderRefreshCoordinatorTests: XCTestCase {
 private struct TestProviderAdapter: ProviderAdapter {
     let id: String
     let displayName: String
-    let defaultEnabled = false
     let usageURL: URL? = nil
     let error: ProviderAdapterError?
 
@@ -102,13 +104,15 @@ private struct TestProviderAdapter: ProviderAdapter {
         self.error = error
     }
 
-    func fetchSnapshot(configuration: ProviderConfiguration) async throws -> UsageSnapshot {
+    func fetchSnapshot(account: ProviderAccount) async throws -> UsageSnapshot {
         if let error {
             throw error
         }
 
         return UsageSnapshot(
             providerID: id,
+            accountID: account.accountID,
+            accountDisplayName: account.displayName,
             displayName: displayName,
             status: .ok,
             lastUpdatedAt: Date(timeIntervalSince1970: 1_200),
@@ -130,11 +134,10 @@ private actor FetchCounter {
 private struct FlakyProviderAdapter: ProviderAdapter {
     let id = "flaky"
     let displayName = "Flaky"
-    let defaultEnabled = false
     let usageURL: URL? = nil
     let counter: FetchCounter
 
-    func fetchSnapshot(configuration: ProviderConfiguration) async throws -> UsageSnapshot {
+    func fetchSnapshot(account: ProviderAccount) async throws -> UsageSnapshot {
         let attempt = await counter.increment()
         if attempt == 1 {
             throw ProviderAdapterError(
@@ -146,6 +149,8 @@ private struct FlakyProviderAdapter: ProviderAdapter {
 
         return UsageSnapshot(
             providerID: id,
+            accountID: account.accountID,
+            accountDisplayName: account.displayName,
             displayName: displayName,
             status: .ok,
             lastUpdatedAt: Date(timeIntervalSince1970: 1_200),
@@ -158,12 +163,11 @@ private struct FlakyProviderAdapter: ProviderAdapter {
 private struct FailingProviderAdapter: ProviderAdapter {
     let id = "permanent"
     let displayName = "Permanent"
-    let defaultEnabled = false
     let usageURL: URL? = nil
     let counter: FetchCounter
     let isTransient: Bool
 
-    func fetchSnapshot(configuration: ProviderConfiguration) async throws -> UsageSnapshot {
+    func fetchSnapshot(account: ProviderAccount) async throws -> UsageSnapshot {
         _ = await counter.increment()
         throw ProviderAdapterError(
             providerID: id,

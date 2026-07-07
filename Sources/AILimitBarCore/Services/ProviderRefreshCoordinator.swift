@@ -2,11 +2,11 @@ import Foundation
 
 public struct ProviderRefreshRequest: Sendable {
     public let adapter: any ProviderAdapter
-    public let configuration: ProviderConfiguration
+    public let account: ProviderAccount
 
-    public init(adapter: any ProviderAdapter, configuration: ProviderConfiguration) {
+    public init(adapter: any ProviderAdapter, account: ProviderAccount) {
         self.adapter = adapter
-        self.configuration = configuration
+        self.account = account
     }
 }
 
@@ -46,12 +46,12 @@ public struct ProviderRefreshCoordinator: Sendable {
 
         while true {
             do {
-                return try await request.adapter.fetchSnapshot(configuration: request.configuration)
+                return try await request.adapter.fetchSnapshot(account: request.account)
             } catch {
                 guard shouldRetry(error, attempt: attempt) else {
                     return errorSnapshot(
-                        providerID: request.adapter.id,
-                        displayName: request.adapter.displayName,
+                        account: request.account,
+                        providerDisplayName: request.adapter.displayName,
                         error: error
                     )
                 }
@@ -74,7 +74,11 @@ public struct ProviderRefreshCoordinator: Sendable {
         try? await Task.sleep(nanoseconds: nanoseconds)
     }
 
-    public func errorSnapshot(providerID: String, displayName: String, error: Error) -> UsageSnapshot {
+    public func errorSnapshot(
+        account: ProviderAccount,
+        providerDisplayName: String,
+        error: Error
+    ) -> UsageSnapshot {
         var warnings = [error.localizedDescription]
         if let recoverySuggestion = (error as? LocalizedError)?.recoverySuggestion {
             warnings.append(recoverySuggestion)
@@ -87,8 +91,10 @@ public struct ProviderRefreshCoordinator: Sendable {
         }
 
         return UsageSnapshot(
-            providerID: providerID,
-            displayName: displayName,
+            providerID: account.providerID,
+            accountID: account.accountID,
+            accountDisplayName: account.displayName,
+            displayName: providerDisplayName,
             status: .error,
             remainingLabel: "Refresh failed",
             lastUpdatedAt: Date(),

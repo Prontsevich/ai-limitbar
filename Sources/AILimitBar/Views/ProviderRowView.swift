@@ -9,9 +9,15 @@ struct ProviderRowView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline) {
-                Label(snapshot.displayName, systemImage: statusImage)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(statusColor)
+                VStack(alignment: .leading, spacing: 2) {
+                    Label(snapshot.accountDisplayName, systemImage: statusImage)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(statusColor)
+
+                    Text(snapshot.displayName)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
 
                 Spacer()
 
@@ -26,10 +32,6 @@ struct ProviderRowView: View {
             HStack(spacing: 8) {
                 Text(snapshot.remainingLabel ?? snapshot.status.displayName)
                 Spacer()
-                if isStale {
-                    Label("Stale", systemImage: "clock.badge.exclamationmark")
-                        .foregroundStyle(.orange)
-                }
                 refreshStatusView
             }
             .font(.caption)
@@ -85,16 +87,31 @@ struct ProviderRowView: View {
                 Text(refreshStatus.displayName)
             }
         case .succeeded:
-            Label {
-                Text(snapshot.lastUpdatedAt, style: .relative)
-            } icon: {
-                Image(systemName: "arrow.clockwise.circle")
-            }
+            Label(updatedText, systemImage: "arrow.clockwise.circle")
         case .failed:
             Label(refreshStatus.displayName, systemImage: "exclamationmark.arrow.triangle.2.circlepath")
         case .idle:
-            Text(snapshot.lastUpdatedAt, style: .relative)
+            Text(updatedText)
         }
+    }
+
+    private var updatedText: String {
+        if isStale {
+            return "Stale"
+        }
+
+        let elapsed = max(0, Date().timeIntervalSince(snapshot.lastUpdatedAt))
+        if elapsed < 60 {
+            return "Updated just now"
+        }
+
+        let formatter = DateComponentsFormatter()
+        formatter.allowedUnits = elapsed < 3_600 ? [.minute] : [.hour, .minute]
+        formatter.maximumUnitCount = 1
+        formatter.unitsStyle = .abbreviated
+
+        let formatted = formatter.string(from: elapsed) ?? "recently"
+        return "Updated \(formatted) ago"
     }
 
     private var statusImage: String {

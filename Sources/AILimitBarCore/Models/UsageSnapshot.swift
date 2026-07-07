@@ -35,9 +35,11 @@ public enum ConfidenceLevel: String, Codable, CaseIterable, Sendable {
 }
 
 public struct UsageSnapshot: Codable, Identifiable, Equatable, Sendable {
-    public var id: String { providerID }
+    public var id: String { "\(providerID):\(accountID)" }
 
     public let providerID: String
+    public let accountID: String
+    public let accountDisplayName: String
     public let displayName: String
     public let status: UsageStatus
     public let planName: String?
@@ -52,6 +54,8 @@ public struct UsageSnapshot: Codable, Identifiable, Equatable, Sendable {
 
     public init(
         providerID: String,
+        accountID: String = ProviderAccount.defaultAccountID,
+        accountDisplayName: String = ProviderAccount.defaultDisplayName,
         displayName: String,
         status: UsageStatus,
         planName: String? = nil,
@@ -65,6 +69,8 @@ public struct UsageSnapshot: Codable, Identifiable, Equatable, Sendable {
         warnings: [String] = []
     ) {
         self.providerID = providerID
+        self.accountID = accountID
+        self.accountDisplayName = accountDisplayName
         self.displayName = displayName
         self.status = status
         self.planName = planName
@@ -76,5 +82,23 @@ public struct UsageSnapshot: Codable, Identifiable, Equatable, Sendable {
         self.confidence = confidence
         self.source = source
         self.warnings = warnings
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        providerID = try container.decode(String.self, forKey: .providerID)
+        accountID = try container.decode(String.self, forKey: .accountID)
+        accountDisplayName = try container.decode(String.self, forKey: .accountDisplayName)
+        displayName = try container.decode(String.self, forKey: .displayName)
+        status = try container.decode(UsageStatus.self, forKey: .status)
+        planName = try container.decodeIfPresent(String.self, forKey: .planName)
+        periodLabel = try container.decodeIfPresent(String.self, forKey: .periodLabel)
+        usedPercent = try container.decodeIfPresent(Double.self, forKey: .usedPercent)
+        remainingLabel = try container.decodeIfPresent(String.self, forKey: .remainingLabel)
+        resetAt = try container.decodeIfPresent(Date.self, forKey: .resetAt)
+        lastUpdatedAt = try container.decode(Date.self, forKey: .lastUpdatedAt)
+        confidence = try container.decode(ConfidenceLevel.self, forKey: .confidence)
+        source = try container.decode(String.self, forKey: .source)
+        warnings = try container.decodeIfPresent([String].self, forKey: .warnings) ?? []
     }
 }

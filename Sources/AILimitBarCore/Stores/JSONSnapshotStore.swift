@@ -49,8 +49,10 @@ public final class JSONSnapshotStore: Sendable {
                 return SnapshotLoadResult(snapshots: document.snapshots)
             }
 
-            let legacySnapshots = try decoder.decode([UsageSnapshot].self, from: data)
-            return SnapshotLoadResult(snapshots: legacySnapshots)
+            return SnapshotLoadResult(
+                snapshots: [],
+                warning: "Stored snapshots could not be loaded and were ignored."
+            )
         } catch {
             return SnapshotLoadResult(
                 snapshots: [],

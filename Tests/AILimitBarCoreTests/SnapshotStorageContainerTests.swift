@@ -8,6 +8,8 @@ final class SnapshotStorageContainerTests: XCTestCase {
         let store = JSONSnapshotStore(container: container)
         let snapshot = UsageSnapshot(
             providerID: "mock",
+            accountID: "work",
+            accountDisplayName: "Work",
             displayName: "Mock Provider",
             status: .ok,
             lastUpdatedAt: Date(timeIntervalSince1970: 1_200),
@@ -27,15 +29,17 @@ final class SnapshotStorageContainerTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: directory.appendingPathComponent("snapshots.json").path))
     }
 
-    func testJSONSnapshotStoreLoadsLegacySnapshotArray() throws {
+    func testJSONSnapshotStoreIgnoresRawSnapshotArray() throws {
         let directory = try temporaryDirectory()
         let snapshot = UsageSnapshot(
-            providerID: "legacy",
-            displayName: "Legacy",
+            providerID: "mock",
+            accountID: "work",
+            accountDisplayName: "Work",
+            displayName: "Mock Provider",
             status: .ok,
             lastUpdatedAt: Date(timeIntervalSince1970: 1_200),
             confidence: .manual,
-            source: "Legacy test"
+            source: "Test"
         )
         let data = try JSONEncoder.iso8601.encode([snapshot])
         try data.write(to: directory.appendingPathComponent("snapshots.json"))
@@ -43,8 +47,36 @@ final class SnapshotStorageContainerTests: XCTestCase {
         let store = JSONSnapshotStore(container: LocalSnapshotStorageContainer(snapshotsDirectory: directory))
         let result = store.load()
 
-        XCTAssertEqual(result.snapshots, [snapshot])
-        XCTAssertNil(result.warning)
+        XCTAssertEqual(result.snapshots, [])
+        XCTAssertEqual(result.warning, "Stored snapshots could not be loaded and were ignored.")
+    }
+
+    func testJSONSnapshotStoreIgnoresUnsupportedDocumentVersion() throws {
+        let directory = try temporaryDirectory()
+        let json = """
+        {
+          "formatVersion": 1,
+          "snapshots": [
+            {
+              "providerID": "mock",
+              "accountID": "work",
+              "accountDisplayName": "Work",
+              "displayName": "Mock Provider",
+              "status": "ok",
+              "lastUpdatedAt": "1970-01-01T00:20:00Z",
+              "confidence": "manual",
+              "source": "Test"
+            }
+          ]
+        }
+        """
+        try Data(json.utf8).write(to: directory.appendingPathComponent("snapshots.json"))
+
+        let store = JSONSnapshotStore(container: LocalSnapshotStorageContainer(snapshotsDirectory: directory))
+        let result = store.load()
+
+        XCTAssertEqual(result.snapshots, [])
+        XCTAssertEqual(result.warning, "Stored snapshots use an unsupported format version.")
     }
 
     private func temporaryDirectory() throws -> URL {

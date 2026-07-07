@@ -14,28 +14,36 @@ struct MenuBarPanelView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            if !appModel.hasEnabledProviders {
+            if !appModel.hasEnabledAccounts {
                 ContentUnavailableView(
-                    "No Providers Enabled",
+                    "No Accounts",
                     systemImage: "slider.horizontal.3",
-                    description: Text("Enable providers in Settings.")
+                    description: Text("Create an account in Settings.")
                 )
                 .frame(width: 320, height: 140)
             } else if appModel.enabledSnapshots.isEmpty {
                 ContentUnavailableView(
-                    "No Snapshots Yet",
+                    "No Usage Data",
                     systemImage: "clock.arrow.circlepath",
-                    description: Text("Refresh to load the current provider state.")
+                    description: Text("Refresh to load current usage.")
                 )
                 .frame(width: 320, height: 140)
             } else {
-                VStack(spacing: 8) {
-                    ForEach(appModel.enabledSnapshots) { snapshot in
-                        ProviderRowView(
-                            snapshot: snapshot,
-                            refreshStatus: appModel.refreshStatus(for: snapshot.providerID),
-                            isStale: appModel.isSnapshotStale(snapshot)
-                        )
+                VStack(alignment: .leading, spacing: 10) {
+                    ForEach(appModel.enabledSnapshotGroups) { group in
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(group.displayName)
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.secondary)
+
+                            ForEach(group.snapshots) { snapshot in
+                                ProviderRowView(
+                                    snapshot: snapshot,
+                                    refreshStatus: appModel.refreshStatus(for: snapshot),
+                                    isStale: appModel.isSnapshotStale(snapshot)
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -54,7 +62,7 @@ struct MenuBarPanelView: View {
                 } label: {
                     Label(appModel.isRefreshing ? "Refreshing" : "Refresh", systemImage: "arrow.clockwise")
                 }
-                .disabled(appModel.isRefreshing || appModel.hasActiveProviderRefresh || !appModel.hasEnabledProviders)
+                .disabled(appModel.isRefreshing || appModel.hasActiveProviderRefresh || !appModel.hasEnabledAccounts)
 
                 Button("Quit") {
                     NSApplication.shared.terminate(nil)
@@ -75,9 +83,6 @@ struct MenuBarPanelView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("AI Limitbar")
                     .font(.headline)
-                Text("Provider usage snapshots")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
             }
 
             Spacer()

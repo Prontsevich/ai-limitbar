@@ -24,8 +24,7 @@ public struct ProviderAdapterError: Error, LocalizedError, Equatable, Sendable {
 public protocol ProviderAdapter: Sendable {
     var id: String { get }
     var displayName: String { get }
-    var defaultEnabled: Bool { get }
     var usageURL: URL? { get }
 
-    func fetchSnapshot(configuration: ProviderConfiguration) async throws -> UsageSnapshot
+    func fetchSnapshot(account: ProviderAccount) async throws -> UsageSnapshot
 }

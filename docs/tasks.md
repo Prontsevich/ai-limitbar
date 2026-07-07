@@ -144,7 +144,7 @@ Goal: prepare snapshots for WidgetKit without adding the widget yet.
 - [x] Move snapshot storage behind a container abstraction.
 - [x] Decide App Group identifier.
 - [x] Add shared snapshot format version.
-- [x] Add migration path for local snapshot files.
+- [x] Keep storage location switch explicit for pre-release builds.
 - [x] Document widget constraints.
 
 Acceptance:
@@ -174,21 +174,20 @@ Widget constraints:
 Goal: make the menu bar app model provider accounts explicitly before adding
 more real data sources.
 
-- [ ] Add `ProviderAccount` model.
-- [ ] Add stable account identifiers scoped by provider.
-- [ ] Add account display name and enabled state.
-- [ ] Migrate current provider-level settings into one default account per
-  provider.
-- [ ] Add account identity to stored snapshots.
-- [ ] Group menu bar rows by provider and account.
-- [ ] Update settings to configure accounts instead of only providers.
-- [ ] Keep existing single-provider mock and Claude local snapshot behavior
-  working through default accounts.
+- [x] Add `ProviderAccount` model.
+- [x] Add stable account identifiers scoped by provider.
+- [x] Add account display name and enabled state.
+- [x] Allow providers to have zero, one, or many configured accounts.
+- [x] Add account identity to stored snapshots.
+- [x] Group menu bar rows by provider and account.
+- [x] Update settings to configure accounts instead of only providers.
+- [x] Keep existing single-provider mock and Claude local snapshot behavior
+  working through configured accounts.
 
 Acceptance:
 
 - A provider can have more than one configured account.
-- Existing users keep their current provider settings as default accounts.
+- Providers can be left with no configured accounts.
 - Menu bar rows clearly identify both provider and account.
 - No provider credentials are introduced outside Keychain.
 

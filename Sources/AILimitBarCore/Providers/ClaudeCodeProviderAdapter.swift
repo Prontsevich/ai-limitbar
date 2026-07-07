@@ -3,7 +3,6 @@ import Foundation
 public struct ClaudeCodeProviderAdapter: ProviderAdapter {
     public let id = "claude-code"
     public let displayName = "Claude Code"
-    public let defaultEnabled = false
     public let usageURL: URL? = URL(string: "https://claude.ai/settings/usage")
 
     private let decoder: JSONDecoder
@@ -14,18 +13,20 @@ public struct ClaudeCodeProviderAdapter: ProviderAdapter {
         self.decoder = decoder
     }
 
-    public func fetchSnapshot(configuration: ProviderConfiguration) async throws -> UsageSnapshot {
-        switch configuration.sourceMode {
+    public func fetchSnapshot(account: ProviderAccount) async throws -> UsageSnapshot {
+        switch account.sourceMode {
         case .manual:
-            return manualSnapshot()
+            return manualSnapshot(account: account)
         case .localSnapshot:
-            return try localSnapshot(configuration: configuration)
+            return try localSnapshot(account: account)
         }
     }
 
-    private func manualSnapshot() -> UsageSnapshot {
+    private func manualSnapshot(account: ProviderAccount) -> UsageSnapshot {
         UsageSnapshot(
             providerID: id,
+            accountID: account.accountID,
+            accountDisplayName: account.displayName,
             displayName: displayName,
             status: .unavailable,
             remainingLabel: "Open provider usage page",
@@ -36,8 +37,8 @@ public struct ClaudeCodeProviderAdapter: ProviderAdapter {
         )
     }
 
-    private func localSnapshot(configuration: ProviderConfiguration) throws -> UsageSnapshot {
-        guard let path = configuration.localSnapshotPath, !path.isEmpty else {
+    private func localSnapshot(account: ProviderAccount) throws -> UsageSnapshot {
+        guard let path = account.localSnapshotPath, !path.isEmpty else {
             throw ProviderAdapterError(
                 providerID: id,
                 message: "Claude Code local snapshot path is not configured.",
@@ -52,7 +53,7 @@ public struct ClaudeCodeProviderAdapter: ProviderAdapter {
             let data = try Data(contentsOf: fileURL)
             let payload = try decoder.decode(ClaudeCodeLocalSnapshot.self, from: data)
             try validate(payload)
-            return makeUsageSnapshot(from: payload)
+            return makeUsageSnapshot(from: payload, account: account)
         } catch let error as ProviderAdapterError {
             throw error
         } catch {
@@ -82,7 +83,7 @@ public struct ClaudeCodeProviderAdapter: ProviderAdapter {
         }
     }
 
-    private func makeUsageSnapshot(from payload: ClaudeCodeLocalSnapshot) -> UsageSnapshot {
+    private func makeUsageSnapshot(from payload: ClaudeCodeLocalSnapshot, account: ProviderAccount) -> UsageSnapshot {
         let usedPercent = payload.usedPercent
         let status: UsageStatus
         if let usedPercent, usedPercent >= 85 {
@@ -95,6 +96,8 @@ public struct ClaudeCodeProviderAdapter: ProviderAdapter {
 
         return UsageSnapshot(
             providerID: id,
+            accountID: account.accountID,
+            accountDisplayName: account.displayName,
             displayName: displayName,
             status: status,
             planName: payload.planName,

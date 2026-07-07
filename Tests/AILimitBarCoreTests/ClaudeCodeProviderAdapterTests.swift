@@ -4,11 +4,13 @@ import XCTest
 final class ClaudeCodeProviderAdapterTests: XCTestCase {
     func testManualModeReturnsManualSnapshot() async throws {
         let adapter = ClaudeCodeProviderAdapter()
-        let configuration = ProviderConfiguration(providerID: "claude-code", isEnabled: true)
+        let account = ProviderAccount(providerID: "claude-code", accountID: "work", displayName: "Work", isEnabled: true)
 
-        let snapshot = try await adapter.fetchSnapshot(configuration: configuration)
+        let snapshot = try await adapter.fetchSnapshot(account: account)
 
         XCTAssertEqual(snapshot.providerID, "claude-code")
+        XCTAssertEqual(snapshot.accountID, "work")
+        XCTAssertEqual(snapshot.accountDisplayName, "Work")
         XCTAssertEqual(snapshot.confidence, .manual)
         XCTAssertEqual(snapshot.status, .unavailable)
     }
@@ -28,16 +30,20 @@ final class ClaudeCodeProviderAdapterTests: XCTestCase {
             """
         )
         let adapter = ClaudeCodeProviderAdapter()
-        let configuration = ProviderConfiguration(
+        let account = ProviderAccount(
             providerID: "claude-code",
+            accountID: "work",
+            displayName: "Work",
             isEnabled: true,
             sourceMode: .localSnapshot,
             localSnapshotPath: fileURL.path
         )
 
-        let snapshot = try await adapter.fetchSnapshot(configuration: configuration)
+        let snapshot = try await adapter.fetchSnapshot(account: account)
 
         XCTAssertEqual(snapshot.providerID, "claude-code")
+        XCTAssertEqual(snapshot.accountID, "work")
+        XCTAssertEqual(snapshot.accountDisplayName, "Work")
         XCTAssertEqual(snapshot.displayName, "Claude Code")
         XCTAssertEqual(snapshot.status, .ok)
         XCTAssertEqual(snapshot.planName, "Max")
@@ -51,14 +57,14 @@ final class ClaudeCodeProviderAdapterTests: XCTestCase {
 
     func testLocalSnapshotModeRequiresConfiguredPath() async {
         let adapter = ClaudeCodeProviderAdapter()
-        let configuration = ProviderConfiguration(
+        let account = ProviderAccount(
             providerID: "claude-code",
             isEnabled: true,
             sourceMode: .localSnapshot
         )
 
         do {
-            _ = try await adapter.fetchSnapshot(configuration: configuration)
+            _ = try await adapter.fetchSnapshot(account: account)
             XCTFail("Expected missing local snapshot path to throw.")
         } catch let error as ProviderAdapterError {
             XCTAssertEqual(error.providerID, "claude-code")

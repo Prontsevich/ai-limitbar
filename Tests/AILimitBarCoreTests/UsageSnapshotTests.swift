@@ -5,6 +5,8 @@ final class UsageSnapshotTests: XCTestCase {
     func testUsageSnapshotRoundTripsThroughJSON() throws {
         let snapshot = UsageSnapshot(
             providerID: "mock",
+            accountID: "work",
+            accountDisplayName: "Work",
             displayName: "Mock Provider",
             status: .ok,
             planName: "Development",
@@ -27,5 +29,6 @@ final class UsageSnapshotTests: XCTestCase {
         let decoded = try decoder.decode(UsageSnapshot.self, from: data)
 
         XCTAssertEqual(decoded, snapshot)
+        XCTAssertEqual(decoded.id, "mock:work")
     }
 }

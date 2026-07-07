@@ -14,44 +14,49 @@ public final class ProviderConfigurationStore: Sendable {
         self.decoder = JSONDecoder()
     }
 
-    public func load(defaults: [ProviderConfiguration]) -> SnapshotLoadResultWithConfigurations {
+    public func load(knownProviderIDs: Set<String>) -> ProviderAccountLoadResult {
         guard FileManager.default.fileExists(atPath: fileURL.path) else {
-            return SnapshotLoadResultWithConfigurations(configurations: defaults)
+            return ProviderAccountLoadResult(accounts: [])
         }
 
         do {
             let data = try Data(contentsOf: fileURL)
-            let stored = try decoder.decode([ProviderConfiguration].self, from: data)
-            let merged = merge(stored: stored, defaults: defaults)
-            return SnapshotLoadResultWithConfigurations(configurations: merged)
+            let stored = try decoder.decode([ProviderAccount].self, from: data)
+            let knownAccounts = stored.filter { knownProviderIDs.contains($0.providerID) }
+            return ProviderAccountLoadResult(accounts: deduplicate(knownAccounts))
         } catch {
-            return SnapshotLoadResultWithConfigurations(
-                configurations: defaults,
-                warning: "Provider settings could not be loaded and defaults were used."
+            return ProviderAccountLoadResult(
+                accounts: [],
+                warning: "Provider account settings could not be loaded."
             )
         }
     }
 
-    public func save(_ configurations: [ProviderConfiguration]) throws {
-        let data = try encoder.encode(configurations)
+    public func save(_ accounts: [ProviderAccount]) throws {
+        let data = try encoder.encode(accounts)
         try data.write(to: fileURL, options: [.atomic])
     }
 
-    private func merge(
-        stored: [ProviderConfiguration],
-        defaults: [ProviderConfiguration]
-    ) -> [ProviderConfiguration] {
-        let storedByID = Dictionary(uniqueKeysWithValues: stored.map { ($0.providerID, $0) })
-        return defaults.map { storedByID[$0.providerID] ?? $0 }
+    private func deduplicate(_ accounts: [ProviderAccount]) -> [ProviderAccount] {
+        var seen = Set<String>()
+        var unique: [ProviderAccount] = []
+
+        for account in accounts {
+            guard !seen.contains(account.accountID) else { continue }
+            seen.insert(account.accountID)
+            unique.append(account)
+        }
+
+        return unique
     }
 }
 
-public struct SnapshotLoadResultWithConfigurations: Sendable {
-    public let configurations: [ProviderConfiguration]
+public struct ProviderAccountLoadResult: Sendable {
+    public let accounts: [ProviderAccount]
     public let warning: String?
 
-    public init(configurations: [ProviderConfiguration], warning: String? = nil) {
-        self.configurations = configurations
+    public init(accounts: [ProviderAccount], warning: String? = nil) {
+        self.accounts = accounts
         self.warning = warning
     }
 }
