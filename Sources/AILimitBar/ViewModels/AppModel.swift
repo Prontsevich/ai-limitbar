@@ -6,6 +6,7 @@ import Foundation
 final class AppModel: ObservableObject {
     @Published private(set) var snapshots: [UsageSnapshot] = []
     @Published private(set) var providerConfigurations: [ProviderConfiguration] = []
+    @Published private(set) var providerRefreshStatuses: [String: ProviderRefreshStatus] = [:]
     @Published private(set) var isRefreshing = false
     @Published var storageWarning: String?
 
@@ -69,6 +70,10 @@ final class AppModel: ObservableObject {
         registry.adaptersByID[providerID]
     }
 
+    func refreshStatus(for providerID: String) -> ProviderRefreshStatus {
+        providerRefreshStatuses[providerID] ?? .idle
+    }
+
     func setProvider(_ providerID: String, enabled: Bool) {
         guard let index = providerConfigurations.firstIndex(where: { $0.providerID == providerID }) else {
             return
@@ -103,12 +108,14 @@ final class AppModel: ObservableObject {
 
     func testConnection(providerID: String) {
         guard let adapter = adapter(for: providerID) else { return }
+        setRefreshStatus(.refreshing, for: providerID)
 
         Task {
             do {
                 let configuration = providerConfiguration(for: providerID)
                 let snapshot = try await adapter.fetchSnapshot(configuration: configuration)
                 upsert(snapshot)
+                setRefreshStatus(.succeeded(snapshot.lastUpdatedAt), for: providerID)
                 saveSnapshots()
             } catch {
                 let snapshot = refreshCoordinator.errorSnapshot(
@@ -117,6 +124,7 @@ final class AppModel: ObservableObject {
                     error: error
                 )
                 upsert(snapshot)
+                setRefreshStatus(.failed(snapshot.lastUpdatedAt), for: providerID)
                 saveSnapshots()
             }
         }
@@ -137,6 +145,10 @@ final class AppModel: ObservableObject {
 
         guard !enabledAdapters.isEmpty else { return }
 
+        for adapter in enabledAdapters {
+            setRefreshStatus(.refreshing, for: adapter.id)
+        }
+
         let requests = enabledAdapters.map { adapter in
             ProviderRefreshRequest(
                 adapter: adapter,
@@ -147,6 +159,10 @@ final class AppModel: ObservableObject {
         let refreshedSnapshots = await refreshCoordinator.refresh(requests)
         for snapshot in refreshedSnapshots {
             upsert(snapshot)
+            setRefreshStatus(
+                snapshot.status == .error ? .failed(snapshot.lastUpdatedAt) : .succeeded(snapshot.lastUpdatedAt),
+                for: snapshot.providerID
+            )
         }
 
         saveSnapshots()
@@ -194,6 +210,10 @@ final class AppModel: ObservableObject {
         } else {
             snapshots.append(snapshot)
         }
+    }
+
+    private func setRefreshStatus(_ status: ProviderRefreshStatus, for providerID: String) {
+        providerRefreshStatuses[providerID] = status
     }
 
 }

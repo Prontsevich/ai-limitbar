@@ -3,6 +3,7 @@ import SwiftUI
 
 struct ProviderRowView: View {
     let snapshot: UsageSnapshot
+    let refreshStatus: ProviderRefreshStatus
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -24,7 +25,7 @@ struct ProviderRowView: View {
             HStack(spacing: 8) {
                 Text(snapshot.remainingLabel ?? snapshot.status.displayName)
                 Spacer()
-                Text(snapshot.lastUpdatedAt, style: .relative)
+                refreshStatusView
             }
             .font(.caption)
             .foregroundStyle(.secondary)
@@ -62,6 +63,28 @@ struct ProviderRowView: View {
 
     private var progressValue: Double {
         snapshot.usedPercent ?? 0
+    }
+
+    @ViewBuilder
+    private var refreshStatusView: some View {
+        switch refreshStatus {
+        case .refreshing:
+            HStack(spacing: 4) {
+                ProgressView()
+                    .controlSize(.mini)
+                Text(refreshStatus.displayName)
+            }
+        case .succeeded:
+            Label {
+                Text(snapshot.lastUpdatedAt, style: .relative)
+            } icon: {
+                Image(systemName: "arrow.clockwise.circle")
+            }
+        case .failed:
+            Label(refreshStatus.displayName, systemImage: "exclamationmark.arrow.triangle.2.circlepath")
+        case .idle:
+            Text(snapshot.lastUpdatedAt, style: .relative)
+        }
     }
 
     private var statusImage: String {

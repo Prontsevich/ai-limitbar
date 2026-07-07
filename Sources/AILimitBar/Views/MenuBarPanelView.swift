@@ -31,7 +31,10 @@ struct MenuBarPanelView: View {
             } else {
                 VStack(spacing: 8) {
                     ForEach(appModel.enabledSnapshots) { snapshot in
-                        ProviderRowView(snapshot: snapshot)
+                        ProviderRowView(
+                            snapshot: snapshot,
+                            refreshStatus: appModel.refreshStatus(for: snapshot.providerID)
+                        )
                     }
                 }
             }
