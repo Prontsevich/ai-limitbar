@@ -8,13 +8,12 @@ struct SettingsView: View {
     var body: some View {
         Form {
             Section {
-                let accountProviderIDs = appModel.providerIDs.filter { !appModel.accounts(for: $0).isEmpty }
-                if accountProviderIDs.isEmpty {
+                if appModel.providerAccounts.isEmpty {
                     Text("No accounts. Create an account to start tracking usage.")
                         .foregroundStyle(.secondary)
                 } else {
-                    ForEach(accountProviderIDs, id: \.self) { providerID in
-                        ProviderAccountsSection(appModel: appModel, providerID: providerID)
+                    ForEach(appModel.providerAccounts) { account in
+                        ProviderAccountSettingsRow(appModel: appModel, account: account)
                     }
                 }
             } header: {
@@ -56,22 +55,6 @@ struct SettingsView: View {
             get: { appModel.refreshSettings.interval },
             set: { appModel.setRefreshInterval($0) }
         )
-    }
-}
-
-private struct ProviderAccountsSection: View {
-    @ObservedObject var appModel: AppModel
-    let providerID: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(appModel.providerDisplayName(for: providerID))
-                .font(.headline)
-            let accounts = appModel.accounts(for: providerID)
-            ForEach(accounts) { account in
-                ProviderAccountSettingsRow(appModel: appModel, account: account)
-            }
-        }
     }
 }
 
@@ -152,11 +135,37 @@ private struct ProviderAccountSettingsRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
+                VStack(spacing: 2) {
+                    Button {
+                        appModel.moveAccountUp(providerID: account.providerID, accountID: account.accountID)
+                    } label: {
+                        Image(systemName: "chevron.up")
+                    }
+                    .buttonStyle(.borderless)
+                    .help("Move account up")
+                    .disabled(!appModel.canMoveAccountUp(providerID: account.providerID, accountID: account.accountID))
+
+                    Button {
+                        appModel.moveAccountDown(providerID: account.providerID, accountID: account.accountID)
+                    } label: {
+                        Image(systemName: "chevron.down")
+                    }
+                    .buttonStyle(.borderless)
+                    .help("Move account down")
+                    .disabled(!appModel.canMoveAccountDown(providerID: account.providerID, accountID: account.accountID))
+                }
+                .frame(width: 24)
+
                 Toggle("Enabled", isOn: enabledBinding)
                     .toggleStyle(.switch)
 
                 TextField("Account name", text: displayNameBinding)
                     .textFieldStyle(.roundedBorder)
+
+                Text(appModel.providerDisplayName(for: account.providerID))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .frame(width: 92, alignment: .leading)
 
                 Button {
                     appModel.testConnection(providerID: account.providerID, accountID: account.accountID)

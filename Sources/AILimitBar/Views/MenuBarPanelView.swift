@@ -23,13 +23,7 @@ struct MenuBarPanelView: View {
                 )
                 .frame(width: 320, height: 140)
             } else {
-                VStack(alignment: .leading, spacing: 10) {
-                    accountList
-
-                    if let selectedRow = appModel.selectedAccountRow {
-                        AccountDetailsView(appModel: appModel, row: selectedRow)
-                    }
-                }
+                dashboard
             }
 
             Divider()
@@ -57,7 +51,7 @@ struct MenuBarPanelView: View {
             }
         }
         .padding(14)
-        .frame(width: 380)
+        .frame(width: 420)
         .onAppear {
             if appModel.enabledSnapshots.isEmpty {
                 appModel.refresh()
@@ -65,40 +59,41 @@ struct MenuBarPanelView: View {
         }
     }
 
-    private var accountList: some View {
+    private var dashboard: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Accounts")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
 
-            ScrollView {
-                VStack(alignment: .leading, spacing: 10) {
-                    ForEach(appModel.enabledAccountGroups) { group in
-                        VStack(alignment: .leading, spacing: 5) {
-                            Text(group.displayName)
-                                .font(.caption2.weight(.semibold))
-                                .foregroundStyle(.tertiary)
-
-                            ForEach(group.rows) { row in
-                                ProviderRowView(
-                                    row: row,
-                                    isSelected: row.id == appModel.effectiveSelectedAccountKey,
-                                    isStale: row.snapshot.map { appModel.isSnapshotStale($0) } ?? false
-                                ) {
-                                    appModel.selectAccount(
-                                        providerID: row.account.providerID,
-                                        accountID: row.account.accountID
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            .frame(height: accountListHeight)
+            dashboardRows
         }
         .padding(8)
         .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+
+    @ViewBuilder
+    private var dashboardRows: some View {
+        let rows = appModel.enabledAccountRows
+        if rows.count > 5 {
+            ScrollView {
+                accountRows(rows)
+            }
+            .frame(height: min(CGFloat(rows.count) * 92, 360))
+        } else {
+            accountRows(rows)
+        }
+    }
+
+    private func accountRows(_ rows: [AccountSnapshotRow]) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ForEach(rows) { row in
+                DashboardAccountRowView(
+                    appModel: appModel,
+                    row: row,
+                    isStale: row.snapshot.map { appModel.isSnapshotStale($0) } ?? false
+                )
+            }
+        }
     }
 
     private var header: some View {
@@ -117,10 +112,4 @@ struct MenuBarPanelView: View {
         }
     }
 
-    private var accountListHeight: CGFloat {
-        let rowCount = max(appModel.enabledAccountRows.count, 1)
-        let groupCount = max(appModel.enabledAccountGroups.count, 1)
-        let desiredHeight = CGFloat(rowCount * 42 + groupCount * 18)
-        return min(max(desiredHeight, 62), 170)
-    }
 }

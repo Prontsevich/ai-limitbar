@@ -44,6 +44,44 @@ final class ProviderConfigurationTests: XCTestCase {
         XCTAssertEqual(result.accounts, accounts)
     }
 
+    func testProviderConfigurationStorePreservesAccountOrder() throws {
+        let directory = try temporaryDirectory()
+        let accounts = [
+            ProviderAccount(providerID: "claude-code", accountID: "work", displayName: "Work", isEnabled: true),
+            ProviderAccount(providerID: "mock", accountID: "demo", displayName: "Demo", isEnabled: true),
+            ProviderAccount(providerID: "claude-code", accountID: "personal", displayName: "Personal", isEnabled: true)
+        ]
+        let store = ProviderConfigurationStore(directory: directory)
+
+        try store.save(accounts)
+        let result = store.load(knownProviderIDs: ["mock", "claude-code"])
+
+        XCTAssertEqual(result.accounts.map(\.id), [
+            "claude-code:work",
+            "mock:demo",
+            "claude-code:personal"
+        ])
+    }
+
+    func testProviderConfigurationStoreDeduplicatesByProviderScopedAccountKey() throws {
+        let directory = try temporaryDirectory()
+        let stored = [
+            ProviderAccount(providerID: "mock", accountID: "default", displayName: "Mock", isEnabled: true),
+            ProviderAccount(providerID: "claude-code", accountID: "default", displayName: "Claude", isEnabled: true),
+            ProviderAccount(providerID: "mock", accountID: "default", displayName: "Duplicate", isEnabled: true)
+        ]
+        try ProviderConfigurationStore(directory: directory).save(stored)
+
+        let result = ProviderConfigurationStore(directory: directory).load(
+            knownProviderIDs: ["mock", "claude-code"]
+        )
+
+        XCTAssertEqual(result.accounts.map(\.id), [
+            "mock:default",
+            "claude-code:default"
+        ])
+    }
+
     func testProviderConfigurationStoreIgnoresUnknownProvidersWithoutAddingDefaults() throws {
         let directory = try temporaryDirectory()
         let stored = [

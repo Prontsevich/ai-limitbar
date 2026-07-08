@@ -85,6 +85,22 @@ Every provider should normalize its state into a common snapshot shape:
   "usedPercent": 64,
   "remainingLabel": "Approx. 36% remaining",
   "resetAt": "2026-07-07T18:00:00Z",
+  "limitWindows": [
+    {
+      "id": "weekly",
+      "displayName": "Weekly",
+      "usedPercent": 52,
+      "remainingLabel": "Approx. 48% remaining",
+      "resetAt": "2026-07-14T00:00:00Z"
+    },
+    {
+      "id": "rolling-5-hour",
+      "displayName": "5-hour",
+      "usedPercent": 64,
+      "remainingLabel": "Approx. 36% remaining",
+      "resetAt": "2026-07-07T18:00:00Z"
+    }
+  ],
   "lastUpdatedAt": "2026-07-07T10:15:00Z",
   "confidence": "local-estimate",
   "source": "Claude Code local usage data",
@@ -226,14 +242,33 @@ Local snapshot schema version 1:
   "usedPercent": 64,
   "remainingLabel": "Approx. 36% remaining",
   "resetAt": "2026-07-07T18:00:00Z",
+  "limitWindows": [
+    {
+      "id": "weekly",
+      "displayName": "Weekly",
+      "usedPercent": 52,
+      "remainingLabel": "Approx. 48% remaining",
+      "resetAt": "2026-07-14T00:00:00Z"
+    },
+    {
+      "id": "rolling-5-hour",
+      "displayName": "5-hour",
+      "usedPercent": 64,
+      "remainingLabel": "Approx. 36% remaining",
+      "resetAt": "2026-07-07T18:00:00Z"
+    }
+  ],
   "lastUpdatedAt": "2026-07-07T10:15:00Z"
 }
 ```
 
 `schemaVersion` and `lastUpdatedAt` are required. Dates use ISO 8601 strings.
-`usedPercent` is optional, but if present it must be in the inclusive `0...100`
-range. The adapter maps this payload to a normalized `UsageSnapshot` with
-`local-estimate` confidence and adds a warning that the data is local only.
+`usedPercent` and each `limitWindows[].usedPercent` value are optional, but if
+present they must be in the inclusive `0...100` range. The adapter maps this
+payload to a normalized `UsageSnapshot` with `local-estimate` confidence and
+adds a warning that the data is local only. The legacy single-window fields
+remain supported; `limitWindows` is used when the helper can report more than
+one provider-defined window.
 The schema intentionally excludes free-form provider warnings, raw responses,
 credentials, cookies, and tokens so the app does not persist arbitrary provider
 text outside Keychain.

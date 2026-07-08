@@ -81,14 +81,27 @@ public struct ClaudeCodeProviderAdapter: ProviderAdapter {
                 recoverySuggestion: "Write usedPercent as a numeric percentage from 0 through 100."
             )
         }
+
+        if let invalidWindow = payload.limitWindows.first(where: { window in
+            guard let usedPercent = window.usedPercent else { return false }
+            return !(0...100).contains(usedPercent)
+        }) {
+            throw ProviderAdapterError(
+                providerID: id,
+                message: "Claude Code local snapshot limit window '\(invalidWindow.displayName)' usedPercent must be between 0 and 100.",
+                recoverySuggestion: "Write every limit window usedPercent as a numeric percentage from 0 through 100."
+            )
+        }
     }
 
     private func makeUsageSnapshot(from payload: ClaudeCodeLocalSnapshot, account: ProviderAccount) -> UsageSnapshot {
         let usedPercent = payload.usedPercent
+        let highestWindowPercent = payload.limitWindows.compactMap(\.usedPercent).max()
+        let highestKnownPercent = [usedPercent, highestWindowPercent].compactMap { $0 }.max()
         let status: UsageStatus
-        if let usedPercent, usedPercent >= 85 {
+        if let highestKnownPercent, highestKnownPercent >= 85 {
             status = .warning
-        } else if usedPercent != nil || payload.remainingLabel != nil {
+        } else if highestKnownPercent != nil || payload.remainingLabel != nil || !payload.limitWindows.isEmpty {
             status = .ok
         } else {
             status = .unavailable
@@ -105,6 +118,7 @@ public struct ClaudeCodeProviderAdapter: ProviderAdapter {
             usedPercent: usedPercent,
             remainingLabel: payload.remainingLabel,
             resetAt: payload.resetAt,
+            limitWindows: payload.limitWindows,
             lastUpdatedAt: payload.lastUpdatedAt,
             confidence: .localEstimate,
             source: "Claude Code local snapshot file",
@@ -120,6 +134,7 @@ public struct ClaudeCodeLocalSnapshot: Codable, Equatable, Sendable {
     public let usedPercent: Double?
     public let remainingLabel: String?
     public let resetAt: Date?
+    public let limitWindows: [UsageLimitWindow]
     public let lastUpdatedAt: Date
 
     public init(
@@ -129,6 +144,7 @@ public struct ClaudeCodeLocalSnapshot: Codable, Equatable, Sendable {
         usedPercent: Double? = nil,
         remainingLabel: String? = nil,
         resetAt: Date? = nil,
+        limitWindows: [UsageLimitWindow] = [],
         lastUpdatedAt: Date
     ) {
         self.schemaVersion = schemaVersion
@@ -137,6 +153,19 @@ public struct ClaudeCodeLocalSnapshot: Codable, Equatable, Sendable {
         self.usedPercent = usedPercent
         self.remainingLabel = remainingLabel
         self.resetAt = resetAt
+        self.limitWindows = limitWindows
         self.lastUpdatedAt = lastUpdatedAt
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        schemaVersion = try container.decode(Int.self, forKey: .schemaVersion)
+        planName = try container.decodeIfPresent(String.self, forKey: .planName)
+        periodLabel = try container.decodeIfPresent(String.self, forKey: .periodLabel)
+        usedPercent = try container.decodeIfPresent(Double.self, forKey: .usedPercent)
+        remainingLabel = try container.decodeIfPresent(String.self, forKey: .remainingLabel)
+        resetAt = try container.decodeIfPresent(Date.self, forKey: .resetAt)
+        limitWindows = try container.decodeIfPresent([UsageLimitWindow].self, forKey: .limitWindows) ?? []
+        lastUpdatedAt = try container.decode(Date.self, forKey: .lastUpdatedAt)
     }
 }

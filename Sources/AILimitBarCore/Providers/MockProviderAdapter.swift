@@ -12,23 +12,41 @@ public struct MockProviderAdapter: ProviderAdapter {
         let minute = Calendar.current.component(.minute, from: now)
         let second = Calendar.current.component(.second, from: now)
         let usedPercent = Double((minute * 60 + second) % 100)
+        let rollingUsedPercent = Double((minute * 45 + second) % 100)
         let remainingPercent = max(0, 100 - Int(usedPercent.rounded()))
+        let rollingRemainingPercent = max(0, 100 - Int(rollingUsedPercent.rounded()))
 
         return UsageSnapshot(
             providerID: id,
             accountID: account.accountID,
             accountDisplayName: account.displayName,
             displayName: displayName,
-            status: usedPercent >= 85 ? .warning : .ok,
+            status: max(usedPercent, rollingUsedPercent) >= 85 ? .warning : .ok,
             planName: "Development",
-            periodLabel: "Rolling mock window",
+            periodLabel: "Weekly mock limit",
             usedPercent: usedPercent,
             remainingLabel: "Approx. \(remainingPercent)% remaining",
-            resetAt: Calendar.current.date(byAdding: .hour, value: 1, to: now),
+            resetAt: Calendar.current.date(byAdding: .day, value: 3, to: now),
+            limitWindows: [
+                UsageLimitWindow(
+                    id: "weekly",
+                    displayName: "Weekly",
+                    usedPercent: usedPercent,
+                    remainingLabel: "Approx. \(remainingPercent)% remaining",
+                    resetAt: Calendar.current.date(byAdding: .day, value: 3, to: now)
+                ),
+                UsageLimitWindow(
+                    id: "rolling-5-hour",
+                    displayName: "5-hour",
+                    usedPercent: rollingUsedPercent,
+                    remainingLabel: "Approx. \(rollingRemainingPercent)% remaining",
+                    resetAt: Calendar.current.date(byAdding: .hour, value: 5, to: now)
+                )
+            ],
             lastUpdatedAt: now,
             confidence: .localEstimate,
             source: "Generated mock data",
-            warnings: usedPercent >= 85 ? ["Mock usage is close to the limit."] : []
+            warnings: max(usedPercent, rollingUsedPercent) >= 85 ? ["Mock usage is close to the limit."] : []
         )
     }
 }

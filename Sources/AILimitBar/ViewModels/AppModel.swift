@@ -52,15 +52,9 @@ final class AppModel: ObservableObject {
     }
 
     var enabledSnapshots: [UsageSnapshot] {
-        let enabledIDs = Set(providerAccounts.filter(\.isEnabled).map(\.id))
-        return snapshots
-            .filter { enabledIDs.contains($0.id) }
-            .sorted {
-                if $0.displayName == $1.displayName {
-                    return $0.accountDisplayName < $1.accountDisplayName
-                }
-                return $0.displayName < $1.displayName
-            }
+        providerAccounts
+            .filter(\.isEnabled)
+            .compactMap { snapshot(for: $0) }
     }
 
     var enabledSnapshotGroups: [ProviderSnapshotGroup] {
@@ -89,12 +83,6 @@ final class AppModel: ObservableObject {
                     refreshStatus: refreshStatus(for: account),
                     refreshIssue: accountRefreshIssues[account.id]
                 )
-            }
-            .sorted {
-                if $0.providerDisplayName == $1.providerDisplayName {
-                    return $0.account.displayName < $1.account.displayName
-                }
-                return $0.providerDisplayName < $1.providerDisplayName
             }
     }
 
@@ -134,7 +122,12 @@ final class AppModel: ObservableObject {
     }
 
     var menuBarTitle: String {
-        guard let highestUsage = enabledSnapshots.compactMap(\.usedPercent).max() else {
+        let highestUsage = enabledSnapshots
+            .flatMap(\.displayLimitWindows)
+            .compactMap(\.usedPercent)
+            .max()
+
+        guard let highestUsage else {
             return "AI Limits"
         }
         return "AI \(Int(highestUsage.rounded()))%"
@@ -165,11 +158,6 @@ final class AppModel: ObservableObject {
     func accounts(for providerID: String) -> [ProviderAccount] {
         providerAccounts
             .filter { $0.providerID == providerID }
-            .sorted {
-                if $0.accountID == ProviderAccount.defaultAccountID { return true }
-                if $1.accountID == ProviderAccount.defaultAccountID { return false }
-                return $0.displayName < $1.displayName
-            }
     }
 
     func account(providerID: String, accountID: String) -> ProviderAccount? {
@@ -249,6 +237,32 @@ final class AppModel: ObservableObject {
         }
         providerAccounts[index].localSnapshotPath = path.trimmingCharacters(in: .whitespacesAndNewlines)
         saveConfiguration()
+    }
+
+    func moveAccountUp(providerID: String, accountID: String) {
+        moveAccount(providerID: providerID, accountID: accountID, offset: -1)
+    }
+
+    func moveAccountDown(providerID: String, accountID: String) {
+        moveAccount(providerID: providerID, accountID: accountID, offset: 1)
+    }
+
+    func canMoveAccountUp(providerID: String, accountID: String) -> Bool {
+        guard let index = providerAccounts.firstIndex(where: {
+            $0.providerID == providerID && $0.accountID == accountID
+        }) else {
+            return false
+        }
+        return index > providerAccounts.startIndex
+    }
+
+    func canMoveAccountDown(providerID: String, accountID: String) -> Bool {
+        guard let index = providerAccounts.firstIndex(where: {
+            $0.providerID == providerID && $0.accountID == accountID
+        }) else {
+            return false
+        }
+        return index < providerAccounts.index(before: providerAccounts.endIndex)
     }
 
     func addAccount(
@@ -487,6 +501,7 @@ final class AppModel: ObservableObject {
             usedPercent: snapshot.usedPercent,
             remainingLabel: snapshot.remainingLabel,
             resetAt: snapshot.resetAt,
+            limitWindows: snapshot.limitWindows,
             lastUpdatedAt: snapshot.lastUpdatedAt,
             confidence: snapshot.confidence,
             source: snapshot.source,
@@ -514,6 +529,19 @@ final class AppModel: ObservableObject {
     private func nextAccountDisplayName(for providerID: String) -> String {
         let count = accounts(for: providerID).count
         return "Account \(count + 1)"
+    }
+
+    private func moveAccount(providerID: String, accountID: String, offset: Int) {
+        guard let sourceIndex = providerAccounts.firstIndex(where: {
+            $0.providerID == providerID && $0.accountID == accountID
+        }) else {
+            return
+        }
+
+        let destinationIndex = sourceIndex + offset
+        guard providerAccounts.indices.contains(destinationIndex) else { return }
+        providerAccounts.swapAt(sourceIndex, destinationIndex)
+        saveConfiguration()
     }
 }
 

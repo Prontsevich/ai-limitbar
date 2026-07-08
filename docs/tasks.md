@@ -217,20 +217,20 @@ Acceptance:
 Goal: make the menu bar panel a glanceable dashboard for all enabled accounts,
 not a list with a permanently visible inspector.
 
-- [ ] Replace the selected-detail-first layout with compact dashboard rows.
-- [ ] Show every enabled account in user-defined order without grouping by
+- [x] Replace the selected-detail-first layout with compact dashboard rows.
+- [x] Show every enabled account in user-defined order without grouping by
   provider.
-- [ ] Add account ordering controls in Settings with move up/down actions.
-- [ ] Add normalized limit-window rows for provider-defined windows such as
+- [x] Add account ordering controls in Settings with move up/down actions.
+- [x] Add normalized limit-window rows for provider-defined windows such as
   weekly limits and 3-hour, 4-hour, 5-hour, or other rolling windows.
-- [ ] Render one compact progress bar per known limit window.
-- [ ] Keep unavailable, manual, stale, warning, and error states visible in the
+- [x] Render one compact progress bar per known limit window.
+- [x] Keep unavailable, manual, stale, warning, and error states visible in the
   account row without hiding other accounts.
-- [ ] Move source, confidence, warnings, last refresh state, reset details, and
+- [x] Move source, confidence, warnings, last refresh state, reset details, and
   account actions into an explicit details popover.
-- [ ] Use a `?` or info button for details; hover may preview or highlight but
+- [x] Use a `?` or info button for details; hover may preview or highlight but
   must not be the only way to access details.
-- [ ] Avoid scrolling for common small setups and keep 3-5 accounts readable at
+- [x] Avoid scrolling for common small setups and keep 3-5 accounts readable at
   a glance.
 
 Acceptance:

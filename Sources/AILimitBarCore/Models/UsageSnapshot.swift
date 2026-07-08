@@ -34,6 +34,28 @@ public enum ConfidenceLevel: String, Codable, CaseIterable, Sendable {
     }
 }
 
+public struct UsageLimitWindow: Codable, Identifiable, Equatable, Sendable {
+    public let id: String
+    public let displayName: String
+    public let usedPercent: Double?
+    public let remainingLabel: String?
+    public let resetAt: Date?
+
+    public init(
+        id: String,
+        displayName: String,
+        usedPercent: Double? = nil,
+        remainingLabel: String? = nil,
+        resetAt: Date? = nil
+    ) {
+        self.id = id
+        self.displayName = displayName
+        self.usedPercent = usedPercent
+        self.remainingLabel = remainingLabel
+        self.resetAt = resetAt
+    }
+}
+
 public struct UsageSnapshot: Codable, Identifiable, Equatable, Sendable {
     public var id: String { "\(providerID):\(accountID)" }
 
@@ -47,10 +69,31 @@ public struct UsageSnapshot: Codable, Identifiable, Equatable, Sendable {
     public let usedPercent: Double?
     public let remainingLabel: String?
     public let resetAt: Date?
+    public let limitWindows: [UsageLimitWindow]
     public let lastUpdatedAt: Date
     public let confidence: ConfidenceLevel
     public let source: String
     public let warnings: [String]
+
+    public var displayLimitWindows: [UsageLimitWindow] {
+        if !limitWindows.isEmpty {
+            return limitWindows
+        }
+
+        guard periodLabel != nil || usedPercent != nil || remainingLabel != nil || resetAt != nil else {
+            return []
+        }
+
+        return [
+            UsageLimitWindow(
+                id: "primary",
+                displayName: periodLabel ?? "Usage",
+                usedPercent: usedPercent,
+                remainingLabel: remainingLabel,
+                resetAt: resetAt
+            )
+        ]
+    }
 
     public init(
         providerID: String,
@@ -63,6 +106,7 @@ public struct UsageSnapshot: Codable, Identifiable, Equatable, Sendable {
         usedPercent: Double? = nil,
         remainingLabel: String? = nil,
         resetAt: Date? = nil,
+        limitWindows: [UsageLimitWindow] = [],
         lastUpdatedAt: Date,
         confidence: ConfidenceLevel,
         source: String,
@@ -78,6 +122,7 @@ public struct UsageSnapshot: Codable, Identifiable, Equatable, Sendable {
         self.usedPercent = usedPercent
         self.remainingLabel = remainingLabel
         self.resetAt = resetAt
+        self.limitWindows = limitWindows
         self.lastUpdatedAt = lastUpdatedAt
         self.confidence = confidence
         self.source = source
@@ -96,6 +141,7 @@ public struct UsageSnapshot: Codable, Identifiable, Equatable, Sendable {
         usedPercent = try container.decodeIfPresent(Double.self, forKey: .usedPercent)
         remainingLabel = try container.decodeIfPresent(String.self, forKey: .remainingLabel)
         resetAt = try container.decodeIfPresent(Date.self, forKey: .resetAt)
+        limitWindows = try container.decodeIfPresent([UsageLimitWindow].self, forKey: .limitWindows) ?? []
         lastUpdatedAt = try container.decode(Date.self, forKey: .lastUpdatedAt)
         confidence = try container.decode(ConfidenceLevel.self, forKey: .confidence)
         source = try container.decode(String.self, forKey: .source)

@@ -42,8 +42,8 @@ public final class ProviderConfigurationStore: Sendable {
         var unique: [ProviderAccount] = []
 
         for account in accounts {
-            guard !seen.contains(account.accountID) else { continue }
-            seen.insert(account.accountID)
+            guard !seen.contains(account.accountKey) else { continue }
+            seen.insert(account.accountKey)
             unique.append(account)
         }
 

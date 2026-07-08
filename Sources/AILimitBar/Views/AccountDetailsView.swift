@@ -60,19 +60,12 @@ struct AccountDetailsView: View {
 
     @ViewBuilder
     private func snapshotDetails(_ snapshot: UsageSnapshot) -> some View {
-        if let usedPercent = snapshot.usedPercent {
+        let windows = snapshot.displayLimitWindows
+        if !windows.isEmpty {
             VStack(alignment: .leading, spacing: 5) {
-                HStack(alignment: .firstTextBaseline) {
-                    Text("\(Int(usedPercent.rounded()))% used")
-                        .font(.title3.monospacedDigit().weight(.semibold))
-                    Spacer()
-                    Text(snapshot.remainingLabel ?? snapshot.status.displayName)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
+                ForEach(windows) { window in
+                    detailLimitWindow(window)
                 }
-
-                ProgressView(value: usedPercent, total: 100)
             }
         } else {
             Text(snapshot.remainingLabel ?? snapshot.status.displayName)
@@ -86,9 +79,6 @@ struct AccountDetailsView: View {
             }
             if let periodLabel = snapshot.periodLabel {
                 detailRow("Period", periodLabel)
-            }
-            if let resetAt = snapshot.resetAt {
-                detailRow("Reset", resetAt.formatted(date: .abbreviated, time: .shortened))
             }
 
             detailRow("Source", snapshot.source)
@@ -114,6 +104,46 @@ struct AccountDetailsView: View {
                 color: snapshot.status == .error ? .red : .secondary
             )
         }
+    }
+
+    private func detailLimitWindow(_ window: UsageLimitWindow) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(window.displayName)
+                    .font(.caption.weight(.semibold))
+                    .lineLimit(1)
+
+                Spacer()
+
+                if let usedPercent = window.usedPercent {
+                    Text("\(Int(usedPercent.rounded()))% used")
+                        .font(.caption.monospacedDigit().weight(.semibold))
+                } else {
+                    Text(window.remainingLabel ?? "Unknown")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            if let usedPercent = window.usedPercent {
+                ProgressView(value: usedPercent, total: 100)
+            }
+
+            if let remainingLabel = window.remainingLabel {
+                Text(remainingLabel)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+
+            if let resetAt = window.resetAt {
+                Text("Resets \(resetAt.formatted(date: .abbreviated, time: .shortened))")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(8)
+        .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
     }
 
     private var emptyState: some View {
