@@ -2,7 +2,7 @@ import SwiftUI
 
 struct MenuBarPanelView: View {
     @ObservedObject var appModel: AppModel
-    @Environment(\.openSettings) private var openSettings
+    let openSettings: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -30,7 +30,6 @@ struct MenuBarPanelView: View {
 
             HStack {
                 Button {
-                    NSApp.activate(ignoringOtherApps: true)
                     openSettings()
                 } label: {
                     Label("Settings", systemImage: "gearshape")

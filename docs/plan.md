@@ -35,8 +35,8 @@ menu bar app can reliably produce normalized snapshots.
 ## MVP Implementation Status
 
 The current implementation is a SwiftPM-based macOS app with a SwiftUI
-`MenuBarExtra`, a settings scene, normalized provider snapshots, local JSON
-storage, provider enablement settings, and a project-local build/run script.
+`MenuBarExtra`, normalized provider snapshots, local JSON storage, provider
+account settings, and a project-local build/run script.
 
 The app ships with:
 
@@ -322,7 +322,7 @@ observed requests, but that must be labeled as partial and not account-wide.
 The app should be structured around:
 
 - `MenuBarExtra` for the primary interface.
-- `Settings` scene for provider configuration.
+- An app-controlled settings window for provider/account configuration.
 - `UsageSnapshotStore` for persisted snapshots.
 - `ProviderRegistry` for available adapters.
 - `ProviderAdapter` protocol for provider-specific logic.
@@ -432,6 +432,10 @@ access details.
 
 The settings UI should support:
 
+- A controlled single-window lifecycle: pressing Settings opens or focuses the
+  same window, and closing it prevents it from reappearing on its own.
+- Account-first organization with clear Accounts, Refresh, and Provider Setup
+  zones.
 - Enabling/disabling providers.
 - Ordering accounts with simple move up/down controls.
 - Selecting auth/source mode where applicable.

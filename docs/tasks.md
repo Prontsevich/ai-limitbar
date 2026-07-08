@@ -250,7 +250,43 @@ Decision:
   weekly categories. A provider may expose weekly plus 3-hour, 4-hour, 5-hour,
   or other rolling windows.
 
-## Milestone 11: Claude Code Data Source
+## Milestone 11: Settings Window Redesign
+
+Goal: replace the system SwiftUI `Settings` scene with a controlled settings
+window and make account configuration clear enough for daily use.
+
+- [x] Remove the system SwiftUI `Settings` scene.
+- [x] Add a narrow settings window controller that owns one settings window.
+- [x] Open Settings from the menu bar panel through the controlled window path.
+- [x] Focus the existing Settings window when it is already open instead of
+  creating duplicates.
+- [x] Ensure closing Settings destroys/hides that window and does not reopen it
+  during Spaces changes.
+- [x] Redesign Settings around clear sections for Accounts, Refresh, and
+  Provider Setup.
+- [x] Make Accounts the primary Settings section.
+- [x] Render each account as a readable block with name, provider, enabled
+  state, source, optional local snapshot path, ordering controls, and actions.
+- [x] Keep account cards read-first, with rename behind an explicit edit
+  button instead of a permanently focused text field.
+- [x] Use an inline add-account form instead of a modal sheet.
+- [x] Require confirmation before deleting an account.
+- [x] Keep add account, enable/disable, rename, move up/down, test connection,
+  open usage page, delete account, Claude Code source mode, local snapshot path,
+  and refresh interval working.
+- [x] Keep the existing provider account and snapshot storage contracts
+  unchanged.
+
+Acceptance:
+
+- Settings opens as an app-controlled window from the menu bar panel.
+- Pressing Settings while the window is open focuses the existing window.
+- Closing Settings prevents it from reappearing on its own during Spaces changes.
+- Account ordering and provider/source state are easy to understand.
+- The redesign remains an MVP settings surface, not a large enterprise
+  administration system.
+
+## Milestone 12: Claude Code Data Source
 
 Goal: make Claude Code useful without relying on hand-edited JSON files.
 
@@ -271,7 +307,7 @@ Acceptance:
   live usage.
 - Invalid helper output does not corrupt stored snapshots.
 
-## Milestone 12: Provider And Account Readiness
+## Milestone 13: Provider And Account Readiness
 
 Goal: prepare the app for more providers and account-level credentials while
 keeping provider implementations conservative.
@@ -291,7 +327,7 @@ Acceptance:
 - Credentials have a clear account-level home without touching JSON storage.
 - Provider adapters can advertise supported source modes.
 
-## Milestone 13: Daily Use Polish
+## Milestone 14: Daily Use Polish
 
 Goal: make the menu bar app useful as a daily status tool before starting the
 WidgetKit extension.
