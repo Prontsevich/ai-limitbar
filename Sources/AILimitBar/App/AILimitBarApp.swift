@@ -10,11 +10,15 @@ struct AILimitBarApp: App {
         MenuBarExtra(appModel.menuBarTitle, systemImage: appModel.menuBarSystemImage) {
             MenuBarPanelView(
                 appModel: appModel,
-                openSettings: {
+                openCustomSettings: {
                     settingsWindowController.show(appModel: appModel)
                 }
             )
         }
         .menuBarExtraStyle(.window)
+
+        Settings {
+            SettingsView(appModel: appModel)
+        }
     }
 }

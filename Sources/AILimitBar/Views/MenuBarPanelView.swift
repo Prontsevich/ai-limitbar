@@ -1,8 +1,9 @@
 import SwiftUI
 
 struct MenuBarPanelView: View {
+    @Environment(\.openSettings) private var openSystemSettings
     @ObservedObject var appModel: AppModel
-    let openSettings: () -> Void
+    let openCustomSettings: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -28,25 +29,9 @@ struct MenuBarPanelView: View {
 
             Divider()
 
-            HStack {
-                Button {
-                    openSettings()
-                } label: {
-                    Label("Settings", systemImage: "gearshape")
-                }
-
-                Spacer()
-
-                Button {
-                    appModel.refresh()
-                } label: {
-                    Label(appModel.isRefreshing ? "Refreshing" : "Refresh", systemImage: "arrow.clockwise")
-                }
-                .disabled(appModel.isRefreshing || appModel.hasActiveProviderRefresh || !appModel.hasEnabledAccounts)
-
-                Button("Quit") {
-                    NSApplication.shared.terminate(nil)
-                }
+            VStack(alignment: .leading, spacing: 8) {
+                settingsControls
+                actionControls
             }
         }
         .padding(14)
@@ -54,6 +39,41 @@ struct MenuBarPanelView: View {
         .onAppear {
             if appModel.enabledSnapshots.isEmpty {
                 appModel.refresh()
+            }
+        }
+    }
+
+    private var settingsControls: some View {
+        HStack {
+            Button {
+                openCustomSettings()
+            } label: {
+                Label("Custom Settings", systemImage: "gearshape")
+            }
+
+            Button {
+                openSystemSettings()
+            } label: {
+                Label("Standard Settings", systemImage: "gearshape.2")
+            }
+
+            Spacer()
+        }
+    }
+
+    private var actionControls: some View {
+        HStack {
+            Spacer()
+
+            Button {
+                appModel.refresh()
+            } label: {
+                Label(appModel.isRefreshing ? "Refreshing" : "Refresh", systemImage: "arrow.clockwise")
+            }
+            .disabled(appModel.isRefreshing || appModel.hasActiveProviderRefresh || !appModel.hasEnabledAccounts)
+
+            Button("Quit") {
+                NSApplication.shared.terminate(nil)
             }
         }
     }

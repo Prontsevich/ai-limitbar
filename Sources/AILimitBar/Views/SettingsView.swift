@@ -4,8 +4,15 @@ import SwiftUI
 
 struct SettingsView: View {
     @ObservedObject var appModel: AppModel
+    let enableTextFieldPrewarming: Bool
     @State private var selection = SettingsSection.accounts
     @State private var isAddingAccount = false
+    @State private var contentResetID = UUID()
+
+    init(appModel: AppModel, enableTextFieldPrewarming: Bool = true) {
+        self.appModel = appModel
+        self.enableTextFieldPrewarming = enableTextFieldPrewarming
+    }
 
     var body: some View {
         HStack(spacing: 0) {
@@ -14,9 +21,23 @@ struct SettingsView: View {
             Divider()
 
             content
+                .id(contentResetID)
         }
         .frame(minWidth: 760, idealWidth: 820, minHeight: 520, idealHeight: 600)
-        .background(TextFieldFocusPrewarmer().frame(width: 0, height: 0))
+        .background {
+            SettingsWindowCloseObserver {
+                resetTransientState()
+            }
+            .frame(width: 0, height: 0)
+
+            if enableTextFieldPrewarming {
+                TextFieldFocusPrewarmer()
+                    .frame(width: 0, height: 0)
+            }
+        }
+        .onDisappear {
+            resetTransientState()
+        }
     }
 
     private var sidebar: some View {
@@ -56,6 +77,12 @@ struct SettingsView: View {
         case .providerSetup:
             ProviderSetupSettingsPane(appModel: appModel)
         }
+    }
+
+    private func resetTransientState() {
+        isAddingAccount = false
+        contentResetID = UUID()
+        dismissFocusedTextField()
     }
 }
 
@@ -745,6 +772,58 @@ private enum SettingsFocusField: Hashable {
     case localSnapshotPath(String)
     case newAccountName
     case newLocalSnapshotPath
+}
+
+private struct SettingsWindowCloseObserver: NSViewRepresentable {
+    let onWillClose: () -> Void
+
+    func makeNSView(context: Context) -> SettingsWindowCloseObserverView {
+        let view = SettingsWindowCloseObserverView()
+        view.onWillClose = onWillClose
+        return view
+    }
+
+    func updateNSView(_ nsView: SettingsWindowCloseObserverView, context: Context) {
+        nsView.onWillClose = onWillClose
+    }
+}
+
+private final class SettingsWindowCloseObserverView: NSView {
+    var onWillClose: (() -> Void)?
+    private weak var observedWindow: NSWindow?
+    private var observer: NSObjectProtocol?
+
+    deinit {
+        removeObserver()
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        updateObserver()
+    }
+
+    private func updateObserver() {
+        guard observedWindow !== window else { return }
+        removeObserver()
+        observedWindow = window
+
+        guard let window else { return }
+        observer = NotificationCenter.default.addObserver(
+            forName: NSWindow.willCloseNotification,
+            object: window,
+            queue: .main
+        ) { [weak self] _ in
+            self?.onWillClose?()
+        }
+    }
+
+    private func removeObserver() {
+        if let observer {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        observer = nil
+        observedWindow = nil
+    }
 }
 
 private struct TextFieldFocusPrewarmer: NSViewRepresentable {
