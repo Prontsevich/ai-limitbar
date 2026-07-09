@@ -19,6 +19,23 @@ unknown.
 
 No real provider credentials are required for the MVP.
 
+## Platform Direction
+
+AI Limitbar is a modern-only macOS app. The UI should target the current
+Liquid Glass-capable macOS baseline instead of preserving macOS 14-era
+compatibility.
+
+Development should treat Liquid Glass and current macOS interaction behavior as
+the default design baseline:
+
+- Use system sidebars, toolbars, sheets, forms, pickers, toggles, menus, and
+  buttons because they already carry the intended modern appearance and
+  behavior.
+- Keep native hover, pressed, focus, keyboard, and accessibility behavior.
+- Use custom Liquid Glass surfaces for AI Limitbar-specific compositions, not
+  to recreate standard controls.
+- Keep AppKit interop narrow and explicit for lifecycle or responder-chain gaps.
+
 ## Claude Code Local Snapshot
 
 Claude Code can be configured to read an AI Limitbar-owned local JSON snapshot.

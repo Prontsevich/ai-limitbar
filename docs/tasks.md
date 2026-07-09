@@ -286,7 +286,67 @@ Acceptance:
 - The redesign remains an MVP settings surface, not a large enterprise
   administration system.
 
-## Milestone 12: Claude Code Data Source
+## Milestone 12: Modern macOS And Liquid Glass Baseline
+
+Goal: move AI Limitbar to a modern-only macOS baseline and redesign the visible
+app surfaces around the current system design language instead of legacy
+compatibility patterns.
+
+- [ ] Raise the deployment target to the current Liquid Glass-capable macOS
+  baseline.
+- [ ] Remove macOS 14 compatibility as a product constraint.
+- [ ] Audit Settings and the menu bar panel for custom chrome, custom
+  backgrounds, `.plain` button styles, and hand-built hover/selection states
+  that replace standard system behavior.
+- [ ] Redesign Settings around standard SwiftUI structures and controls first:
+  system sidebars, toolbar items, sheets, forms, pickers, toggles, and buttons
+  where they fit the workflow, because those controls already carry the current
+  Liquid Glass appearance and interaction model.
+- [ ] Treat Liquid Glass as the visual baseline for custom app-specific
+  surfaces, not as a hand-built replacement for system buttons, sidebars,
+  toolbars, sheets, forms, or pickers.
+- [ ] Prefer native hover, pressed, focus, keyboard, and accessibility behavior
+  over custom visual effects.
+- [ ] Keep AppKit interop narrow and limited to behavior SwiftUI cannot express
+  cleanly, such as controlled window lifecycle or responder-chain edges.
+- [ ] Remove or justify custom `GroupBox`-style account cards, opaque fills,
+  manual sidebar selection backgrounds, and decorative materials that fight the
+  system visual language.
+- [ ] Revisit Settings window strategy after the redesign: use the most native
+  modern scene/window pattern that still prevents duplicate windows and
+  unwanted Spaces reappearance.
+- [ ] Verify hover, click, focus ring, resize, close/reopen, and Settings
+  state-reset behavior in a foreground `.app` bundle.
+- [ ] Update screenshots or documentation notes after the modern UI direction
+  is implemented.
+
+Acceptance:
+
+- The app intentionally targets modern macOS technology instead of preserving
+  old OS compatibility.
+- Settings and menu bar controls feel like current macOS controls, including
+  pointer, pressed, focus, and keyboard behavior.
+- Standard SwiftUI controls and system structures are used before custom
+  components.
+- Custom Liquid Glass surfaces are used for product-specific compositions,
+  such as account status clusters or dashboard summaries, and do not duplicate
+  standard system controls.
+- The implementation avoids broad AppKit rewrites; AppKit remains a narrow
+  bridge for lifecycle or responder-chain gaps.
+- Modern visual behavior does not regress the account workflows, refresh
+  controls, source configuration, or Settings close/reopen behavior.
+
+Decision:
+
+- AI Limitbar is a modern-only macOS app. Do not optimize UI architecture for
+  macOS 14-era compatibility unless that decision is explicitly reopened.
+- Liquid Glass and current SwiftUI macOS patterns are the default design
+  baseline.
+- The project should honor Apple's current controls and interaction work
+  instead of recreating hover, click, focus, toolbar, sidebar, or glass behavior
+  by hand.
+
+## Milestone 13: Claude Code Data Source
 
 Goal: make Claude Code useful without relying on hand-edited JSON files.
 
@@ -307,7 +367,7 @@ Acceptance:
   live usage.
 - Invalid helper output does not corrupt stored snapshots.
 
-## Milestone 13: Provider And Account Readiness
+## Milestone 14: Provider And Account Readiness
 
 Goal: prepare the app for more providers and account-level credentials while
 keeping provider implementations conservative.
@@ -327,7 +387,7 @@ Acceptance:
 - Credentials have a clear account-level home without touching JSON storage.
 - Provider adapters can advertise supported source modes.
 
-## Milestone 14: Daily Use Polish
+## Milestone 15: Daily Use Polish
 
 Goal: make the menu bar app useful as a daily status tool before starting the
 WidgetKit extension.

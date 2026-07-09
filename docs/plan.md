@@ -70,6 +70,31 @@ spikes confirm stable machine-readable usage sources.
   or fetch provider data directly.
 - Treat provider integrations as replaceable adapters.
 - Design for a small, glanceable menu bar experience before adding richer views.
+- Target modern macOS technology and current system UI patterns instead of
+  preserving old OS compatibility.
+- Prefer standard SwiftUI controls and structures because they already carry
+  the current Liquid Glass appearance, pointer behavior, focus behavior, and
+  accessibility.
+
+## Platform Baseline
+
+AI Limitbar is a modern-only macOS app. The project should target the current
+Liquid Glass-capable macOS baseline and should not shape UI architecture around
+macOS 14-era compatibility.
+
+Modern-only means:
+
+- The deployment target can move forward when current SwiftUI/macOS APIs make
+  the app simpler, more native, or more visually correct.
+- Standard system controls, sidebars, toolbars, sheets, focus handling, pointer
+  states, and keyboard behavior are preferred over hand-built replacements.
+- Liquid Glass is the design baseline. Standard SwiftUI controls should provide
+  most of that behavior directly; custom glass should be reserved for
+  product-specific compositions, not for recreating system controls.
+- AppKit interop remains allowed for narrow lifecycle and responder-chain gaps,
+  but it should not become a parallel UI framework for entire screens.
+- Compatibility fallbacks for older macOS releases are out of scope unless this
+  product decision is explicitly reopened.
 
 ## Usage Snapshot Model
 
@@ -334,6 +359,12 @@ The app should be structured around:
 The first scaffold can use a mock provider and local JSON storage before adding
 real provider clients.
 
+Modern macOS UI structure should use system SwiftUI patterns before custom
+layout code. Settings, toolbars, sidebars, sheets, forms, pickers, toggles,
+menus, and buttons should be native controls unless the product needs behavior
+that the system cannot express. Custom AppKit bridges should be small,
+explicit, and limited to window lifecycle or responder-chain boundaries.
+
 ## Snapshot Model Direction
 
 `UsageSnapshot` should continue to represent normalized account state, but the
@@ -412,6 +443,13 @@ by default and are surfaced immediately without retry.
 The menu bar UI should behave like a compact dashboard. Opening the panel should
 let the user assess all enabled accounts quickly and then move on.
 
+The visual design should follow current macOS and Liquid Glass conventions. The
+app should not recreate system hover, pressed, focus, toolbar, sidebar, sheet,
+or glass behavior by hand when standard SwiftUI controls can provide it.
+Custom backgrounds, opaque fills, manual selection states, and `.plain` button
+styles should be removed or justified when they suppress native interaction
+feedback.
+
 Dashboard rows should:
 
 - Show accounts in user-defined order, not grouped by provider by default.
@@ -441,6 +479,14 @@ The settings UI should support:
 - Selecting auth/source mode where applicable.
 - Testing provider connection.
 - Opening the provider's usage page.
+
+Settings should be redesigned around the modern macOS system language. Prefer
+system sidebars, toolbar groups, native buttons, forms, pickers, toggles, menus,
+sheets, and popovers because they already include the intended Liquid Glass
+appearance and interaction behavior. Use custom Liquid Glass surfaces for
+AI Limitbar-specific compositions, such as account status clusters or dashboard
+summaries, not to recreate standard controls. Preserve the working account
+workflows while removing legacy-looking custom chrome.
 
 ## Widget Direction
 
