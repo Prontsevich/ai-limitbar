@@ -1,14 +1,10 @@
 import SwiftUI
 
 struct MenuBarPanelView: View {
-    @Environment(\.openSettings) private var openSystemSettings
     @ObservedObject var appModel: AppModel
-    let openCustomSettings: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            header
-
             if let warning = appModel.storageWarning {
                 Text(warning)
                     .font(.caption)
@@ -29,40 +25,25 @@ struct MenuBarPanelView: View {
 
             Divider()
 
-            VStack(alignment: .leading, spacing: 8) {
-                settingsControls
-                actionControls
-            }
+            footerControls
         }
         .padding(14)
-        .frame(width: 420)
+        .frame(width: 390)
         .onAppear {
+            AppTelemetry.lifecycle.info("Menu bar panel appeared")
             if appModel.enabledSnapshots.isEmpty {
                 appModel.refresh()
             }
         }
     }
 
-    private var settingsControls: some View {
+    private var footerControls: some View {
         HStack {
-            Button {
-                openCustomSettings()
-            } label: {
-                Label("Custom Settings", systemImage: "gearshape")
+            SettingsLink {
+                Label("Settings", systemImage: "gearshape")
             }
+            .buttonStyle(.glass)
 
-            Button {
-                openSystemSettings()
-            } label: {
-                Label("Standard Settings", systemImage: "gearshape.2")
-            }
-
-            Spacer()
-        }
-    }
-
-    private var actionControls: some View {
-        HStack {
             Spacer()
 
             Button {
@@ -71,64 +52,59 @@ struct MenuBarPanelView: View {
                 Label(appModel.isRefreshing ? "Refreshing" : "Refresh", systemImage: "arrow.clockwise")
             }
             .disabled(appModel.isRefreshing || appModel.hasActiveProviderRefresh || !appModel.hasEnabledAccounts)
+            .buttonStyle(.glass)
 
-            Button("Quit") {
-                NSApplication.shared.terminate(nil)
+            Button(role: .destructive) {
+                ApplicationLifecycle.terminate()
+            } label: {
+                Label("Quit", systemImage: "power")
             }
+            .buttonStyle(.glass)
         }
     }
 
     private var dashboard: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Accounts")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-
+        GlassEffectContainer {
             dashboardRows
+                .padding(10)
+                .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
         }
-        .padding(8)
-        .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 
     @ViewBuilder
     private var dashboardRows: some View {
         let rows = appModel.enabledAccountRows
-        if rows.count > 5 {
-            ScrollView {
-                accountRows(rows)
-            }
-            .frame(height: min(CGFloat(rows.count) * 92, 360))
-        } else {
+        ScrollView {
             accountRows(rows)
         }
+        .scrollBounceBehavior(.basedOnSize)
+        .frame(height: dashboardHeight(for: rows))
     }
 
     private func accountRows(_ rows: [AccountSnapshotRow]) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            ForEach(rows) { row in
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
                 DashboardAccountRowView(
                     appModel: appModel,
                     row: row,
                     isStale: row.snapshot.map { appModel.isSnapshotStale($0) } ?? false
                 )
+
+                if index < rows.count - 1 {
+                    Divider()
+                        .padding(.leading, 24)
+                }
             }
         }
     }
 
-    private var header: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("AI Limitbar")
-                    .font(.headline)
-            }
-
-            Spacer()
-
-            if appModel.isRefreshing {
-                ProgressView()
-                    .controlSize(.small)
-            }
+    private func dashboardHeight(for rows: [AccountSnapshotRow]) -> CGFloat {
+        let estimatedHeight = rows.reduce(CGFloat.zero) { height, row in
+            let limitWindowCount = max(row.snapshot?.displayLimitWindows.count ?? 0, 1)
+            return height + 54 + CGFloat(limitWindowCount * 38)
         }
+        let dividerHeight = CGFloat(max(rows.count - 1, 0))
+        return min(max(estimatedHeight + dividerHeight, 92), 380)
     }
 
 }

@@ -2,13 +2,33 @@ import AILimitBarCore
 import SwiftUI
 
 struct AccountDetailsView: View {
+    @Environment(\.openURL) private var openURL
     @ObservedObject var appModel: AppModel
     let row: AccountSnapshotRow
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(spacing: 0) {
             header
+                .padding(12)
 
+            Divider()
+
+            ScrollView {
+                detailsContent
+                    .padding(12)
+            }
+            .scrollBounceBehavior(.basedOnSize)
+
+            Divider()
+
+            actionBar
+                .padding(12)
+        }
+        .frame(maxHeight: 520)
+    }
+
+    private var detailsContent: some View {
+        VStack(alignment: .leading, spacing: 10) {
             if let issue = row.refreshIssue {
                 warningBlock(
                     title: "Last refresh failed",
@@ -23,11 +43,7 @@ struct AccountDetailsView: View {
             } else {
                 emptyState
             }
-
-            actionBar
         }
-        .padding(10)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 
     private var header: some View {
@@ -127,6 +143,8 @@ struct AccountDetailsView: View {
 
             if let usedPercent = window.usedPercent {
                 ProgressView(value: usedPercent, total: 100)
+                    .accessibilityLabel(window.displayName)
+                    .accessibilityValue("\(Int(usedPercent.rounded())) percent used")
             }
 
             if let remainingLabel = window.remainingLabel {
@@ -176,13 +194,19 @@ struct AccountDetailsView: View {
             .disabled(actionsDisabled)
 
             Button {
-                appModel.openUsagePage(providerID: row.account.providerID, accountID: row.account.accountID)
+                if let url = usageURL {
+                    openURL(url)
+                }
             } label: {
                 Label("Usage", systemImage: "arrow.up.forward.square")
             }
-            .disabled(appModel.adapter(for: row.account.providerID)?.usageURL == nil)
+            .disabled(usageURL == nil)
         }
         .labelStyle(.titleAndIcon)
+    }
+
+    private var usageURL: URL? {
+        appModel.usageURL(providerID: row.account.providerID, accountID: row.account.accountID)
     }
 
     private func detailRow(_ title: String, _ value: String) -> some View {
@@ -213,7 +237,7 @@ struct AccountDetailsView: View {
                 }
             }
 
-            ForEach(messages, id: \.self) { message in
+            ForEach(Array(messages.enumerated()), id: \.offset) { _, message in
                 Text(message)
                     .font(.caption2)
                     .fixedSize(horizontal: false, vertical: true)

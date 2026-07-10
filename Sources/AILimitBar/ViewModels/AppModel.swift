@@ -1,40 +1,47 @@
 import AILimitBarCore
-import AppKit
 import Foundation
 
 @MainActor
 final class AppModel: ObservableObject {
-    @Published private(set) var snapshots: [UsageSnapshot] = []
-    @Published private(set) var providerAccounts: [ProviderAccount] = []
-    @Published private(set) var providerRefreshStatuses: [String: ProviderRefreshStatus] = [:]
-    @Published private(set) var accountRefreshIssues: [String: AccountRefreshIssue] = [:]
-    @Published private(set) var refreshSettings = RefreshSettings()
-    @Published private(set) var isRefreshing = false
-    @Published private(set) var selectedAccountKey: String?
+    @Published var snapshots: [UsageSnapshot] = []
+    @Published var providerAccounts: [ProviderAccount] = []
+    @Published var providerRefreshStatuses: [String: ProviderRefreshStatus] = [:]
+    @Published var accountRefreshIssues: [String: AccountRefreshIssue] = [:]
+    @Published var refreshSettings = RefreshSettings()
+    @Published var isRefreshing = false
     @Published var storageWarning: String?
 
-    private let registry: ProviderRegistry
-    private let snapshotStore: JSONSnapshotStore
-    private let configurationStore: ProviderConfigurationStore
-    private let refreshSettingsStore: RefreshSettingsStore
-    private let refreshCoordinator: ProviderRefreshCoordinator
-    private var scheduledRefreshTimer: Timer?
+    let registry: ProviderRegistry
+    let snapshotStore: JSONSnapshotStore
+    let configurationStore: ProviderConfigurationStore
+    let refreshSettingsStore: RefreshSettingsStore
+    let refreshCoordinator: ProviderRefreshCoordinator
+    var scheduledRefreshTimer: Timer?
+    var globalRefreshTask: Task<Void, Never>?
+    var accountRefreshTasks: [String: Task<Void, Never>] = [:]
+    var accountRefreshTaskIDs: [String: UUID] = [:]
 
     init(
         registry: ProviderRegistry = ProviderRegistry(),
-        directoryResolver: ApplicationSupportDirectoryResolver = ApplicationSupportDirectoryResolver()
+        directoryResolver: ApplicationSupportDirectoryResolver = ApplicationSupportDirectoryResolver(),
+        storageDirectory: URL? = nil,
+        refreshCoordinator: ProviderRefreshCoordinator = ProviderRefreshCoordinator()
     ) {
         self.registry = registry
-        self.refreshCoordinator = ProviderRefreshCoordinator()
+        self.refreshCoordinator = refreshCoordinator
 
         let directory: URL
-        do {
-            directory = try directoryResolver.resolve()
-        } catch {
-            let fallback = FileManager.default.temporaryDirectory.appendingPathComponent("AI Limitbar")
-            try? FileManager.default.createDirectory(at: fallback, withIntermediateDirectories: true)
-            directory = fallback
-            self.storageWarning = "Application Support is unavailable. Temporary storage is active."
+        if let storageDirectory {
+            directory = storageDirectory
+        } else {
+            do {
+                directory = try directoryResolver.resolve()
+            } catch {
+                let fallback = FileManager.default.temporaryDirectory.appendingPathComponent("AI Limitbar")
+                try? FileManager.default.createDirectory(at: fallback, withIntermediateDirectories: true)
+                directory = fallback
+                self.storageWarning = "Application Support is unavailable. Temporary storage is active."
+            }
         }
 
         let snapshotContainer = LocalSnapshotStorageContainer(snapshotsDirectory: directory)
@@ -47,28 +54,16 @@ final class AppModel: ObservableObject {
         configureScheduledRefresh()
     }
 
-    deinit {
+    isolated deinit {
         scheduledRefreshTimer?.invalidate()
+        globalRefreshTask?.cancel()
+        accountRefreshTasks.values.forEach { $0.cancel() }
     }
 
     var enabledSnapshots: [UsageSnapshot] {
         providerAccounts
             .filter(\.isEnabled)
             .compactMap { snapshot(for: $0) }
-    }
-
-    var enabledSnapshotGroups: [ProviderSnapshotGroup] {
-        let snapshotsByProviderID = Dictionary(grouping: enabledSnapshots, by: \.providerID)
-        return registry.adapters.compactMap { adapter in
-            guard let providerSnapshots = snapshotsByProviderID[adapter.id], !providerSnapshots.isEmpty else {
-                return nil
-            }
-            return ProviderSnapshotGroup(
-                providerID: adapter.id,
-                displayName: adapter.displayName,
-                snapshots: providerSnapshots
-            )
-        }
     }
 
     var enabledAccountRows: [AccountSnapshotRow] {
@@ -84,33 +79,6 @@ final class AppModel: ObservableObject {
                     refreshIssue: accountRefreshIssues[account.id]
                 )
             }
-    }
-
-    var enabledAccountGroups: [AccountSnapshotGroup] {
-        let rowsByProviderID = Dictionary(grouping: enabledAccountRows, by: \.account.providerID)
-        return registry.adapters.compactMap { adapter in
-            guard let rows = rowsByProviderID[adapter.id], !rows.isEmpty else {
-                return nil
-            }
-            return AccountSnapshotGroup(
-                providerID: adapter.id,
-                displayName: adapter.displayName,
-                rows: rows
-            )
-        }
-    }
-
-    var effectiveSelectedAccountKey: String? {
-        let rows = enabledAccountRows
-        if let selectedAccountKey, rows.contains(where: { $0.id == selectedAccountKey }) {
-            return selectedAccountKey
-        }
-        return rows.first?.id
-    }
-
-    var selectedAccountRow: AccountSnapshotRow? {
-        guard let accountKey = effectiveSelectedAccountKey else { return nil }
-        return enabledAccountRows.first { $0.id == accountKey }
     }
 
     var hasEnabledAccounts: Bool {
@@ -134,6 +102,9 @@ final class AppModel: ObservableObject {
     }
 
     var menuBarSystemImage: String {
+        if !accountRefreshIssues.isEmpty {
+            return "exclamationmark.triangle"
+        }
         if enabledSnapshots.contains(where: { $0.status == .error }) {
             return "exclamationmark.triangle"
         }
@@ -141,6 +112,22 @@ final class AppModel: ObservableObject {
             return "gauge.with.dots.needle.67percent"
         }
         return "gauge.with.dots.needle.33percent"
+    }
+
+    var menuBarAccessibilityValue: String {
+        if !accountRefreshIssues.isEmpty {
+            return "One or more account refreshes failed"
+        }
+
+        let highestUsage = enabledSnapshots
+            .flatMap(\.displayLimitWindows)
+            .compactMap(\.usedPercent)
+            .max()
+
+        guard let highestUsage else {
+            return hasEnabledAccounts ? "No usage data available" : "No enabled accounts"
+        }
+        return "Highest usage is \(Int(highestUsage.rounded())) percent"
     }
 
     func adapter(for providerID: String) -> (any ProviderAdapter)? {
@@ -170,10 +157,6 @@ final class AppModel: ObservableObject {
         providerRefreshStatuses[account.id] ?? .idle
     }
 
-    func refreshStatus(for snapshot: UsageSnapshot) -> ProviderRefreshStatus {
-        providerRefreshStatuses[snapshot.id] ?? .idle
-    }
-
     func snapshot(for account: ProviderAccount) -> UsageSnapshot? {
         snapshots.first { $0.id == account.id }
     }
@@ -182,397 +165,11 @@ final class AppModel: ObservableObject {
         now.timeIntervalSince(snapshot.lastUpdatedAt) > refreshSettings.interval.staleAfter
     }
 
-    func selectAccount(providerID: String, accountID: String) {
-        let accountKey = "\(providerID):\(accountID)"
-        guard enabledAccountRows.contains(where: { $0.id == accountKey }) else { return }
-        selectedAccountKey = accountKey
-    }
-
-    func setAccount(_ providerID: String, accountID: String, enabled: Bool) {
-        guard let index = providerAccounts.firstIndex(where: {
-            $0.providerID == providerID && $0.accountID == accountID
-        }) else {
-            return
-        }
-        providerAccounts[index].isEnabled = enabled
-        if !enabled, selectedAccountKey == providerAccounts[index].id {
-            selectedAccountKey = nil
-        }
-        saveConfiguration()
-    }
-
-    func setAccountDisplayName(_ providerID: String, accountID: String, displayName: String) {
-        guard let index = providerAccounts.firstIndex(where: {
-            $0.providerID == providerID && $0.accountID == accountID
-        }) else {
-            return
-        }
-        let trimmed = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
-        let resolvedDisplayName = trimmed.isEmpty ? ProviderAccount.defaultDisplayName : trimmed
-        providerAccounts[index].displayName = resolvedDisplayName
-        updateSnapshotAccountDisplayName(
-            providerID: providerID,
-            accountID: accountID,
-            displayName: resolvedDisplayName
-        )
-        saveConfiguration()
-        saveSnapshots()
-    }
-
-    func setAccountSourceMode(_ providerID: String, accountID: String, sourceMode: ProviderSourceMode) {
-        guard let index = providerAccounts.firstIndex(where: {
-            $0.providerID == providerID && $0.accountID == accountID
-        }) else {
-            return
-        }
-        providerAccounts[index].sourceMode = sourceMode
-        saveConfiguration()
-    }
-
-    func setAccountLocalSnapshotPath(_ providerID: String, accountID: String, path: String) {
-        guard let index = providerAccounts.firstIndex(where: {
-            $0.providerID == providerID && $0.accountID == accountID
-        }) else {
-            return
-        }
-        providerAccounts[index].localSnapshotPath = path.trimmingCharacters(in: .whitespacesAndNewlines)
-        saveConfiguration()
-    }
-
-    func moveAccountUp(providerID: String, accountID: String) {
-        moveAccount(providerID: providerID, accountID: accountID, offset: -1)
-    }
-
-    func moveAccountDown(providerID: String, accountID: String) {
-        moveAccount(providerID: providerID, accountID: accountID, offset: 1)
-    }
-
-    func canMoveAccountUp(providerID: String, accountID: String) -> Bool {
-        guard let index = providerAccounts.firstIndex(where: {
-            $0.providerID == providerID && $0.accountID == accountID
-        }) else {
-            return false
-        }
-        return index > providerAccounts.startIndex
-    }
-
-    func canMoveAccountDown(providerID: String, accountID: String) -> Bool {
-        guard let index = providerAccounts.firstIndex(where: {
-            $0.providerID == providerID && $0.accountID == accountID
-        }) else {
-            return false
-        }
-        return index < providerAccounts.index(before: providerAccounts.endIndex)
-    }
-
-    func addAccount(
-        providerID: String,
-        displayName: String? = nil,
-        isEnabled: Bool = true,
-        sourceMode: ProviderSourceMode = .manual,
-        localSnapshotPath: String? = nil
-    ) {
-        guard adapter(for: providerID) != nil else { return }
-        let trimmedDisplayName = displayName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let trimmedSnapshotPath = localSnapshotPath?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let account = ProviderAccount(
-            providerID: providerID,
-            accountID: "account-\(UUID().uuidString.lowercased())",
-            displayName: trimmedDisplayName.isEmpty ? nextAccountDisplayName(for: providerID) : trimmedDisplayName,
-            isEnabled: isEnabled,
-            sourceMode: sourceMode,
-            localSnapshotPath: trimmedSnapshotPath.isEmpty ? nil : trimmedSnapshotPath
-        )
-        providerAccounts.append(account)
-        saveConfiguration()
-    }
-
-    func deleteAccount(providerID: String, accountID: String) {
-        let accountKey = "\(providerID):\(accountID)"
-        guard providerAccounts.contains(where: {
-            $0.providerID == providerID && $0.accountID == accountID
-        }) else {
-            return
-        }
-        providerAccounts.removeAll {
-            $0.providerID == providerID && $0.accountID == accountID
-        }
-        snapshots.removeAll { $0.id == accountKey }
-        providerRefreshStatuses.removeValue(forKey: accountKey)
-        accountRefreshIssues.removeValue(forKey: accountKey)
-        if selectedAccountKey == accountKey {
-            selectedAccountKey = nil
-        }
-        saveConfiguration()
-        saveSnapshots()
-    }
-
-    func canDeleteAccount(providerID: String, accountID: String) -> Bool {
-        providerAccounts.contains {
-            $0.providerID == providerID && $0.accountID == accountID
-        }
-    }
-
-    func setRefreshInterval(_ interval: RefreshInterval) {
-        refreshSettings.interval = interval
-        saveRefreshSettings()
-        configureScheduledRefresh()
-    }
-
-    func refresh() {
-        guard !isRefreshing, !hasActiveProviderRefresh else { return }
-        isRefreshing = true
-
-        Task {
-            await refreshEnabledProviders()
-            isRefreshing = false
-        }
-    }
-
-    func refreshAccount(providerID: String, accountID: String) {
-        guard let adapter = adapter(for: providerID) else { return }
-        guard let account = account(providerID: providerID, accountID: accountID), account.isEnabled else { return }
-        guard !isRefreshing else { return }
-        guard refreshStatus(for: account) != .refreshing else { return }
-        setRefreshStatus(.refreshing, for: account.id)
-
-        Task {
-            let snapshot = await refreshCoordinator.refresh(
-                ProviderRefreshRequest(adapter: adapter, account: account)
-            )
-            handleRefreshedSnapshot(snapshot)
-            saveSnapshots()
-        }
-    }
-
-    func testConnection(providerID: String, accountID: String) {
-        guard let adapter = adapter(for: providerID) else { return }
-        guard let account = account(providerID: providerID, accountID: accountID) else { return }
-        guard !isRefreshing else { return }
-        guard refreshStatus(for: account) != .refreshing else { return }
-        setRefreshStatus(.refreshing, for: account.id)
-
-        Task {
-            do {
-                let snapshot = try await adapter.fetchSnapshot(account: account)
-                upsert(snapshot)
-                accountRefreshIssues.removeValue(forKey: snapshot.id)
-                setRefreshStatus(.succeeded(snapshot.lastUpdatedAt), for: snapshot.id)
-                saveSnapshots()
-            } catch {
-                let snapshot = refreshCoordinator.errorSnapshot(
-                    account: account,
-                    providerDisplayName: adapter.displayName,
-                    error: error
-                )
-                handleFailedSnapshot(snapshot)
-                saveSnapshots()
-            }
-        }
-    }
-
-    func openUsagePage(providerID: String, accountID: String? = nil) {
-        guard let url = adapter(for: providerID)?.usageURL else { return }
+    func usageURL(providerID: String, accountID: String? = nil) -> URL? {
+        guard let url = adapter(for: providerID)?.usageURL else { return nil }
         if let accountID {
-            guard account(providerID: providerID, accountID: accountID) != nil else { return }
+            guard account(providerID: providerID, accountID: accountID) != nil else { return nil }
         }
-        NSWorkspace.shared.open(url)
+        return url
     }
-
-    private func refreshEnabledProviders() async {
-        let enabledAccounts = providerAccounts
-            .filter(\.isEnabled)
-            .filter { registry.adaptersByID[$0.providerID] != nil }
-
-        guard !enabledAccounts.isEmpty else { return }
-
-        for account in enabledAccounts {
-            setRefreshStatus(.refreshing, for: account.id)
-        }
-
-        let requests = enabledAccounts.compactMap { account -> ProviderRefreshRequest? in
-            guard let adapter = registry.adaptersByID[account.providerID] else { return nil }
-            return ProviderRefreshRequest(
-                adapter: adapter,
-                account: account
-            )
-        }
-
-        let refreshedSnapshots = await refreshCoordinator.refresh(requests)
-        for snapshot in refreshedSnapshots {
-            handleRefreshedSnapshot(snapshot)
-        }
-
-        saveSnapshots()
-    }
-
-    private func loadConfiguration() {
-        let result = configurationStore.load(knownProviderIDs: Set(providerIDs))
-        providerAccounts = result.accounts
-        storageWarning = storageWarning ?? result.warning
-    }
-
-    private func saveConfiguration() {
-        do {
-            try configurationStore.save(providerAccounts)
-        } catch {
-            storageWarning = "Provider settings could not be saved."
-        }
-    }
-
-    private func loadRefreshSettings() {
-        let result = refreshSettingsStore.load()
-        refreshSettings = result.settings
-        storageWarning = storageWarning ?? result.warning
-    }
-
-    private func saveRefreshSettings() {
-        do {
-            try refreshSettingsStore.save(refreshSettings)
-        } catch {
-            storageWarning = "Refresh settings could not be saved."
-        }
-    }
-
-    private func loadSnapshots() {
-        let result = snapshotStore.load()
-        snapshots = result.snapshots
-        storageWarning = storageWarning ?? result.warning
-    }
-
-    private func saveSnapshots() {
-        do {
-            try snapshotStore.save(snapshots)
-        } catch {
-            storageWarning = "Snapshots could not be saved."
-        }
-    }
-
-    private func upsert(_ snapshot: UsageSnapshot) {
-        if let index = snapshots.firstIndex(where: { $0.id == snapshot.id }) {
-            snapshots[index] = snapshot
-        } else {
-            snapshots.append(snapshot)
-        }
-    }
-
-    private func handleRefreshedSnapshot(_ snapshot: UsageSnapshot) {
-        if snapshot.status == .error {
-            handleFailedSnapshot(snapshot)
-        } else {
-            upsert(snapshot)
-            accountRefreshIssues.removeValue(forKey: snapshot.id)
-            setRefreshStatus(.succeeded(snapshot.lastUpdatedAt), for: snapshot.id)
-        }
-    }
-
-    private func handleFailedSnapshot(_ snapshot: UsageSnapshot) {
-        if self.snapshot(for: snapshot) == nil {
-            upsert(snapshot)
-        }
-        accountRefreshIssues[snapshot.id] = AccountRefreshIssue(
-            accountKey: snapshot.id,
-            occurredAt: snapshot.lastUpdatedAt,
-            warnings: snapshot.warnings
-        )
-        setRefreshStatus(.failed(snapshot.lastUpdatedAt), for: snapshot.id)
-    }
-
-    private func snapshot(for snapshot: UsageSnapshot) -> UsageSnapshot? {
-        snapshots.first { $0.id == snapshot.id }
-    }
-
-    private func updateSnapshotAccountDisplayName(providerID: String, accountID: String, displayName: String) {
-        guard let index = snapshots.firstIndex(where: {
-            $0.providerID == providerID && $0.accountID == accountID
-        }) else {
-            return
-        }
-
-        let snapshot = snapshots[index]
-        snapshots[index] = UsageSnapshot(
-            providerID: snapshot.providerID,
-            accountID: snapshot.accountID,
-            accountDisplayName: displayName,
-            displayName: snapshot.displayName,
-            status: snapshot.status,
-            planName: snapshot.planName,
-            periodLabel: snapshot.periodLabel,
-            usedPercent: snapshot.usedPercent,
-            remainingLabel: snapshot.remainingLabel,
-            resetAt: snapshot.resetAt,
-            limitWindows: snapshot.limitWindows,
-            lastUpdatedAt: snapshot.lastUpdatedAt,
-            confidence: snapshot.confidence,
-            source: snapshot.source,
-            warnings: snapshot.warnings
-        )
-    }
-
-    private func setRefreshStatus(_ status: ProviderRefreshStatus, for accountKey: String) {
-        providerRefreshStatuses[accountKey] = status
-    }
-
-    private func configureScheduledRefresh() {
-        scheduledRefreshTimer?.invalidate()
-        scheduledRefreshTimer = nil
-
-        guard let timeInterval = refreshSettings.interval.timeInterval else { return }
-
-        scheduledRefreshTimer = Timer.scheduledTimer(withTimeInterval: timeInterval, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                self?.refresh()
-            }
-        }
-    }
-
-    private func nextAccountDisplayName(for providerID: String) -> String {
-        let count = accounts(for: providerID).count
-        return "Account \(count + 1)"
-    }
-
-    private func moveAccount(providerID: String, accountID: String, offset: Int) {
-        guard let sourceIndex = providerAccounts.firstIndex(where: {
-            $0.providerID == providerID && $0.accountID == accountID
-        }) else {
-            return
-        }
-
-        let destinationIndex = sourceIndex + offset
-        guard providerAccounts.indices.contains(destinationIndex) else { return }
-        providerAccounts.swapAt(sourceIndex, destinationIndex)
-        saveConfiguration()
-    }
-}
-
-struct ProviderSnapshotGroup: Identifiable {
-    let providerID: String
-    let displayName: String
-    let snapshots: [UsageSnapshot]
-
-    var id: String { providerID }
-}
-
-struct AccountRefreshIssue: Equatable {
-    let accountKey: String
-    let occurredAt: Date
-    let warnings: [String]
-}
-
-struct AccountSnapshotRow: Identifiable {
-    let account: ProviderAccount
-    let providerDisplayName: String
-    let snapshot: UsageSnapshot?
-    let refreshStatus: ProviderRefreshStatus
-    let refreshIssue: AccountRefreshIssue?
-
-    var id: String { account.id }
-}
-
-struct AccountSnapshotGroup: Identifiable {
-    let providerID: String
-    let displayName: String
-    let rows: [AccountSnapshotRow]
-
-    var id: String { providerID }
 }

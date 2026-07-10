@@ -2,18 +2,15 @@ import SwiftUI
 
 @main
 struct AILimitBarApp: App {
-    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var appModel = AppModel()
-    @StateObject private var settingsWindowController = SettingsWindowController()
 
     var body: some Scene {
-        MenuBarExtra(appModel.menuBarTitle, systemImage: appModel.menuBarSystemImage) {
-            MenuBarPanelView(
-                appModel: appModel,
-                openCustomSettings: {
-                    settingsWindowController.show(appModel: appModel)
-                }
-            )
+        MenuBarExtra {
+            MenuBarPanelView(appModel: appModel)
+        } label: {
+            Label(appModel.menuBarTitle, systemImage: appModel.menuBarSystemImage)
+                .accessibilityLabel("AI Limitbar")
+                .accessibilityValue(appModel.menuBarAccessibilityValue)
         }
         .menuBarExtraStyle(.window)
 

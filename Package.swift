@@ -1,11 +1,11 @@
-// swift-tools-version: 5.9
+// swift-tools-version: 6.2
 
 import PackageDescription
 
 let package = Package(
     name: "AILimitBar",
     platforms: [
-        .macOS(.v14)
+        .macOS(.v26)
     ],
     products: [
         .executable(name: "AILimitBar", targets: ["AILimitBar"]),
@@ -25,6 +25,12 @@ let package = Package(
             name: "AILimitBarCoreTests",
             dependencies: ["AILimitBarCore"],
             path: "Tests/AILimitBarCoreTests"
+        ),
+        .testTarget(
+            name: "AILimitBarTests",
+            dependencies: ["AILimitBar"],
+            path: "Tests/AILimitBarTests"
         )
-    ]
+    ],
+    swiftLanguageModes: [.v6]
 )

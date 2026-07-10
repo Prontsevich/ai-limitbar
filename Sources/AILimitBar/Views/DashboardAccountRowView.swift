@@ -27,13 +27,8 @@ struct DashboardAccountRowView: View {
                 unavailableText("No usage data")
             }
         }
-        .padding(.horizontal, 9)
-        .padding(.vertical, 8)
-        .background(.background.opacity(0.45), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(statusColor.opacity(borderOpacity), lineWidth: 1)
-        }
+        .padding(.horizontal, 4)
+        .padding(.vertical, 9)
     }
 
     private var header: some View {
@@ -67,11 +62,11 @@ struct DashboardAccountRowView: View {
                 Image(systemName: "info.circle")
                     .imageScale(.medium)
             }
-            .buttonStyle(.borderless)
+            .buttonStyle(.glass)
             .help("Show account details")
+            .accessibilityLabel("Show details for \(row.account.displayName)")
             .popover(isPresented: $isShowingDetails, arrowEdge: .trailing) {
                 AccountDetailsView(appModel: appModel, row: row)
-                    .padding(2)
                     .frame(width: 340)
             }
         }
@@ -143,15 +138,6 @@ struct DashboardAccountRowView: View {
         case .unavailable: return .secondary
         }
     }
-
-    private var borderOpacity: Double {
-        switch row.snapshot?.status {
-        case .warning, .error:
-            return 0.35
-        default:
-            return isStale || row.refreshIssue != nil ? 0.35 : 0.10
-        }
-    }
 }
 
 private struct LimitWindowProgressRow: View {
@@ -175,6 +161,8 @@ private struct LimitWindowProgressRow: View {
             if let usedPercent = window.usedPercent {
                 ProgressView(value: usedPercent, total: 100)
                     .controlSize(.small)
+                    .accessibilityLabel(window.displayName)
+                    .accessibilityValue(valueText)
             }
 
             if let detailText {
