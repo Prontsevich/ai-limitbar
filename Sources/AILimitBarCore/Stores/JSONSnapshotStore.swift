@@ -43,7 +43,7 @@ public final class JSONSnapshotStore: Sendable {
                 guard document.formatVersion == UsageSnapshotDocument.currentFormatVersion else {
                     return SnapshotLoadResult(
                         snapshots: [],
-                        warning: "Stored snapshots use an unsupported format version."
+                        warning: "Stored snapshots use an unsupported format version. The original file will be backed up before replacement."
                     )
                 }
                 return SnapshotLoadResult(snapshots: document.snapshots)
@@ -51,19 +51,48 @@ public final class JSONSnapshotStore: Sendable {
 
             return SnapshotLoadResult(
                 snapshots: [],
-                warning: "Stored snapshots could not be loaded and were ignored."
+                warning: "Stored snapshots could not be loaded. The original file will be backed up before replacement."
             )
         } catch {
             return SnapshotLoadResult(
                 snapshots: [],
-                warning: "Stored snapshots could not be loaded and were ignored."
+                warning: "Stored snapshots could not be loaded. The original file will be backed up before replacement."
             )
         }
     }
 
     public func save(_ snapshots: [UsageSnapshot]) throws {
+        try preserveUnsupportedDocumentIfNeeded()
         let document = UsageSnapshotDocument(snapshots: snapshots)
         let data = try encoder.encode(document)
         try data.write(to: fileURL, options: [.atomic])
+    }
+
+    private func preserveUnsupportedDocumentIfNeeded() throws {
+        guard FileManager.default.fileExists(atPath: fileURL.path) else { return }
+
+        let existingData = try Data(contentsOf: fileURL)
+        if let document = try? decoder.decode(UsageSnapshotDocument.self, from: existingData),
+           document.formatVersion == UsageSnapshotDocument.currentFormatVersion {
+            return
+        }
+
+        try FileManager.default.copyItem(at: fileURL, to: nextBackupURL())
+    }
+
+    private func nextBackupURL() -> URL {
+        let baseURL = fileURL.appendingPathExtension("backup")
+        guard FileManager.default.fileExists(atPath: baseURL.path) else {
+            return baseURL
+        }
+
+        var index = 2
+        while true {
+            let candidate = fileURL.appendingPathExtension("backup-\(index)")
+            if !FileManager.default.fileExists(atPath: candidate.path) {
+                return candidate
+            }
+            index += 1
+        }
     }
 }

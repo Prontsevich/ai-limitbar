@@ -48,7 +48,10 @@ final class SnapshotStorageContainerTests: XCTestCase {
         let result = store.load()
 
         XCTAssertEqual(result.snapshots, [])
-        XCTAssertEqual(result.warning, "Stored snapshots could not be loaded and were ignored.")
+        XCTAssertEqual(
+            result.warning,
+            "Stored snapshots could not be loaded. The original file will be backed up before replacement."
+        )
     }
 
     func testJSONSnapshotStoreIgnoresUnsupportedDocumentVersion() throws {
@@ -76,7 +79,42 @@ final class SnapshotStorageContainerTests: XCTestCase {
         let result = store.load()
 
         XCTAssertEqual(result.snapshots, [])
-        XCTAssertEqual(result.warning, "Stored snapshots use an unsupported format version.")
+        XCTAssertEqual(
+            result.warning,
+            "Stored snapshots use an unsupported format version. The original file will be backed up before replacement."
+        )
+    }
+
+    func testJSONSnapshotStoreBacksUpUnsupportedDocumentBeforeSaving() throws {
+        let directory = try temporaryDirectory()
+        let fileURL = directory.appendingPathComponent("snapshots.json")
+        let unsupportedData = Data("{\"formatVersion\":99,\"snapshots\":[]}".utf8)
+        try unsupportedData.write(to: fileURL)
+        let store = JSONSnapshotStore(directory: directory)
+
+        try store.save([])
+
+        let backupData = try Data(contentsOf: fileURL.appendingPathExtension("backup"))
+        let savedData = try Data(contentsOf: fileURL)
+        let savedDocument = try JSONDecoder.iso8601.decode(UsageSnapshotDocument.self, from: savedData)
+        XCTAssertEqual(backupData, unsupportedData)
+        XCTAssertEqual(savedDocument.formatVersion, UsageSnapshotDocument.currentFormatVersion)
+    }
+
+    func testJSONSnapshotStoreUsesUniqueBackupNames() throws {
+        let directory = try temporaryDirectory()
+        let fileURL = directory.appendingPathComponent("snapshots.json")
+        let firstInvalidData = Data("invalid-one".utf8)
+        try firstInvalidData.write(to: fileURL)
+        let store = JSONSnapshotStore(directory: directory)
+
+        try store.save([])
+        let secondInvalidData = Data("invalid-two".utf8)
+        try secondInvalidData.write(to: fileURL)
+        try store.save([])
+
+        XCTAssertEqual(try Data(contentsOf: fileURL.appendingPathExtension("backup")), firstInvalidData)
+        XCTAssertEqual(try Data(contentsOf: fileURL.appendingPathExtension("backup-2")), secondInvalidData)
     }
 
     private func temporaryDirectory() throws -> URL {

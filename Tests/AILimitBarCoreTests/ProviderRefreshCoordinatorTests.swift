@@ -90,6 +90,51 @@ final class ProviderRefreshCoordinatorTests: XCTestCase {
         XCTAssertEqual(attempts, 1)
         XCTAssertEqual(snapshots[0].status, .error)
     }
+
+    func testRefreshRejectsMismatchedSnapshotIdentity() async {
+        let account = ProviderAccount(
+            providerID: "expected",
+            accountID: "work",
+            displayName: "Work",
+            isEnabled: true
+        )
+        let request = ProviderRefreshRequest(
+            adapter: MismatchedIdentityAdapter(),
+            account: account
+        )
+
+        let snapshot = await ProviderRefreshCoordinator().refresh(request)
+
+        XCTAssertEqual(snapshot.providerID, "expected")
+        XCTAssertEqual(snapshot.accountID, "work")
+        XCTAssertEqual(snapshot.status, .error)
+        XCTAssertEqual(snapshot.warnings.first, "Provider adapter returned usage for a different account.")
+    }
+
+    func testCancellationStopsTransientRetry() async {
+        let counter = FetchCounter()
+        let coordinator = ProviderRefreshCoordinator(
+            retryPolicy: ProviderRetryPolicy(maxAttempts: 3, initialDelay: 30)
+        )
+        let request = ProviderRefreshRequest(
+            adapter: FailingProviderAdapter(counter: counter, isTransient: true),
+            account: ProviderAccount(providerID: "permanent", isEnabled: true)
+        )
+
+        let task = Task {
+            await coordinator.refresh(request)
+        }
+        while await counter.attempts == 0 {
+            await Task.yield()
+        }
+        task.cancel()
+        let snapshot = await task.value
+        let attempts = await counter.attempts
+
+        XCTAssertEqual(attempts, 1)
+        XCTAssertEqual(snapshot.status, .error)
+        XCTAssertEqual(snapshot.warnings.first, "Refresh was cancelled.")
+    }
 }
 
 private struct TestProviderAdapter: ProviderAdapter {
@@ -173,6 +218,25 @@ private struct FailingProviderAdapter: ProviderAdapter {
             providerID: id,
             message: "Configuration is missing.",
             isTransient: isTransient
+        )
+    }
+}
+
+private struct MismatchedIdentityAdapter: ProviderAdapter {
+    let id = "expected"
+    let displayName = "Expected"
+    let usageURL: URL? = nil
+
+    func fetchSnapshot(account: ProviderAccount) async throws -> UsageSnapshot {
+        UsageSnapshot(
+            providerID: "different",
+            accountID: "other",
+            accountDisplayName: "Other",
+            displayName: displayName,
+            status: .ok,
+            lastUpdatedAt: Date(timeIntervalSince1970: 1_200),
+            confidence: .localEstimate,
+            source: "Broken adapter"
         )
     }
 }

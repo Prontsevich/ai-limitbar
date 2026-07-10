@@ -33,6 +33,7 @@ public struct ProviderRefreshCoordinator: Sendable {
         var snapshots: [UsageSnapshot] = []
 
         for request in requests {
+            guard !Task.isCancelled else { break }
             let snapshot = await refresh(request)
             snapshots.append(snapshot)
         }
@@ -46,7 +47,18 @@ public struct ProviderRefreshCoordinator: Sendable {
 
         while true {
             do {
-                return try await request.adapter.fetchSnapshot(account: request.account)
+                try Task.checkCancellation()
+                let snapshot = try await request.adapter.fetchSnapshot(account: request.account)
+                return try validated(snapshot, for: request)
+            } catch is CancellationError {
+                return errorSnapshot(
+                    account: request.account,
+                    providerDisplayName: request.adapter.displayName,
+                    error: ProviderAdapterError(
+                        providerID: request.account.providerID,
+                        message: "Refresh was cancelled."
+                    )
+                )
             } catch {
                 guard shouldRetry(error, attempt: attempt) else {
                     return errorSnapshot(
@@ -56,7 +68,18 @@ public struct ProviderRefreshCoordinator: Sendable {
                     )
                 }
 
-                await sleep(for: delay)
+                do {
+                    try await sleep(for: delay)
+                } catch {
+                    return errorSnapshot(
+                        account: request.account,
+                        providerDisplayName: request.adapter.displayName,
+                        error: ProviderAdapterError(
+                            providerID: request.account.providerID,
+                            message: "Refresh was cancelled."
+                        )
+                    )
+                }
                 attempt += 1
                 delay *= retryPolicy.backoffMultiplier
             }
@@ -68,10 +91,25 @@ public struct ProviderRefreshCoordinator: Sendable {
         return (error as? ProviderAdapterError)?.isTransient == true
     }
 
-    private func sleep(for delay: TimeInterval) async {
+    private func sleep(for delay: TimeInterval) async throws {
         guard delay > 0 else { return }
         let nanoseconds = UInt64(delay * 1_000_000_000)
-        try? await Task.sleep(nanoseconds: nanoseconds)
+        try await Task.sleep(nanoseconds: nanoseconds)
+    }
+
+    private func validated(
+        _ snapshot: UsageSnapshot,
+        for request: ProviderRefreshRequest
+    ) throws -> UsageSnapshot {
+        guard snapshot.providerID == request.account.providerID,
+              snapshot.accountID == request.account.accountID else {
+            throw ProviderAdapterError(
+                providerID: request.account.providerID,
+                message: "Provider adapter returned usage for a different account.",
+                recoverySuggestion: "Verify the provider adapter preserves the requested provider and account identity."
+            )
+        }
+        return snapshot
     }
 
     public func errorSnapshot(
