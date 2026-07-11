@@ -19,11 +19,14 @@ unknown.
 
 No real provider credentials are required for the MVP.
 
+AI Limitbar is intentionally menu-bar-only. The staged app bundle uses
+`LSUIElement`, so it does not add a Dock icon or a conventional main window.
+
 ## Platform Direction
 
-AI Limitbar is a modern-only macOS app. The UI should target the current
-Liquid Glass-capable macOS baseline instead of preserving macOS 14-era
-compatibility.
+AI Limitbar is a modern-only macOS app targeting macOS 26 Tahoe or later. The
+UI should target the current Liquid Glass-capable macOS baseline instead of
+preserving macOS 14-era compatibility.
 
 Development should treat Liquid Glass and current macOS interaction behavior as
 the default design baseline:
@@ -34,7 +37,7 @@ the default design baseline:
 - Keep native hover, pressed, focus, keyboard, and accessibility behavior.
 - Use custom Liquid Glass surfaces for AI Limitbar-specific compositions, not
   to recreate standard controls.
-- Keep AppKit interop narrow and explicit for lifecycle or responder-chain gaps.
+- Prefer SwiftUI scenes and system controls for UI and windowing.
 
 ## Claude Code Local Snapshot
 
@@ -60,6 +63,11 @@ responses, or free-form provider warnings.
 
 ## Build
 
+Requirements:
+
+- macOS 26 or later.
+- Xcode 26 or later with a Swift 6.2-compatible toolchain.
+
 ```zsh
 swift build
 ```
@@ -84,9 +92,15 @@ Useful modes:
 
 ```zsh
 ./script/build_and_run.sh --verify
+./script/build_and_run.sh --debug
 ./script/build_and_run.sh --logs
 ./script/build_and_run.sh --telemetry
 ```
+
+Every mode stages and launches the same menu-bar-only `.app` bundle. Debug mode
+opens that bundle and attaches LLDB to its process instead of launching the raw
+SwiftPM executable. The local bundle is ad-hoc signed and validated after
+staging.
 
 ## Storage
 
@@ -99,3 +113,7 @@ Application Support directory:
 
 These files must not contain provider credentials, raw tokens, cookies, or raw
 provider responses.
+
+If `snapshots.json` is malformed or uses another format version, AI Limitbar
+does not decode it as current data. Before the next save replaces that document,
+the original file is copied beside it with a `.backup` suffix.

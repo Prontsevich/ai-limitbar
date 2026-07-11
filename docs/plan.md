@@ -40,16 +40,18 @@ account settings, and a project-local build/run script.
 
 The app ships with:
 
-- `MockProviderAdapter`, enabled by default, for refreshable local-estimate data.
-- Manual placeholder adapters for OpenAI Codex, Claude Code, and Ollama Cloud.
+- `MockProviderAdapter` for refreshable local-estimate data.
+- Manual placeholder adapters for OpenAI Codex and Ollama Cloud.
+- `ClaudeCodeProviderAdapter` with manual and opt-in local-snapshot modes.
 - `snapshots.json` for persisted normalized snapshots.
 - `providers.json` for persisted provider enablement state.
 - A disabled credential surface plus a Keychain service interface for future
   real provider integrations.
 
-The MVP deliberately does not fetch real OpenAI, Claude, or Ollama usage yet.
-Those providers are visible as manual-confidence placeholders until the research
-spikes confirm stable machine-readable usage sources.
+The MVP deliberately does not fetch authoritative live OpenAI, Claude, or Ollama
+quota data. Claude Code can read an AI Limitbar-owned local snapshot as an
+explicit local estimate; the other provider paths remain manual-confidence
+placeholders until stable machine-readable sources are verified.
 
 ## Non-Goals For MVP
 
@@ -78,12 +80,13 @@ spikes confirm stable machine-readable usage sources.
 
 ## Platform Baseline
 
-AI Limitbar is a modern-only macOS app. The project should target the current
-Liquid Glass-capable macOS baseline and should not shape UI architecture around
-macOS 14-era compatibility.
+AI Limitbar is a modern-only macOS app. The project targets macOS 26 Tahoe as
+the current Liquid Glass-capable baseline and should not shape UI architecture
+around macOS 14-era compatibility.
 
 Modern-only means:
 
+- The SwiftPM manifest uses SwiftPM 6.2, macOS 26, and Swift 6 language mode.
 - The deployment target can move forward when current SwiftUI/macOS APIs make
   the app simpler, more native, or more visually correct.
 - Standard system controls, sidebars, toolbars, sheets, focus handling, pointer
@@ -91,8 +94,8 @@ Modern-only means:
 - Liquid Glass is the design baseline. Standard SwiftUI controls should provide
   most of that behavior directly; custom glass should be reserved for
   product-specific compositions, not for recreating system controls.
-- AppKit interop remains allowed for narrow lifecycle and responder-chain gaps,
-  but it should not become a parallel UI framework for entire screens.
+- SwiftUI scenes and system controls are preferred for UI and windowing.
+  AppKit window lifecycle bridges are out of scope for the modern Settings path.
 - Compatibility fallbacks for older macOS releases are out of scope unless this
   product decision is explicitly reopened.
 
@@ -347,7 +350,7 @@ observed requests, but that must be labeled as partial and not account-wide.
 The app should be structured around:
 
 - `MenuBarExtra` for the primary interface.
-- An app-controlled settings window for provider/account configuration.
+- A SwiftUI `Settings` scene for provider/account configuration.
 - `UsageSnapshotStore` for persisted snapshots.
 - `ProviderRegistry` for available adapters.
 - `ProviderAdapter` protocol for provider-specific logic.
@@ -362,8 +365,7 @@ real provider clients.
 Modern macOS UI structure should use system SwiftUI patterns before custom
 layout code. Settings, toolbars, sidebars, sheets, forms, pickers, toggles,
 menus, and buttons should be native controls unless the product needs behavior
-that the system cannot express. Custom AppKit bridges should be small,
-explicit, and limited to window lifecycle or responder-chain boundaries.
+that the system cannot express.
 
 ## Snapshot Model Direction
 
@@ -398,14 +400,15 @@ Provisional App Group identifier: `group.com.lestroy.ai-limitbar`. This must be
 verified against the final Apple Developer Team and bundle identifiers before
 signing a WidgetKit build.
 
-Shared snapshot format version: `1`. `snapshots.json` is a JSON document with
-`formatVersion` and `snapshots` fields. Version 1 stores normalized
-`UsageSnapshot` values only.
+Shared snapshot format version: `2`. `snapshots.json` is a JSON document with
+`formatVersion` and `snapshots` fields. Version 2 stores account-scoped normalized
+`UsageSnapshot` values and provider-defined limit windows.
 
-Local-to-shared migration path: `SnapshotStorageMigrator` copies `snapshots.json`
-from the current local container to a destination container only when the
-destination file does not exist. The migrator reads through `JSONSnapshotStore`,
-so legacy array files are rewritten as versioned format-1 documents.
+Raw legacy arrays and documents with another format version are not decoded as
+current snapshots. Before replacing an unsupported or malformed document, the
+store preserves the original file as a local backup. A future App Group move
+must use the same version-aware store behavior instead of a separate legacy
+migrator.
 
 Widget constraints:
 
@@ -470,8 +473,7 @@ access details.
 
 The settings UI should support:
 
-- A controlled single-window lifecycle: pressing Settings opens or focuses the
-  same window, and closing it prevents it from reappearing on its own.
+- A native SwiftUI Settings window opened through the system settings action.
 - Account-first organization with clear Accounts, Refresh, and Provider Setup
   zones.
 - Enabling/disabling providers.
@@ -486,7 +488,20 @@ sheets, and popovers because they already include the intended Liquid Glass
 appearance and interaction behavior. Use custom Liquid Glass surfaces for
 AI Limitbar-specific compositions, such as account status clusters or dashboard
 summaries, not to recreate standard controls. Preserve the working account
-workflows while removing legacy-looking custom chrome.
+workflows while removing legacy-looking custom chrome. Account settings should
+use grouped form sections and native disclosure rows before custom account
+cards.
+
+Settings windowing should use SwiftUI's `Settings` scene. Previous controlled
+AppKit window lifecycle work is no longer the desired direction. Settings
+behavior across macOS Spaces is explicitly deferred and is not part of the
+current quality gate.
+
+The app is intentionally menu-bar-only. Local development, debugging, logging,
+telemetry, and verification should all run the same staged `LSUIElement` app
+bundle so lifecycle behavior does not change between development modes. AppKit
+is permitted at a narrow application-lifecycle boundary for normal termination;
+it should not own Settings or feature state.
 
 ## Widget Direction
 
@@ -507,7 +522,6 @@ The widget should:
   command or file, or only through UI output?
 - Does Ollama Cloud expose usage through a documented API endpoint?
 - What refresh interval is useful without hitting provider limits?
-- Should the app be menu-bar-only, or should it also keep a Dock/main window?
 
 ## First Implementation Slice
 

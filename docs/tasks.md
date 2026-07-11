@@ -255,6 +255,10 @@ Decision:
 Goal: replace the system SwiftUI `Settings` scene with a controlled settings
 window and make account configuration clear enough for daily use.
 
+Superseded by Milestone 12: Settings now uses SwiftUI's native `Settings`
+scene again. The controlled AppKit settings window was removed in favor of the
+current system windowing path.
+
 - [x] Remove the system SwiftUI `Settings` scene.
 - [x] Add a narrow settings window controller that owns one settings window.
 - [x] Open Settings from the menu bar panel through the controlled window path.
@@ -277,7 +281,7 @@ window and make account configuration clear enough for daily use.
 - [x] Keep the existing provider account and snapshot storage contracts
   unchanged.
 
-Acceptance:
+Historical acceptance for the superseded controlled-window path:
 
 - Settings opens as an app-controlled window from the menu bar panel.
 - Pressing Settings while the window is open focuses the existing window.
@@ -292,32 +296,31 @@ Goal: move AI Limitbar to a modern-only macOS baseline and redesign the visible
 app surfaces around the current system design language instead of legacy
 compatibility patterns.
 
-- [ ] Raise the deployment target to the current Liquid Glass-capable macOS
+- [x] Raise the deployment target to the current Liquid Glass-capable macOS
   baseline.
-- [ ] Remove macOS 14 compatibility as a product constraint.
-- [ ] Audit Settings and the menu bar panel for custom chrome, custom
+- [x] Remove macOS 14 compatibility as a product constraint.
+- [x] Audit Settings and the menu bar panel for custom chrome, custom
   backgrounds, `.plain` button styles, and hand-built hover/selection states
   that replace standard system behavior.
-- [ ] Redesign Settings around standard SwiftUI structures and controls first:
+- [x] Redesign Settings around standard SwiftUI structures and controls first:
   system sidebars, toolbar items, sheets, forms, pickers, toggles, and buttons
   where they fit the workflow, because those controls already carry the current
   Liquid Glass appearance and interaction model.
-- [ ] Treat Liquid Glass as the visual baseline for custom app-specific
+- [x] Treat Liquid Glass as the visual baseline for custom app-specific
   surfaces, not as a hand-built replacement for system buttons, sidebars,
   toolbars, sheets, forms, or pickers.
-- [ ] Prefer native hover, pressed, focus, keyboard, and accessibility behavior
+- [x] Prefer native hover, pressed, focus, keyboard, and accessibility behavior
   over custom visual effects.
-- [ ] Keep AppKit interop narrow and limited to behavior SwiftUI cannot express
-  cleanly, such as controlled window lifecycle or responder-chain edges.
-- [ ] Remove or justify custom `GroupBox`-style account cards, opaque fills,
+- [x] Remove Settings window AppKit interop and use SwiftUI scene/windowing.
+- [x] Remove or justify custom `GroupBox`-style account cards, opaque fills,
   manual sidebar selection backgrounds, and decorative materials that fight the
   system visual language.
-- [ ] Revisit Settings window strategy after the redesign: use the most native
-  modern scene/window pattern that still prevents duplicate windows and
-  unwanted Spaces reappearance.
+- [x] Revisit Settings window strategy after the redesign: use the native
+  SwiftUI `Settings` scene even if the old Spaces workaround is no longer
+  preserved.
 - [ ] Verify hover, click, focus ring, resize, close/reopen, and Settings
   state-reset behavior in a foreground `.app` bundle.
-- [ ] Update screenshots or documentation notes after the modern UI direction
+- [x] Update screenshots or documentation notes after the modern UI direction
   is implemented.
 
 Acceptance:
@@ -331,8 +334,7 @@ Acceptance:
 - Custom Liquid Glass surfaces are used for product-specific compositions,
   such as account status clusters or dashboard summaries, and do not duplicate
   standard system controls.
-- The implementation avoids broad AppKit rewrites; AppKit remains a narrow
-  bridge for lifecycle or responder-chain gaps.
+- Settings UI and windowing use SwiftUI-native scene and control APIs.
 - Modern visual behavior does not regress the account workflows, refresh
   controls, source configuration, or Settings close/reopen behavior.
 
@@ -345,6 +347,70 @@ Decision:
 - The project should honor Apple's current controls and interaction work
   instead of recreating hover, click, focus, toolbar, sidebar, or glass behavior
   by hand.
+- Implemented with macOS 26 as the deployment baseline, a SwiftPM 6.2 manifest,
+  Swift 6 language mode, SwiftUI's native `Settings` scene, a system
+  `NavigationSplitView` sidebar, and grouped `Form` sections for account
+  settings.
+- Removed the controlled AppKit settings window, close observer, text-field
+  prewarm, and other Settings window lifecycle bridges.
+- URL opening now goes through SwiftUI's `openURL`, and Settings opens through
+  `openSettings`. AppKit is limited to the application termination boundary.
+- Removed custom hover tint/scale effects; interaction feedback now comes from
+  system controls and SwiftUI glass/button behavior.
+- Foreground `.app` launch verification passed with `./script/build_and_run.sh --verify`;
+  interactive hover/click/focus smoke still needs manual QA or Accessibility
+  permission for GUI automation.
+
+## Milestone 12.1: Quality Stabilization Gate
+
+Goal: make the current modern macOS baseline reliable, testable, and maintainable
+before starting another provider or product feature milestone.
+
+- [x] Bound the menu bar dashboard and account-details popover by available
+  screen space regardless of account or limit-window count.
+- [x] Own and cancel account refresh tasks so deleting an account cannot restore
+  orphan runtime state or persisted snapshots.
+- [x] Validate every adapter result against the requested provider and account
+  identity before it reaches app state.
+- [x] Preserve unsupported or malformed snapshot documents before writing a new
+  current-format document.
+- [x] Make refresh retry cancellation cooperative and test it.
+- [x] Add a dedicated app test target and cover orchestration for
+  refresh, deletion, persistence, ordering, and menu bar summary behavior.
+- [x] Remove unused inspector, grouping, selection, and row code left behind by
+  the dashboard redesign.
+- [x] Restore normal macOS termination behavior through a narrow lifecycle edge.
+- [x] Make debug, run, logs, telemetry, and verify modes use the same staged app
+  bundle.
+- [x] Add explicit accessibility semantics for the menu bar status item and
+  icon-only account actions.
+- [x] Keep Settings compact and complete the expected Return/Escape keyboard
+  flows.
+- [x] Align README and architecture documentation with the implemented account,
+  snapshot-format, launch, and storage behavior.
+- [x] Pass debug and release builds, warnings-as-errors, the full test suite,
+  script validation, code-sign validation, and a foreground app smoke test.
+
+Acceptance:
+
+- Valid provider data cannot make primary menu bar actions unreachable.
+- Deleting an account while work is in flight leaves no account snapshot,
+  refresh status, or persistence residue after the task completes.
+- Malformed or newer snapshot formats are preserved before replacement.
+- App-facing orchestration has deterministic automated coverage instead of
+  relying only on `AILimitBarCore` tests.
+- Every development mode exercises the same menu-bar-only `.app` bundle shape.
+- The working tree contains no obsolete dashboard predecessor code.
+- Documentation describes the live implementation and current quality gate.
+
+Decision:
+
+- Settings behavior across macOS Spaces is explicitly deferred and is not a
+  blocker for this stabilization gate.
+- The native SwiftUI `Settings` scene and the modern macOS/Liquid Glass direction
+  remain in place.
+- AppKit may be used only at a narrow platform lifecycle boundary where SwiftUI
+  does not expose an equivalent application-termination action.
 
 ## Milestone 13: Claude Code Data Source
 
