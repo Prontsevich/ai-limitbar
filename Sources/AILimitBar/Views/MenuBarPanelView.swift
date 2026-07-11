@@ -2,6 +2,7 @@ import SwiftUI
 
 struct MenuBarPanelView: View {
     @ObservedObject var appModel: AppModel
+    private let contentInset: CGFloat = 14
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -27,7 +28,7 @@ struct MenuBarPanelView: View {
 
             footerControls
         }
-        .padding(14)
+        .padding(contentInset)
         .frame(width: 390)
         .onAppear {
             AppTelemetry.lifecycle.info("Menu bar panel appeared")
@@ -64,36 +65,34 @@ struct MenuBarPanelView: View {
     }
 
     private var dashboard: some View {
-        GlassEffectContainer {
-            dashboardRows
-                .padding(10)
-                .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        }
+        dashboardRows
     }
 
     @ViewBuilder
     private var dashboardRows: some View {
         let rows = appModel.enabledAccountRows
         ScrollView {
-            accountRows(rows)
+            GlassEffectContainer {
+                accountRows(rows)
+            }
+            .padding(.vertical, 1)
+            .padding(.trailing, contentInset)
         }
         .scrollBounceBehavior(.basedOnSize)
+        .padding(.trailing, -contentInset)
         .frame(height: dashboardHeight(for: rows))
     }
 
     private func accountRows(_ rows: [AccountSnapshotRow]) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
+        VStack(alignment: .leading, spacing: 8) {
+            ForEach(rows) { row in
                 DashboardAccountRowView(
                     appModel: appModel,
                     row: row,
                     isStale: row.snapshot.map { appModel.isSnapshotStale($0) } ?? false
                 )
-
-                if index < rows.count - 1 {
-                    Divider()
-                        .padding(.leading, 24)
-                }
+                .padding(10)
+                .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
             }
         }
     }
