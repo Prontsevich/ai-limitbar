@@ -357,6 +357,52 @@ final class AppModelTests: XCTestCase {
         }
     }
 
+    @MainActor
+    func testOllamaRefreshFailurePreservesPreviousUsageData() async throws {
+        let directory = try temporaryDirectory()
+        let adapter = OllamaCloudProviderAdapter(client: FailingOllamaClient())
+        let model = AppModel(
+            registry: ProviderRegistry(adapters: [adapter]),
+            storageDirectory: directory
+        )
+        model.addAccount(
+            providerID: adapter.id,
+            displayName: "Ollama Work",
+            sourceMode: .ollamaWebPage
+        )
+        let account = try XCTUnwrap(model.providerAccounts.first)
+        model.providerAccounts[0].webDataStoreID = UUID()
+
+        let previousSnapshot = UsageSnapshot(
+            providerID: account.providerID,
+            accountID: account.accountID,
+            accountDisplayName: account.displayName,
+            displayName: adapter.displayName,
+            status: .ok,
+            limitWindows: [
+                UsageLimitWindow(id: "session", displayName: "Session", usedPercent: 24)
+            ],
+            lastUpdatedAt: Date(timeIntervalSince1970: 1_700_000_000),
+            confidence: .live,
+            source: OllamaUsagePageParser.sourceDescription,
+            warnings: [OllamaUsagePageParser.compatibilityWarning]
+        )
+        model.snapshots = [previousSnapshot]
+
+        model.refreshAccount(providerID: account.providerID, accountID: account.accountID)
+        while model.refreshStatus(for: account) == .refreshing {
+            await Task.yield()
+        }
+
+        XCTAssertEqual(model.snapshot(for: account), previousSnapshot)
+        XCTAssertNotNil(model.accountRefreshIssues[account.id])
+        if case .failed = model.refreshStatus(for: account) {
+            // Expected: the failed refresh is tracked separately from the last good snapshot.
+        } else {
+            XCTFail("Expected the Ollama refresh to be marked as failed.")
+        }
+    }
+
     private func temporaryDirectory() throws -> URL {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
@@ -444,6 +490,17 @@ private struct MismatchedImmediateAdapter: ProviderAdapter {
             lastUpdatedAt: Date(),
             confidence: .localEstimate,
             source: "Broken test adapter"
+        )
+    }
+}
+
+private struct FailingOllamaClient: OllamaWebPageClient {
+    func fetchUsage(account: ProviderAccount) async throws -> OllamaUsagePagePayload {
+        throw ProviderAdapterError(
+            providerID: "ollama-cloud",
+            message: "Ollama settings page is unavailable.",
+            recoverySuggestion: "Reconnect Ollama.",
+            isTransient: false
         )
     }
 }

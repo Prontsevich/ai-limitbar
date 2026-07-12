@@ -2,7 +2,14 @@ import SwiftUI
 
 @main
 struct AILimitBarApp: App {
-    @StateObject private var appModel = AppModel()
+    @StateObject private var appModel: AppModel
+
+    init() {
+        let ollamaClient = OllamaWebPageClientController()
+        _appModel = StateObject(
+            wrappedValue: AppModel(ollamaWebPageClient: ollamaClient)
+        )
+    }
 
     var body: some Scene {
         MenuBarExtra {

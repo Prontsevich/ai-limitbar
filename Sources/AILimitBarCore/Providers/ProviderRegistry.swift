@@ -11,20 +11,24 @@ public struct ProviderRegistry: Sendable {
         Dictionary(uniqueKeysWithValues: adapters.map { ($0.id, $0) })
     }
 
-    public static let defaultAdapters: [any ProviderAdapter] = [
-        MockProviderAdapter(),
-        ManualProviderAdapter(
-            id: "openai-codex",
-            displayName: "OpenAI Codex",
-            usageURL: URL(string: "https://chatgpt.com/codex"),
-            sourceDescription: "OpenAI Codex product surfaces"
-        ),
-        ClaudeCodeProviderAdapter(),
-        ManualProviderAdapter(
-            id: "ollama-cloud",
-            displayName: "Ollama Cloud",
-            usageURL: URL(string: "https://ollama.com/settings"),
-            sourceDescription: "Ollama account settings"
-        )
-    ]
+    public init(ollamaWebPageClient: any OllamaWebPageClient) {
+        self.init(adapters: Self.adapters(ollamaWebPageClient: ollamaWebPageClient))
+    }
+
+    public static let defaultAdapters: [any ProviderAdapter] =
+        adapters(ollamaWebPageClient: UnavailableOllamaWebPageClient())
+
+    private static func adapters(ollamaWebPageClient: any OllamaWebPageClient) -> [any ProviderAdapter] {
+        [
+            MockProviderAdapter(),
+            ManualProviderAdapter(
+                id: "openai-codex",
+                displayName: "OpenAI Codex",
+                usageURL: URL(string: "https://chatgpt.com/codex"),
+                sourceDescription: "OpenAI Codex product surfaces"
+            ),
+            ClaudeCodeProviderAdapter(),
+            OllamaCloudProviderAdapter(client: ollamaWebPageClient)
+        ]
+    }
 }

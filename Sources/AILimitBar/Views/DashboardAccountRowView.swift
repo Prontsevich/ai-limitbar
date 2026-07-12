@@ -37,17 +37,10 @@ struct DashboardAccountRowView: View {
                 .foregroundStyle(statusColor)
                 .frame(width: 16)
 
-            VStack(alignment: .leading, spacing: 1) {
-                Text(row.account.displayName)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
-
-                Text(row.providerDisplayName)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-            }
+            Text(row.account.displayName)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.primary)
+                .lineLimit(1)
 
             Spacer(minLength: 8)
 
@@ -94,7 +87,7 @@ struct DashboardAccountRowView: View {
         if isStale {
             return "Stale"
         }
-        if !snapshot.warnings.isEmpty {
+        if snapshot.status != .ok && !snapshot.warnings.isEmpty {
             return "Warning"
         }
         return snapshot.status.displayName
@@ -132,7 +125,7 @@ struct DashboardAccountRowView: View {
             return .orange
         }
         switch snapshot.status {
-        case .ok: return .primary
+        case .ok: return .green
         case .warning: return .orange
         case .error: return .red
         case .unavailable: return .secondary
@@ -142,6 +135,13 @@ struct DashboardAccountRowView: View {
 
 private struct LimitWindowProgressRow: View {
     let window: UsageLimitWindow
+
+    private static let relativeDateFormatter: RelativeDateTimeFormatter = {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.locale = Locale(identifier: "en_US")
+        formatter.unitsStyle = .full
+        return formatter
+    }()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
@@ -190,6 +190,6 @@ private struct LimitWindowProgressRow: View {
 
     private var resetText: String? {
         guard let resetAt = window.resetAt else { return nil }
-        return "resets \(resetAt.formatted(date: .abbreviated, time: .shortened))"
+        return "resets \(Self.relativeDateFormatter.localizedString(for: resetAt, relativeTo: Date()))"
     }
 }

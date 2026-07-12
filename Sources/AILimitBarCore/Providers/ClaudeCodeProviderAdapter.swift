@@ -19,6 +19,8 @@ public struct ClaudeCodeProviderAdapter: ProviderAdapter {
             return manualSnapshot(account: account)
         case .localSnapshot:
             return try localSnapshot(account: account)
+        case .ollamaWebPage:
+            return manualSnapshot(account: account)
         }
     }
 

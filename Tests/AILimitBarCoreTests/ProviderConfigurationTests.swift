@@ -19,6 +19,24 @@ final class ProviderConfigurationTests: XCTestCase {
         XCTAssertEqual(decoded.id, "claude-code:work")
     }
 
+    func testProviderAccountRoundTripsOllamaWebDataStoreID() throws {
+        let dataStoreID = UUID()
+        let account = ProviderAccount(
+            providerID: "ollama-cloud",
+            accountID: "work",
+            displayName: "Work",
+            isEnabled: true,
+            sourceMode: .ollamaWebPage,
+            webDataStoreID: dataStoreID
+        )
+
+        let data = try JSONEncoder().encode(account)
+        let decoded = try JSONDecoder().decode(ProviderAccount.self, from: data)
+
+        XCTAssertEqual(decoded, account)
+        XCTAssertEqual(decoded.webDataStoreID, dataStoreID)
+    }
+
     func testProviderConfigurationStoreStartsEmptyWhenMissing() throws {
         let directory = try temporaryDirectory()
 

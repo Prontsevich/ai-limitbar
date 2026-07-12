@@ -2,6 +2,25 @@ import AILimitBarCore
 import Foundation
 
 extension AppModel {
+    func acceptOllamaUsagePayload(_ payload: OllamaUsagePagePayload, for account: ProviderAccount) {
+        guard let adapter = adapter(for: account.providerID) as? OllamaCloudProviderAdapter else { return }
+
+        do {
+            let snapshot = try adapter.makeSnapshot(account: account, payload: payload)
+            if handleRefreshedSnapshot(snapshot) {
+                saveSnapshots()
+            }
+        } catch {
+            let snapshot = refreshCoordinator.errorSnapshot(
+                account: account,
+                providerDisplayName: adapter.displayName,
+                error: error
+            )
+            handleFailedSnapshot(snapshot)
+            saveSnapshots()
+        }
+    }
+
     func setRefreshInterval(_ interval: RefreshInterval) {
         let previousSettings = refreshSettings
         refreshSettings.interval = interval

@@ -16,18 +16,22 @@ final class AppModel: ObservableObject {
     let configurationStore: ProviderConfigurationStore
     let refreshSettingsStore: RefreshSettingsStore
     let refreshCoordinator: ProviderRefreshCoordinator
+    let ollamaWebPageClient: OllamaWebPageClientController?
     var scheduledRefreshTimer: Timer?
     var globalRefreshTask: Task<Void, Never>?
     var accountRefreshTasks: [String: Task<Void, Never>] = [:]
     var accountRefreshTaskIDs: [String: UUID] = [:]
 
     init(
-        registry: ProviderRegistry = ProviderRegistry(),
+        registry: ProviderRegistry? = nil,
+        ollamaWebPageClient: OllamaWebPageClientController? = nil,
         directoryResolver: ApplicationSupportDirectoryResolver = ApplicationSupportDirectoryResolver(),
         storageDirectory: URL? = nil,
         refreshCoordinator: ProviderRefreshCoordinator = ProviderRefreshCoordinator()
     ) {
-        self.registry = registry
+        self.ollamaWebPageClient = ollamaWebPageClient
+        let resolvedClient: any OllamaWebPageClient = ollamaWebPageClient ?? UnavailableOllamaWebPageClient()
+        self.registry = registry ?? ProviderRegistry(ollamaWebPageClient: resolvedClient)
         self.refreshCoordinator = refreshCoordinator
 
         let directory: URL

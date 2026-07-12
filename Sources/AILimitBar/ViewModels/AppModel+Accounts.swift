@@ -76,6 +76,25 @@ extension AppModel {
         return true
     }
 
+    @discardableResult
+    func prepareOllamaWebPageConnection(providerID: String, accountID: String) -> ProviderAccount? {
+        guard providerID == "ollama-cloud",
+              let index = providerAccounts.firstIndex(where: {
+                  $0.providerID == providerID && $0.accountID == accountID
+              })
+        else { return nil }
+
+        if providerAccounts[index].webDataStoreID == nil {
+            let previousAccounts = providerAccounts
+            providerAccounts[index].webDataStoreID = UUID()
+            guard saveConfiguration() else {
+                providerAccounts = previousAccounts
+                return nil
+            }
+        }
+        return providerAccounts[index]
+    }
+
     func setAccountSourceMode(_ providerID: String, accountID: String, sourceMode: ProviderSourceMode) {
         let previousAccounts = providerAccounts
         guard let index = providerAccounts.firstIndex(where: {
@@ -177,7 +196,7 @@ extension AppModel {
         let previousSnapshots = snapshots
         let previousStatuses = providerRefreshStatuses
         let previousIssues = accountRefreshIssues
-        guard providerAccounts.contains(where: {
+        guard let account = providerAccounts.first(where: {
             $0.providerID == providerID && $0.accountID == accountID
         }) else { return }
 
@@ -194,6 +213,9 @@ extension AppModel {
             return
         }
         saveSnapshots()
+        if account.providerID == "ollama-cloud" {
+            ollamaWebPageClient?.forgetSession(for: account)
+        }
     }
 
     func canDeleteAccount(providerID: String, accountID: String) -> Bool {

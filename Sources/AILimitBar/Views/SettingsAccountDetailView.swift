@@ -7,6 +7,9 @@ struct AccountDetailView: View {
     let account: ProviderAccount
     let onEdit: () -> Void
 
+    @State private var isShowingOllamaConnection = false
+    @State private var connectionError: String?
+
     var body: some View {
         VStack(spacing: 0) {
             header
@@ -40,6 +43,24 @@ struct AccountDetailView: View {
             .formStyle(.grouped)
             .scrollBounceBehavior(.basedOnSize)
         }
+        .sheet(isPresented: $isShowingOllamaConnection) {
+            if let client = appModel.ollamaWebPageClient,
+               let connectedAccount = appModel.account(
+                   providerID: account.providerID,
+                   accountID: account.accountID
+               ) {
+                OllamaWebPageConnectionSheet(
+                    appModel: appModel,
+                    account: connectedAccount,
+                    client: client
+                )
+            }
+        }
+        .alert("Ollama Connection", isPresented: connectionErrorBinding) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(connectionError ?? "Ollama connection is unavailable.")
+        }
     }
 
     private var header: some View {
@@ -55,6 +76,16 @@ struct AccountDetailView: View {
             }
             .settingsGlassIconButton(help: "Edit account")
             .frame(width: 40, height: 40)
+
+            if currentAccount.providerID == "ollama-cloud",
+               currentAccount.sourceMode == .ollamaWebPage {
+                Button(action: beginOllamaConnection) {
+                    SettingsGlassIcon(systemName: "person.crop.circle.badge.checkmark")
+                }
+                .disabled(appModel.ollamaWebPageClient == nil)
+                .settingsGlassIconButton(help: ollamaConnectionTitle)
+                .frame(width: 40, height: 40)
+            }
 
             Button {
                 appModel.refreshAccount(
@@ -115,6 +146,30 @@ struct AccountDetailView: View {
                     enabled: $0
                 )
             }
+        )
+    }
+
+    private var ollamaConnectionTitle: String {
+        currentAccount.webDataStoreID == nil ? "Connect Ollama" : "Reconnect Ollama"
+    }
+
+    private func beginOllamaConnection() {
+        guard appModel.ollamaWebPageClient != nil,
+              appModel.prepareOllamaWebPageConnection(
+                  providerID: currentAccount.providerID,
+                  accountID: currentAccount.accountID
+              ) != nil
+        else {
+            connectionError = "Save the account before connecting Ollama through AI Limitbar."
+            return
+        }
+        isShowingOllamaConnection = true
+    }
+
+    private var connectionErrorBinding: Binding<Bool> {
+        Binding(
+            get: { connectionError != nil },
+            set: { if !$0 { connectionError = nil } }
         )
     }
 }
@@ -311,6 +366,21 @@ struct AccountEditorView: View {
                             .padding(.vertical, 4)
                         }
                     }
+                } else if draft.providerID == "ollama-cloud" {
+                    Section("Source") {
+                        Picker("Source", selection: $draft.sourceMode) {
+                            Text(ProviderSourceMode.manual.displayName).tag(ProviderSourceMode.manual)
+                            Text(ProviderSourceMode.ollamaWebPage.displayName).tag(ProviderSourceMode.ollamaWebPage)
+                        }
+                        .pickerStyle(.segmented)
+
+                        if draft.sourceMode == .ollamaWebPage {
+                            Text("Experimental source: AI Limitbar opens an isolated WebKit session for https://ollama.com/settings. The session is never copied from another browser, and raw page content is not stored.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
                 } else {
                     Section("Source") {
                         LabeledContent("Source", value: ProviderSourceMode.manual.displayName)
@@ -347,8 +417,8 @@ struct AccountEditorView: View {
                 providerID: account.providerID,
                 accountID: account.accountID,
                 displayName: draft.normalizedDisplayName,
-                sourceMode: draft.sourceMode,
-                localSnapshotPath: draft.normalizedSnapshotPath
+                sourceMode: persistedSourceMode,
+                localSnapshotPath: persistedSnapshotPath
             ) else { return }
             onSave()
             return
@@ -358,14 +428,25 @@ struct AccountEditorView: View {
             providerID: draft.providerID,
             displayName: draft.normalizedDisplayName,
             isEnabled: draft.isEnabled,
-            sourceMode: draft.providerID == "claude-code" ? draft.sourceMode : .manual,
-            localSnapshotPath: draft.providerID == "claude-code" ? draft.normalizedSnapshotPath : nil
+            sourceMode: persistedSourceMode,
+            localSnapshotPath: persistedSnapshotPath
         ) else { return }
         onCreate(createdAccount.id)
     }
 
     private func updateDirtyState() {
         isDirty = draft.hasChanges(comparedTo: initialDraft)
+    }
+
+    private var persistedSourceMode: ProviderSourceMode {
+        switch draft.providerID {
+        case "claude-code", "ollama-cloud": draft.sourceMode
+        default: .manual
+        }
+    }
+
+    private var persistedSnapshotPath: String? {
+        draft.providerID == "claude-code" ? draft.normalizedSnapshotPath : nil
     }
 
     private var helperPathConflict: String? {

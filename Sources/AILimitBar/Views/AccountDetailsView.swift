@@ -6,6 +6,9 @@ struct AccountDetailsView: View {
     @ObservedObject var appModel: AppModel
     let row: AccountSnapshotRow
 
+    @State private var isShowingOllamaConnection = false
+    @State private var connectionError: String?
+
     var body: some View {
         VStack(spacing: 0) {
             header
@@ -25,6 +28,20 @@ struct AccountDetailsView: View {
                 .padding(12)
         }
         .frame(maxHeight: 520)
+        .sheet(isPresented: $isShowingOllamaConnection) {
+            if let client = appModel.ollamaWebPageClient {
+                OllamaWebPageConnectionSheet(
+                    appModel: appModel,
+                    account: currentAccount,
+                    client: client
+                )
+            }
+        }
+        .alert("Ollama Connection", isPresented: connectionErrorBinding) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(connectionError ?? "Ollama connection is unavailable.")
+        }
     }
 
     private var detailsContent: some View {
@@ -168,7 +185,9 @@ struct AccountDetailsView: View {
         VStack(alignment: .leading, spacing: 4) {
             Text("No usage data")
                 .font(.subheadline.weight(.semibold))
-            Text("Refresh or test this account to load a snapshot.")
+            Text(currentAccount.sourceMode == .ollamaWebPage
+                ? "Connect Ollama to load the experimental settings-page source."
+                : "Refresh or test this account to load a snapshot.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -179,6 +198,13 @@ struct AccountDetailsView: View {
 
     private var actionBar: some View {
         HStack(spacing: 8) {
+            if currentAccount.sourceMode == .ollamaWebPage {
+                Button(action: beginOllamaConnection) {
+                    Label(ollamaConnectionTitle, systemImage: "person.crop.circle.badge.checkmark")
+                }
+                .disabled(appModel.ollamaWebPageClient == nil || actionsDisabled)
+            }
+
             Button {
                 appModel.refreshAccount(providerID: row.account.providerID, accountID: row.account.accountID)
             } label: {
@@ -207,6 +233,35 @@ struct AccountDetailsView: View {
 
     private var usageURL: URL? {
         appModel.usageURL(providerID: row.account.providerID, accountID: row.account.accountID)
+    }
+
+    private var currentAccount: ProviderAccount {
+        appModel.account(providerID: row.account.providerID, accountID: row.account.accountID) ?? row.account
+    }
+
+    private var ollamaConnectionTitle: String {
+        currentAccount.webDataStoreID == nil ? "Connect" : "Reconnect"
+    }
+
+    private func beginOllamaConnection() {
+        guard currentAccount.providerID == "ollama-cloud",
+              appModel.ollamaWebPageClient != nil,
+              appModel.prepareOllamaWebPageConnection(
+                  providerID: currentAccount.providerID,
+                  accountID: currentAccount.accountID
+              ) != nil
+        else {
+            connectionError = "Save the account before connecting Ollama through AI Limitbar."
+            return
+        }
+        isShowingOllamaConnection = true
+    }
+
+    private var connectionErrorBinding: Binding<Bool> {
+        Binding(
+            get: { connectionError != nil },
+            set: { if !$0 { connectionError = nil } }
+        )
     }
 
     private func detailRow(_ title: String, _ value: String) -> some View {
@@ -282,7 +337,7 @@ struct AccountDetailsView: View {
             return .orange
         }
         switch snapshot.status {
-        case .ok: return .primary
+        case .ok: return .green
         case .warning: return .orange
         case .error: return .red
         case .unavailable: return .secondary

@@ -1,0 +1,55 @@
+import XCTest
+@testable import AILimitBar
+
+final class OllamaWebPageNavigationTests: XCTestCase {
+    func testInteractiveNavigationAllowsOllamaAuthenticationRedirects() {
+        XCTAssertTrue(
+            OllamaWebPageNavigationPolicy.allowsMainFrameNavigation(
+                URL(string: "https://api.workos.com/user_management/authorize")!,
+                interactive: true
+            )
+        )
+        XCTAssertTrue(
+            OllamaWebPageNavigationPolicy.allowsMainFrameNavigation(
+                URL(string: "https://signin.ollama.com/")!,
+                interactive: true
+            )
+        )
+        XCTAssertTrue(
+            OllamaWebPageNavigationPolicy.allowsMainFrameNavigation(
+                URL(string: "https://accounts.google.com/o/oauth2/auth")!,
+                interactive: true
+            )
+        )
+    }
+
+    func testScheduledNavigationRejectsAuthenticationRedirects() {
+        XCTAssertFalse(
+            OllamaWebPageNavigationPolicy.allowsMainFrameNavigation(
+                URL(string: "https://api.workos.com/user_management/authorize")!,
+                interactive: false
+            )
+        )
+        XCTAssertTrue(
+            OllamaWebPageNavigationPolicy.allowsMainFrameNavigation(
+                URL(string: "https://ollama.com/settings")!,
+                interactive: false
+            )
+        )
+    }
+
+    func testNavigationPolicyRejectsUnexpectedHosts() {
+        XCTAssertFalse(
+            OllamaWebPageNavigationPolicy.allowsMainFrameNavigation(
+                URL(string: "https://example.com/")!,
+                interactive: true
+            )
+        )
+        XCTAssertFalse(
+            OllamaWebPageNavigationPolicy.allowsMainFrameNavigation(
+                URL(string: "http://ollama.com/settings")!,
+                interactive: true
+            )
+        )
+    }
+}

@@ -41,7 +41,8 @@ account settings, and a project-local build/run script.
 The app ships with:
 
 - `MockProviderAdapter` for refreshable local-estimate data.
-- Manual placeholder adapters for OpenAI Codex and Ollama Cloud.
+- Manual placeholder adapter for OpenAI Codex.
+- `OllamaCloudProviderAdapter` with manual and opt-in experimental web-page modes.
 - `ClaudeCodeProviderAdapter` with manual and opt-in local-snapshot modes.
 - `snapshots.json` for persisted normalized snapshots.
 - `providers.json` for persisted provider enablement state.
@@ -49,7 +50,8 @@ The app ships with:
   real provider integrations.
 
 The MVP deliberately does not fetch authoritative live OpenAI, Claude, or Ollama
-quota data. Claude Code can read an AI Limitbar-owned local snapshot as an
+quota data. Ollama's experimental page source is live but undocumented and is
+not treated as authoritative. Claude Code can read an AI Limitbar-owned local snapshot as an
 explicit local estimate; the other provider paths remain manual-confidence
 placeholders until stable machine-readable sources are verified.
 
@@ -337,9 +339,9 @@ Research result: the authenticated `https://ollama.com/settings` page currently
 server-renders session and weekly usage percentages with reset information. No
 separate usage JSON response was observed during the page-load check.
 
-Current implementation status: manual-confidence placeholder only. Planned
-Milestone 14 adds an explicit opt-in `ollama-web-page` source mode; it does not
-turn the undocumented page into a supported Ollama API.
+Current implementation status: manual-confidence placeholder remains the default,
+and Milestone 14 adds an explicit opt-in `ollama-web-page` source mode. This does
+not turn the undocumented page into a supported Ollama API.
 
 Research dates: 2026-07-07 and 2026-07-13.
 
@@ -373,15 +375,27 @@ Current source mode: open Ollama account/settings pages and label the snapshot
 as manual. Do not call Ollama Cloud APIs for usage monitoring until a documented
 account usage endpoint exists.
 
-Planned source mode: `ollama-web-page` is opt-in and starts with an
-AI Limitbar-owned `WKWebView` connection. The user completes sign-in in that
-view; the app never reuses or extracts a session from Codex, Safari, Chrome, or
-another browser. The parser reads only the two normalized limit windows,
-discards raw content after validation, and leaves the last valid snapshot in
-place after a missing session, parser drift, incomplete data, timeout, or load
-failure. If AI Limitbar later becomes an Ollama request proxy, it can expose
-its own `local-estimate` counters for observed requests, but those must remain
-labeled as partial and not account-wide.
+Implemented source mode: `ollama-web-page` is opt-in and starts with an
+AI Limitbar-owned `WKWebView` connection. Each account stores only an opaque
+WebKit data-store UUID in provider configuration; WebKit owns the persistent
+session data. The user completes sign-in in that view, and the app never reuses
+or extracts a session from Codex, Safari, Chrome, or another browser.
+
+The WebKit user script is guarded to `https://ollama.com/settings` and extracts
+only semantic `Session usage` and `Weekly usage` values from their individual
+usage cards, even when Ollama wraps both cards in a shared section. Interactive
+login may follow the expected Ollama WorkOS/Google/GitHub authentication
+redirects; reset times are carried through when exposed by the page.
+scheduled refresh never follows auth redirects. Interactive login remains open
+until it completes or the user cancels the connection sheet, while scheduled
+refresh keeps a 20-second load timeout. Swift validates the
+typed bridge payload before mapping it to two `UsageLimitWindow` entries,
+discards the in-memory payload after validation, and leaves the last valid
+snapshot in place after a missing session, parser drift, incomplete data,
+timeout, or load failure. Scheduled refresh never foregrounds the login UI or
+attempts unattended reauthentication. If AI Limitbar later becomes an Ollama
+request proxy, it can expose its own `local-estimate` counters for observed
+requests, but those must remain labeled as partial and not account-wide.
 
 ## App Architecture
 
@@ -478,6 +492,8 @@ by default and are surfaced immediately without retry.
   details.
 - Keep any experimental scraping or browser-derived provider mode disabled by
   default and clearly marked.
+- Keep Ollama WebKit sessions isolated per account and delete the corresponding
+  WebKit data store when the account is deleted.
 
 ## UI Direction
 

@@ -3,11 +3,13 @@ import Foundation
 public enum ProviderSourceMode: String, Codable, CaseIterable, Sendable {
     case manual
     case localSnapshot = "local-snapshot"
+    case ollamaWebPage = "ollama-web-page"
 
     public var displayName: String {
         switch self {
         case .manual: "Manual"
         case .localSnapshot: "Local snapshot"
+        case .ollamaWebPage: "Experimental web page"
         }
     }
 }
@@ -25,6 +27,7 @@ public struct ProviderAccount: Codable, Identifiable, Equatable, Sendable {
     public var isEnabled: Bool
     public var sourceMode: ProviderSourceMode
     public var localSnapshotPath: String?
+    public var webDataStoreID: UUID?
 
     public init(
         providerID: String,
@@ -32,7 +35,8 @@ public struct ProviderAccount: Codable, Identifiable, Equatable, Sendable {
         displayName: String = ProviderAccount.defaultDisplayName,
         isEnabled: Bool,
         sourceMode: ProviderSourceMode = .manual,
-        localSnapshotPath: String? = nil
+        localSnapshotPath: String? = nil,
+        webDataStoreID: UUID? = nil
     ) {
         self.providerID = providerID
         self.accountID = accountID
@@ -40,6 +44,7 @@ public struct ProviderAccount: Codable, Identifiable, Equatable, Sendable {
         self.isEnabled = isEnabled
         self.sourceMode = sourceMode
         self.localSnapshotPath = localSnapshotPath
+        self.webDataStoreID = webDataStoreID
     }
 
     public init(from decoder: Decoder) throws {
@@ -50,5 +55,6 @@ public struct ProviderAccount: Codable, Identifiable, Equatable, Sendable {
         isEnabled = try container.decode(Bool.self, forKey: .isEnabled)
         sourceMode = try container.decodeIfPresent(ProviderSourceMode.self, forKey: .sourceMode) ?? .manual
         localSnapshotPath = try container.decodeIfPresent(String.self, forKey: .localSnapshotPath)
+        webDataStoreID = try container.decodeIfPresent(UUID.self, forKey: .webDataStoreID)
     }
 }
