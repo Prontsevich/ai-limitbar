@@ -620,6 +620,13 @@ WidgetKit extension.
 - [ ] Add export/debug bundle without secrets.
 - [ ] Add smoke verification for app launch, refresh, settings persistence, and
   snapshot persistence.
+- [ ] Adapt Ollama-owned settings and sign-in pages in the isolated WebKit view
+  to the effective macOS appearance with a separate visual-only `WKUserScript`.
+  Change only colors, backgrounds, borders, text contrast, and color scheme;
+  preserve page behavior, usage extraction, and the normalized bridge payload.
+- [ ] Apply the Ollama visual stylesheet only to `ollama.com` and
+  `signin.ollama.com`; leave WorkOS, Google, GitHub, and other third-party OAuth
+  pages provider-controlled.
 
 Acceptance:
 
@@ -627,6 +634,8 @@ Acceptance:
 - The panel remains usable with multiple providers and accounts.
 - Debug output helps diagnose issues without leaking credentials or raw provider
   responses.
+- Ollama-owned pages follow the active appearance without disrupting sign-in,
+  navigation, keyboard focus, form controls, or usage parsing.
 
 ## Later
 

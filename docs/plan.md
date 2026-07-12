@@ -386,7 +386,7 @@ only semantic `Session usage` and `Weekly usage` values from their individual
 usage cards, even when Ollama wraps both cards in a shared section. Interactive
 login may follow the expected Ollama WorkOS/Google/GitHub authentication
 redirects; reset times are carried through when exposed by the page.
-scheduled refresh never follows auth redirects. Interactive login remains open
+Scheduled refresh never follows auth redirects. Interactive login remains open
 until it completes or the user cancels the connection sheet, while scheduled
 refresh keeps a 20-second load timeout. Swift validates the
 typed bridge payload before mapping it to two `UsageLimitWindow` entries,
@@ -396,6 +396,13 @@ timeout, or load failure. Scheduled refresh never foregrounds the login UI or
 attempts unattended reauthentication. If AI Limitbar later becomes an Ollama
 request proxy, it can expose its own `local-estimate` counters for observed
 requests, but those must remain labeled as partial and not account-wide.
+
+Deferred polish: a separate, visual-only `WKUserScript` may adapt
+the Ollama-owned settings and sign-in pages to the effective macOS appearance.
+It may change only colors, backgrounds, borders, text contrast, and color
+scheme. It must not alter visibility, layout, controls, focus, submission,
+navigation, usage extraction, or bridge payloads. The stylesheet must not be
+injected into WorkOS, Google, GitHub, or other third-party OAuth pages.
 
 ## App Architecture
 
