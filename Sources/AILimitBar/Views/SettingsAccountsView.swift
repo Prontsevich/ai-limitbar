@@ -3,149 +3,236 @@ import SwiftUI
 
 struct AccountsSettingsPane: View {
     @ObservedObject var appModel: AppModel
-    @Binding var isAddingAccount: Bool
-    @FocusState private var focusedField: SettingsFocusField?
+    @Binding var editorSession: AccountEditorSession
+    let onRequestAccountSelection: (String?) -> Void
+
+    @State private var isShowingDeleteConfirmation = false
 
     var body: some View {
-        Form {
-            Section {
-                Text("Account order here matches the menu bar dashboard.")
-                    .foregroundStyle(.secondary)
-            }
+        VStack(spacing: 0) {
+            HSplitView {
+                accountList
+                    .frame(minWidth: 220, idealWidth: 240, maxWidth: 280)
 
-            if isAddingAccount {
-                InlineAddAccountForm(
+                detail
+                    .frame(minWidth: 460, maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
+        .onAppear(perform: reconcileSelection)
+        .onChange(of: accountIDs) { _, _ in
+            reconcileSelection()
+        }
+        .alert("Delete Account?", isPresented: $isShowingDeleteConfirmation) {
+            Button("Delete", role: .destructive, action: deleteSelectedAccount)
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This removes \(selectedAccount?.displayName ?? "the selected account") and its stored snapshot from AI Limitbar.")
+        }
+    }
+
+    private var accountList: some View {
+        VStack(spacing: 0) {
+            List(selection: accountSelection) {
+                ForEach(appModel.providerAccounts) { account in
+                    AccountListRow(
+                        account: account,
+                        providerName: appModel.providerDisplayName(for: account.providerID)
+                    )
+                    .tag(account.id)
+                    .contextMenu {
+                        Button("Move Up") {
+                            appModel.moveAccountUp(providerID: account.providerID, accountID: account.accountID)
+                        }
+                        .disabled(editorSession.isDirty || !appModel.canMoveAccountUp(
+                            providerID: account.providerID,
+                            accountID: account.accountID
+                        ))
+
+                        Button("Move Down") {
+                            appModel.moveAccountDown(providerID: account.providerID, accountID: account.accountID)
+                        }
+                        .disabled(editorSession.isDirty || !appModel.canMoveAccountDown(
+                            providerID: account.providerID,
+                            accountID: account.accountID
+                        ))
+                    }
+                }
+                .onMove { offsets, destination in
+                    guard !editorSession.isDirty else { return }
+                    appModel.moveAccounts(fromOffsets: offsets, toOffset: destination)
+                }
+            }
+            .listStyle(.sidebar)
+            .scrollContentBackground(.hidden)
+            .background(Color(nsColor: .controlBackgroundColor))
+
+            Divider()
+
+            HStack(spacing: 10) {
+                Button(action: beginAdding) {
+                    SettingsGlassIcon(systemName: "plus")
+                }
+                .settingsGlassIconButton(help: "Add account")
+                .accessibilityLabel("Add account")
+
+                Button(role: .destructive) {
+                    isShowingDeleteConfirmation = true
+                } label: {
+                    SettingsGlassIcon(systemName: "minus")
+                }
+                .settingsGlassIconButton(help: "Delete selected account")
+                .accessibilityLabel("Delete selected account")
+                .disabled(selectedAccount == nil || editorSession.isDirty)
+
+                Spacer()
+
+                Button {
+                    appModel.refresh()
+                } label: {
+                    SettingsGlassIcon(systemName: "arrow.clockwise")
+                }
+                .settingsGlassIconButton(help: appModel.isRefreshing ? "Refreshing all accounts" : "Refresh all accounts")
+                .accessibilityLabel(appModel.isRefreshing ? "Refreshing all accounts" : "Refresh all accounts")
+                .disabled(appModel.isRefreshing || appModel.hasActiveProviderRefresh || !appModel.hasEnabledAccounts)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+        }
+    }
+
+    @ViewBuilder
+    private var detail: some View {
+        if editorSession.mode == .creating {
+            AccountEditorView(
+                appModel: appModel,
+                account: nil,
+                isDirty: $editorSession.isDirty,
+                onCancel: discardEditor,
+                onCreate: { accountID in
+                    editorSession.selectedAccountID = accountID
+                    finishEditor()
+                },
+                onSave: { finishEditor() }
+            )
+            .id("new-account")
+        } else if let account = selectedAccount {
+            if editorSession.mode == .editing {
+                AccountEditorView(
                     appModel: appModel,
-                    focusedField: $focusedField,
-                    onCancel: finishAdding,
-                    onCreate: finishAdding
+                    account: account,
+                    isDirty: $editorSession.isDirty,
+                    onCancel: discardEditor,
+                    onCreate: { _ in },
+                    onSave: { finishEditor() }
+                )
+                .id(account.id)
+            } else {
+                AccountDetailView(
+                    appModel: appModel,
+                    account: account,
+                    onEdit: beginEditing
                 )
             }
-
-            if appModel.providerAccounts.isEmpty {
-                Section {
-                    ContentUnavailableView(
-                        "No Accounts",
-                        systemImage: "person.crop.square.badge.plus",
-                        description: Text("Create an account to start tracking usage.")
-                    )
-                    .frame(maxWidth: .infinity, minHeight: 220)
-                }
-            } else {
-                ForEach(appModel.providerAccounts) { account in
-                    ProviderAccountSettingsCard(
-                        appModel: appModel,
-                        account: account,
-                        focusedField: $focusedField
-                    )
-                }
-            }
-        }
-        .formStyle(.grouped)
-        .padding(18)
-        .frame(maxWidth: 560, alignment: .topLeading)
-        .contentShape(Rectangle())
-        .onTapGesture { focusedField = nil }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button {
-                    isAddingAccount.toggle()
-                    focusedField = isAddingAccount ? .newAccountName : nil
-                } label: {
-                    Label(
-                        isAddingAccount ? "Cancel Add" : "Add Account",
-                        systemImage: isAddingAccount ? "xmark" : "plus"
-                    )
-                }
-                .buttonStyle(.borderedProminent)
-            }
+        } else {
+            ContentUnavailableView(
+                "No Account Selected",
+                systemImage: "person.crop.square",
+                description: Text("Select an account or add a new one to configure it.")
+            )
         }
     }
 
-    private func finishAdding() {
-        isAddingAccount = false
-        focusedField = nil
+    private var accountSelection: Binding<String?> {
+        Binding(
+            get: { editorSession.selectedAccountID },
+            set: { requestedAccountID in
+                requestAccountSelection(requestedAccountID)
+            }
+        )
+    }
+
+    private var selectedAccount: ProviderAccount? {
+        guard let selectedAccountID = editorSession.selectedAccountID else { return nil }
+        return appModel.providerAccounts.first { $0.id == selectedAccountID }
+    }
+
+    private var accountIDs: [String] {
+        appModel.providerAccounts.map(\.id)
+    }
+
+    private func beginAdding() {
+        guard !editorSession.isDirty else { return }
+        editorSession.selectedAccountID = nil
+        editorSession.mode = .creating
+        editorSession.isDirty = false
+    }
+
+    private func beginEditing() {
+        guard selectedAccount != nil else { return }
+        editorSession.mode = .editing
+        editorSession.isDirty = false
+    }
+
+    private func requestAccountSelection(_ accountID: String?) {
+        guard accountID != editorSession.selectedAccountID else { return }
+        onRequestAccountSelection(accountID)
+    }
+
+    private func finishEditor() {
+        editorSession.discardEditor()
+        reconcileSelection()
+    }
+
+    private func discardEditor() {
+        editorSession.discardEditor()
+        if editorSession.selectedAccountID == nil {
+            editorSession.selectedAccountID = appModel.providerAccounts.first?.id
+        }
+    }
+
+    private func deleteSelectedAccount() {
+        guard let account = selectedAccount,
+              let index = appModel.providerAccounts.firstIndex(where: { $0.id == account.id })
+        else { return }
+
+        let nextSelection = appModel.providerAccounts.dropFirst(index + 1).first?.id
+            ?? appModel.providerAccounts.prefix(index).last?.id
+        appModel.deleteAccount(providerID: account.providerID, accountID: account.accountID)
+        editorSession.selectedAccountID = nextSelection
+        reconcileSelection()
+    }
+
+    private func reconcileSelection() {
+        guard editorSession.mode != .creating else { return }
+        guard let selectedAccountID = editorSession.selectedAccountID,
+              appModel.providerAccounts.contains(where: { $0.id == selectedAccountID })
+        else {
+            editorSession.selectedAccountID = appModel.providerAccounts.first?.id
+            return
+        }
     }
 }
 
-private struct InlineAddAccountForm: View {
-    @ObservedObject var appModel: AppModel
-    let focusedField: FocusState<SettingsFocusField?>.Binding
-    let onCancel: () -> Void
-    let onCreate: () -> Void
-    @State private var providerID: String
-    @State private var displayName = ""
-    @State private var isEnabled = true
-    @State private var sourceMode = ProviderSourceMode.manual
-    @State private var localSnapshotPath = ""
-
-    init(
-        appModel: AppModel,
-        focusedField: FocusState<SettingsFocusField?>.Binding,
-        onCancel: @escaping () -> Void,
-        onCreate: @escaping () -> Void
-    ) {
-        self.appModel = appModel
-        self.focusedField = focusedField
-        self.onCancel = onCancel
-        self.onCreate = onCreate
-        _providerID = State(initialValue: appModel.providerIDs.first ?? "")
-    }
+private struct AccountListRow: View {
+    let account: ProviderAccount
+    let providerName: String
 
     var body: some View {
-        Section("New Account") {
-            Picker("Provider", selection: $providerID) {
-                ForEach(appModel.providerIDs, id: \.self) { providerID in
-                    Text(appModel.providerDisplayName(for: providerID)).tag(providerID)
-                }
-            }
-            .frame(maxWidth: 320, alignment: .leading)
+        HStack(spacing: 10) {
+            Image(systemName: "person.crop.square")
+                .foregroundStyle(.secondary)
+                .frame(width: 18)
 
-            TextField("Account Name", text: $displayName)
-                .textFieldStyle(.roundedBorder)
-                .focused(focusedField, equals: .newAccountName)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(account.displayName)
+                    .lineLimit(1)
 
-            Toggle("Enabled", isOn: $isEnabled)
-
-            if providerID == "claude-code" {
-                Picker("Source", selection: $sourceMode) {
-                    Text(ProviderSourceMode.manual.displayName).tag(ProviderSourceMode.manual)
-                    Text(ProviderSourceMode.localSnapshot.displayName).tag(ProviderSourceMode.localSnapshot)
-                }
-                .pickerStyle(.segmented)
-
-                TextField("Local snapshot JSON path", text: $localSnapshotPath)
-                    .textFieldStyle(.roundedBorder)
-                    .focused(focusedField, equals: .newLocalSnapshotPath)
-                    .disabled(sourceMode != .localSnapshot)
-            }
-
-            HStack {
-                Spacer()
-                Button("Cancel", action: onCancel)
-                    .keyboardShortcut(.cancelAction)
-
-                Button("Create") {
-                    appModel.addAccount(
-                        providerID: providerID,
-                        displayName: displayName,
-                        isEnabled: isEnabled,
-                        sourceMode: providerID == "claude-code" ? sourceMode : .manual,
-                        localSnapshotPath: providerID == "claude-code" ? localSnapshotPath : nil
-                    )
-                    onCreate()
-                }
-                .keyboardShortcut(.defaultAction)
-                .disabled(providerID.isEmpty)
+                Text(providerName)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
             }
         }
+        .accessibilityElement(children: .combine)
     }
-}
-
-enum SettingsFocusField: Hashable {
-    case accountName(String)
-    case localSnapshotPath(String)
-    case newAccountName
-    case newLocalSnapshotPath
 }

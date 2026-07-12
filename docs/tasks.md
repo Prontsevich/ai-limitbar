@@ -412,6 +412,51 @@ Decision:
 - AppKit may be used only at a narrow platform lifecycle boundary where SwiftUI
   does not expose an equivalent application-termination action.
 
+## Milestone 12.2: Settings Account Master-Detail Redesign
+
+Goal: make Settings feel like a compact native macOS preference window, with
+account management modeled after the Accounts pane in system apps.
+
+- [x] Replace the top-level Settings sidebar and tile bar with a compact native
+  segmented control for Accounts, Refresh, and Provider Setup; render each
+  section below it so the Accounts master-detail sidebar remains local.
+- [x] Rebuild Accounts as a master-detail layout: a compact account list on the
+  left and selected-account configuration on the right.
+- [x] Show account name first and provider name second in the list.
+- [x] Add native drag-and-drop reordering; keep Move Up/Down in the row context
+  menu as an accessibility fallback.
+- [x] Put add/delete controls in the list footer and keep delete confirmation.
+- [x] Add a read-only detail state with immediate Enabled control, visible
+  Refresh action, Edit button, and overflow menu for Test Connection/Open Usage.
+- [x] Add create and edit forms in the detail pane with Save/Cancel behavior.
+- [x] Make multi-field account edits persist atomically without changing the
+  existing configuration storage format.
+- [x] Guard account and section navigation with one discard confirmation that
+  appears only after meaningful draft changes.
+- [x] Reset the editor session and return to Accounts when Settings closes;
+  reopening Settings must not restore an active draft.
+- [x] Normalize draft values using the same trimming/default rules as account
+  persistence before deciding whether a draft is dirty.
+- [x] Add app-model coverage for atomic account edits and multi-row reordering.
+- [x] Use system glass icon buttons for account actions, move Refresh All into
+  the account-list footer, and keep all Settings pane content on a consistent
+  readable width.
+- [x] Keep the overflow trigger as a matching glass button while presenting
+  its actions through a narrow native `NSMenu` bridge, because the SwiftUI
+  Settings toolbar renderer does not expose the Notes-style menu affordance.
+
+Acceptance:
+
+- Settings opens directly to Accounts with a compact segmented section control,
+  without a permanent top tile bar.
+- Account rows remain compact and preserve the user-defined dashboard order.
+- Frequent refresh actions are discoverable; less frequent actions do not crowd
+  the account detail header.
+- Entering Edit without changing a field does not trigger a discard prompt.
+- Closing and reopening Settings shows a clean Accounts state.
+- Edit, create, delete, enable/disable, reorder, refresh, connection test, and
+  usage-page workflows remain available.
+
 ## Milestone 13: Claude Code Data Source
 
 Goal: make Claude Code useful without relying on hand-edited JSON files.

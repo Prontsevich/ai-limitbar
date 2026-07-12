@@ -188,6 +188,100 @@ final class AppModelTests: XCTestCase {
     }
 
     @MainActor
+    func testAtomicAccountEditPersistsAllEditableFields() throws {
+        let directory = try temporaryDirectory()
+        let adapter = ImmediateProviderAdapter(id: "claude-code")
+        let model = AppModel(
+            registry: ProviderRegistry(adapters: [adapter]),
+            storageDirectory: directory
+        )
+        model.addAccount(providerID: adapter.id, displayName: "Personal")
+        let account = try XCTUnwrap(model.providerAccounts.first)
+
+        XCTAssertTrue(model.updateAccount(
+            providerID: account.providerID,
+            accountID: account.accountID,
+            displayName: "  Work  ",
+            sourceMode: .localSnapshot,
+            localSnapshotPath: "  ~/usage.json  "
+        ))
+
+        let reloaded = AppModel(
+            registry: ProviderRegistry(adapters: [adapter]),
+            storageDirectory: directory
+        )
+        let reloadedAccount = try XCTUnwrap(reloaded.providerAccounts.first)
+        XCTAssertEqual(reloadedAccount.displayName, "Work")
+        XCTAssertEqual(reloadedAccount.sourceMode, .localSnapshot)
+        XCTAssertEqual(reloadedAccount.localSnapshotPath, "~/usage.json")
+    }
+
+    @MainActor
+    func testMovingMultipleAccountsPreservesDashboardOrder() throws {
+        let directory = try temporaryDirectory()
+        let adapter = ImmediateProviderAdapter(id: "test")
+        let model = AppModel(
+            registry: ProviderRegistry(adapters: [adapter]),
+            storageDirectory: directory
+        )
+        model.addAccount(providerID: adapter.id, displayName: "First")
+        model.addAccount(providerID: adapter.id, displayName: "Second")
+        model.addAccount(providerID: adapter.id, displayName: "Third")
+
+        model.moveAccounts(fromOffsets: IndexSet([0, 1]), toOffset: 3)
+
+        XCTAssertEqual(model.providerAccounts.map(\.displayName), ["Third", "First", "Second"])
+        XCTAssertEqual(model.enabledAccountRows.map(\.account.displayName), ["Third", "First", "Second"])
+    }
+
+    func testAccountEditorDraftIgnoresPersistenceEquivalentWhitespace() {
+        let original = AccountEditorDraft(
+            providerID: "claude-code",
+            displayName: "Work",
+            sourceMode: .localSnapshot,
+            localSnapshotPath: "~/usage.json"
+        )
+        let equivalent = AccountEditorDraft(
+            providerID: "claude-code",
+            displayName: "  Work  ",
+            sourceMode: .localSnapshot,
+            localSnapshotPath: "  ~/usage.json  "
+        )
+
+        XCTAssertFalse(equivalent.hasChanges(comparedTo: original))
+    }
+
+    func testAccountEditorDraftTracksMeaningfulChanges() {
+        let original = AccountEditorDraft(providerID: "claude-code")
+        XCTAssertFalse(original.hasChanges(comparedTo: original))
+
+        var changed = original
+        changed.displayName = "Work"
+        changed.sourceMode = .localSnapshot
+        changed.localSnapshotPath = "~/usage.json"
+
+        XCTAssertTrue(changed.hasChanges(comparedTo: original))
+    }
+
+    func testAccountEditorSessionDiscardPreservesSelectionAndResetClearsIt() {
+        var session = AccountEditorSession(
+            selectedAccountID: "account-1",
+            mode: .editing,
+            isDirty: true
+        )
+
+        session.discardEditor()
+        XCTAssertEqual(session.selectedAccountID, "account-1")
+        XCTAssertNil(session.mode)
+        XCTAssertFalse(session.isDirty)
+
+        session.reset()
+        XCTAssertNil(session.selectedAccountID)
+        XCTAssertNil(session.mode)
+        XCTAssertFalse(session.isDirty)
+    }
+
+    @MainActor
     func testSuccessfulRefreshUpdatesSnapshotStatusAndStaleness() async throws {
         let directory = try temporaryDirectory()
         let adapter = ImmediateProviderAdapter(id: "refreshable")

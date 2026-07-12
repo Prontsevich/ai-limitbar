@@ -474,23 +474,34 @@ access details.
 The settings UI should support:
 
 - A native SwiftUI Settings window opened through the system settings action.
-- Account-first organization with clear Accounts, Refresh, and Provider Setup
-  zones.
+- A compact native segmented navigation control for Accounts, Refresh, and
+  Provider Setup instead of a permanent top tile bar or navigation sidebar.
+- An Accounts master-detail layout with an account-name-first list, provider as
+  secondary text, footer add/delete controls, and selected-account detail pane.
 - Enabling/disabling providers.
-- Ordering accounts with simple move up/down controls.
+- Ordering accounts through native drag-and-drop, with Move Up/Down context-menu
+  actions as a keyboard/accessibility fallback.
 - Selecting auth/source mode where applicable.
-- Testing provider connection.
-- Opening the provider's usage page.
+- A visible Refresh All icon action in the account-list footer and a
+  selected-account Refresh action, with Test Connection and Open Usage in an
+  overflow menu without a separate disclosure chevron.
+- The overflow trigger should remain visually consistent with the other glass
+  buttons; its popup may use a narrow native `NSMenu` bridge when the SwiftUI
+  Settings renderer cannot reproduce the standard macOS menu presentation.
+- Read-first account details with explicit Edit, Save, and Cancel actions.
+- A single discard-confirmation flow for meaningful unsaved account changes
+  when switching accounts or Settings sections.
+- Reset of transient account-editor state when Settings closes, so reopening
+  starts from a clean Accounts view.
+- Testing provider connection and opening the provider's usage page.
 
 Settings should be redesigned around the modern macOS system language. Prefer
-system sidebars, toolbar groups, native buttons, forms, pickers, toggles, menus,
-sheets, and popovers because they already include the intended Liquid Glass
+native tabs, lists, split layouts, buttons, forms, pickers, toggles, menus, and
+confirmation dialogs because they already include the intended Liquid Glass
 appearance and interaction behavior. Use custom Liquid Glass surfaces for
 AI Limitbar-specific compositions, such as account status clusters or dashboard
 summaries, not to recreate standard controls. Preserve the working account
-workflows while removing legacy-looking custom chrome. Account settings should
-use grouped form sections and native disclosure rows before custom account
-cards.
+workflows while removing legacy-looking custom chrome and custom account cards.
 
 Settings windowing should use SwiftUI's `Settings` scene. Previous controlled
 AppKit window lifecycle work is no longer the desired direction. Settings

@@ -40,6 +40,42 @@ extension AppModel {
         saveSnapshots()
     }
 
+    @discardableResult
+    func updateAccount(
+        providerID: String,
+        accountID: String,
+        displayName: String,
+        sourceMode: ProviderSourceMode,
+        localSnapshotPath: String?
+    ) -> Bool {
+        let previousAccounts = providerAccounts
+        let previousSnapshots = snapshots
+        guard let index = providerAccounts.firstIndex(where: {
+            $0.providerID == providerID && $0.accountID == accountID
+        }) else { return false }
+
+        let trimmedDisplayName = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedSnapshotPath = localSnapshotPath?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let resolvedDisplayName = trimmedDisplayName.isEmpty ? ProviderAccount.defaultDisplayName : trimmedDisplayName
+
+        providerAccounts[index].displayName = resolvedDisplayName
+        providerAccounts[index].sourceMode = sourceMode
+        providerAccounts[index].localSnapshotPath = trimmedSnapshotPath.isEmpty ? nil : trimmedSnapshotPath
+        updateSnapshotAccountDisplayName(
+            providerID: providerID,
+            accountID: accountID,
+            displayName: resolvedDisplayName
+        )
+
+        guard saveConfiguration() else {
+            providerAccounts = previousAccounts
+            snapshots = previousSnapshots
+            return false
+        }
+        saveSnapshots()
+        return true
+    }
+
     func setAccountSourceMode(_ providerID: String, accountID: String, sourceMode: ProviderSourceMode) {
         let previousAccounts = providerAccounts
         guard let index = providerAccounts.firstIndex(where: {
@@ -72,6 +108,27 @@ extension AppModel {
         moveAccount(providerID: providerID, accountID: accountID, offset: 1)
     }
 
+    func moveAccounts(fromOffsets offsets: IndexSet, toOffset destination: Int) {
+        guard !offsets.isEmpty,
+              destination >= 0,
+              destination <= providerAccounts.count,
+              offsets.allSatisfy(providerAccounts.indices.contains)
+        else { return }
+
+        let previousAccounts = providerAccounts
+        let movedAccounts = offsets.map { providerAccounts[$0] }
+        var remainingAccounts = providerAccounts.enumerated().compactMap { index, account in
+            offsets.contains(index) ? nil : account
+        }
+        let adjustedDestination = destination - offsets.filter { $0 < destination }.count
+        remainingAccounts.insert(contentsOf: movedAccounts, at: adjustedDestination)
+        providerAccounts = remainingAccounts
+
+        if !saveConfiguration() {
+            providerAccounts = previousAccounts
+        }
+    }
+
     func canMoveAccountUp(providerID: String, accountID: String) -> Bool {
         guard let index = providerAccounts.firstIndex(where: {
             $0.providerID == providerID && $0.accountID == accountID
@@ -86,14 +143,15 @@ extension AppModel {
         return index < providerAccounts.index(before: providerAccounts.endIndex)
     }
 
+    @discardableResult
     func addAccount(
         providerID: String,
         displayName: String? = nil,
         isEnabled: Bool = true,
         sourceMode: ProviderSourceMode = .manual,
         localSnapshotPath: String? = nil
-    ) {
-        guard adapter(for: providerID) != nil else { return }
+    ) -> ProviderAccount? {
+        guard adapter(for: providerID) != nil else { return nil }
         let previousAccounts = providerAccounts
         let trimmedDisplayName = displayName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let trimmedSnapshotPath = localSnapshotPath?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
@@ -108,7 +166,9 @@ extension AppModel {
         providerAccounts.append(account)
         if !saveConfiguration() {
             providerAccounts = previousAccounts
+            return nil
         }
+        return account
     }
 
     func deleteAccount(providerID: String, accountID: String) {
