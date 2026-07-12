@@ -66,6 +66,6 @@ private struct ProviderSetupRow: View {
     }
 
     private var sourceSummary: String {
-        providerID == "claude-code" ? "Manual or local snapshot source" : "Manual source"
+        providerID == "claude-code" ? "Manual or local snapshot · statusLine helper" : "Manual source"
     }
 }

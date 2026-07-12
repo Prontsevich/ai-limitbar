@@ -307,6 +307,56 @@ final class AppModelTests: XCTestCase {
         ))
     }
 
+    @MainActor
+    func testInvalidClaudeSnapshotPreservesPreviousUsageData() async throws {
+        let directory = try temporaryDirectory()
+        let snapshotURL = directory.appendingPathComponent("claude-code.json")
+        try Data(
+            """
+            {
+              "schemaVersion": 1,
+              "limitWindows": [
+                { "id": "rolling-5-hour", "displayName": "5-hour", "usedPercent": 42 }
+              ],
+              "lastUpdatedAt": "2026-07-12T09:00:00Z"
+            }
+            """.utf8
+        ).write(to: snapshotURL)
+
+        let adapter = ClaudeCodeProviderAdapter()
+        let model = AppModel(
+            registry: ProviderRegistry(adapters: [adapter]),
+            storageDirectory: directory
+        )
+        model.addAccount(
+            providerID: adapter.id,
+            displayName: "Work",
+            sourceMode: .localSnapshot,
+            localSnapshotPath: snapshotURL.path
+        )
+        let account = try XCTUnwrap(model.providerAccounts.first)
+
+        model.refreshAccount(providerID: account.providerID, accountID: account.accountID)
+        while model.refreshStatus(for: account) == .refreshing {
+            await Task.yield()
+        }
+        let previousSnapshot = try XCTUnwrap(model.snapshot(for: account))
+
+        try Data("{invalid".utf8).write(to: snapshotURL)
+        model.refreshAccount(providerID: account.providerID, accountID: account.accountID)
+        while model.refreshStatus(for: account) == .refreshing {
+            await Task.yield()
+        }
+
+        XCTAssertEqual(model.snapshot(for: account), previousSnapshot)
+        XCTAssertNotNil(model.accountRefreshIssues[account.id])
+        if case .failed = model.refreshStatus(for: account) {
+            // Expected: the failed refresh is tracked separately from the last good snapshot.
+        } else {
+            XCTFail("Expected the invalid helper output to mark the refresh as failed.")
+        }
+    }
+
     private func temporaryDirectory() throws -> URL {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)

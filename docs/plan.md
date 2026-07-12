@@ -213,10 +213,11 @@ other Claude surfaces.
 Initial integration should separate local estimates from official account-level
 usage if both become available.
 
-MVP status: manual-confidence placeholder only. The app does not parse local
-Claude Code files or CLI output until the source format is verified.
+MVP status: opt-in `local-estimate` source backed by an AI Limitbar-owned
+snapshot written by the Claude Code `statusLine` helper. The app does not parse
+Claude interactive screens, private local files, or browser pages.
 
-Research date: 2026-07-07.
+Research date: 2026-07-12.
 
 Official sources checked:
 
@@ -231,32 +232,34 @@ Supported source strategy:
 | Source | Output shape | Fit for AI Limitbar |
 | --- | --- | --- |
 | Claude Code `/usage`, `/cost`, and `/stats` commands | Interactive session screen showing session cost, plan usage limits, activity stats, and per-feature breakdown on supported plans. API session cost is computed locally from token counts. Pro, Max, Team, and Enterprise plans include plan usage bars and breakdowns; day/week breakdown is approximate and computed from local session history on the current machine. | Good manual source. Not a reliable parser target for MVP because the checked docs describe an interactive command, not a stable JSON CLI/API output for current remaining plan quota. |
-| Claude Code status line | User-configured command receives JSON session data on stdin and can render context window usage, costs, model, git state, or custom data. | Useful for a future opt-in local helper if the user chooses to install an AI Limitbar status-line script. It measures current-session/context data, not authoritative account-level plan usage. |
+| Claude Code status line | User-configured command receives JSON session data on stdin, including `rate_limits.five_hour` and `rate_limits.seven_day` with consumed percentages and reset timestamps when available. | Selected opt-in source. AI Limitbar's helper writes a versioned local snapshot with `local-estimate` confidence. It remains machine/session-local, not authoritative account-wide usage. |
 | OpenTelemetry export | Metrics and logs/events for organization usage, cost, token counters, active time, tool activity, and API request events when telemetry is enabled. | Future team/admin mode can ingest telemetry with `local-estimate` or organization-reporting confidence. It requires explicit telemetry configuration and is not a default personal account source. |
 | Claude Code analytics dashboard | Team/Enterprise usage and contribution dashboards, with CSV export; API customers have Console team insights. | Future admin/reporting mode only. Not a live personal remaining-limit source. |
 | Claude Console Usage page | Authoritative billing for API users. | Manual source for API billing. It should not be shown as Claude subscription plan remaining quota. |
 
-Selected initial confidence level: `manual`.
+Selected initial confidence level: `local-estimate` for statusLine snapshots and
+`manual` when the helper is not configured.
 
-Selected MVP source mode: open or instruct the user to inspect Claude Code
-`/usage`. Do not parse the interactive `/usage` screen, undocumented local
-session files, or status-line JSON as an account quota source. A future opt-in
-`local-estimate` mode can be added only if AI Limitbar owns the collection
-mechanism, such as a documented telemetry export or a user-installed status-line
-helper with a clearly scoped snapshot schema.
+Selected MVP source mode: configure an AI Limitbar-owned statusLine helper. The
+helper consumes only documented statusLine JSON and writes schema v1 to
+`~/Library/Application Support/AI Limitbar/Claude Code/statusline.json`. The
+user must explicitly add the generated command to `~/.claude/settings.json`;
+AI Limitbar does not edit Claude Code settings automatically.
 
 First real provider decision: Claude Code is the initial Milestone 5 provider.
-The first implementation should not attempt to parse Claude's interactive
-screens or private local files. It should add an opt-in local-estimate mode that
-reads an AI Limitbar-owned JSON snapshot file written by a future helper. The
-snapshot contract must be documented, versioned, and clearly labeled as local
+The first implementation does not parse Claude's interactive screens or private
+local files. It provides an opt-in helper that writes an AI Limitbar-owned JSON
+snapshot. The snapshot contract is versioned and clearly labeled as local
 machine data rather than authoritative account-level quota.
 
 Configuration requirements:
 
 - Provider settings persist a source mode for each provider.
 - Claude Code supports `manual` and `local-snapshot` source modes.
-- Claude Code local-snapshot mode persists a user-provided JSON file path.
+- Claude Code local-snapshot mode persists a JSON file path; the Settings helper
+  setup defaults to the managed Application Support path.
+- One enabled account may use the managed helper path because Claude Code's
+  statusLine input does not carry an account identifier.
 - Existing provider settings without source fields must continue to load as
   `manual` mode.
 
@@ -297,6 +300,13 @@ payload to a normalized `UsageSnapshot` with `local-estimate` confidence and
 adds a warning that the data is local only. The legacy single-window fields
 remain supported; `limitWindows` is used when the helper can report more than
 one provider-defined window.
+
+The bundled statusLine helper maps `rate_limits.five_hour` to
+`rolling-5-hour` / `5-hour` and `rate_limits.seven_day` to `seven-day` / `7-day`.
+It writes only windows with valid percentages, converts `resets_at` Unix
+timestamps to ISO 8601, and leaves the last valid file untouched when Claude
+does not provide subscription rate-limit data.
+
 The schema intentionally excludes free-form provider warnings, raw responses,
 credentials, cookies, and tokens so the app does not persist arbitrary provider
 text outside Keychain.

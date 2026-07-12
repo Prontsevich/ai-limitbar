@@ -49,20 +49,38 @@ public struct ClaudeCodeProviderAdapter: ProviderAdapter {
         let expandedPath = (path as NSString).expandingTildeInPath
         let fileURL = URL(fileURLWithPath: expandedPath)
 
+        guard FileManager.default.fileExists(atPath: fileURL.path) else {
+            throw ProviderAdapterError(
+                providerID: id,
+                message: "Claude Code local snapshot file was not found.",
+                recoverySuggestion: "Run the AI Limitbar statusLine helper or select an existing JSON snapshot file in Settings."
+            )
+        }
+
+        let data: Data
         do {
-            let data = try Data(contentsOf: fileURL)
-            let payload = try decoder.decode(ClaudeCodeLocalSnapshot.self, from: data)
-            try validate(payload)
-            return makeUsageSnapshot(from: payload, account: account)
-        } catch let error as ProviderAdapterError {
-            throw error
+            data = try Data(contentsOf: fileURL)
         } catch {
             throw ProviderAdapterError(
                 providerID: id,
-                message: "Claude Code local snapshot could not be loaded.",
-                recoverySuggestion: "Verify the configured JSON file exists and matches the AI Limitbar snapshot schema."
+                message: "Claude Code local snapshot file could not be read.",
+                recoverySuggestion: "Check that the configured file is readable and is still produced by the statusLine helper."
             )
         }
+
+        let payload: ClaudeCodeLocalSnapshot
+        do {
+            payload = try decoder.decode(ClaudeCodeLocalSnapshot.self, from: data)
+        } catch {
+            throw ProviderAdapterError(
+                providerID: id,
+                message: "Claude Code local snapshot JSON is invalid.",
+                recoverySuggestion: "Verify the file contains schemaVersion 1 and an ISO 8601 lastUpdatedAt value."
+            )
+        }
+
+        try validate(payload)
+        return makeUsageSnapshot(from: payload, account: account)
     }
 
     private func validate(_ payload: ClaudeCodeLocalSnapshot) throws {

@@ -12,6 +12,9 @@ APP_BUNDLE="$DIST_DIR/$APP_NAME.app"
 APP_CONTENTS="$APP_BUNDLE/Contents"
 APP_MACOS="$APP_CONTENTS/MacOS"
 APP_BINARY="$APP_MACOS/$APP_NAME"
+APP_HELPERS="$APP_CONTENTS/Helpers"
+HELPER_NAME="AILimitBarClaudeStatusLine"
+HELPER_BINARY="$APP_HELPERS/$HELPER_NAME"
 INFO_PLIST="$APP_CONTENTS/Info.plist"
 
 case "$MODE" in
@@ -27,11 +30,15 @@ pkill -x "$APP_NAME" >/dev/null 2>&1 || true
 
 swift build
 BUILD_BINARY="$(swift build --show-bin-path)/$APP_NAME"
+BUILD_HELPER="$(swift build --show-bin-path)/$HELPER_NAME"
 
 rm -rf "$APP_BUNDLE"
 mkdir -p "$APP_MACOS"
+mkdir -p "$APP_HELPERS"
 cp "$BUILD_BINARY" "$APP_BINARY"
+cp "$BUILD_HELPER" "$HELPER_BINARY"
 chmod +x "$APP_BINARY"
+chmod +x "$HELPER_BINARY"
 
 cat >"$INFO_PLIST" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -57,6 +64,7 @@ cat >"$INFO_PLIST" <<PLIST
 PLIST
 
 /usr/bin/codesign --force --sign - --timestamp=none "$APP_BINARY"
+/usr/bin/codesign --force --sign - --timestamp=none "$HELPER_BINARY"
 /usr/bin/codesign --force --sign - --timestamp=none "$APP_BUNDLE"
 /usr/bin/codesign --verify --deep --strict "$APP_BUNDLE"
 

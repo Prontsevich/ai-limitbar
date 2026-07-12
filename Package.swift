@@ -9,6 +9,7 @@ let package = Package(
     ],
     products: [
         .executable(name: "AILimitBar", targets: ["AILimitBar"]),
+        .executable(name: "AILimitBarClaudeStatusLine", targets: ["AILimitBarClaudeStatusLine"]),
         .library(name: "AILimitBarCore", targets: ["AILimitBarCore"])
     ],
     targets: [
@@ -16,6 +17,11 @@ let package = Package(
             name: "AILimitBar",
             dependencies: ["AILimitBarCore"],
             path: "Sources/AILimitBar"
+        ),
+        .executableTarget(
+            name: "AILimitBarClaudeStatusLine",
+            dependencies: ["AILimitBarCore"],
+            path: "Sources/AILimitBarClaudeStatusLine"
         ),
         .target(
             name: "AILimitBarCore",

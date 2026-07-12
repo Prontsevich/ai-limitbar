@@ -10,7 +10,8 @@ unknown.
 - SwiftUI `MenuBarExtra` primary interface.
 - Mock provider with refreshable local-estimate data.
 - Manual placeholder adapters for OpenAI Codex and Ollama Cloud.
-- Claude Code local snapshot adapter for opt-in local-estimate data.
+- Claude Code `statusLine` helper that writes opt-in local-estimate rate-limit
+  snapshots.
 - Provider enablement settings.
 - Configurable refresh interval with manual-only as the default.
 - Local JSON storage in Application Support.
@@ -39,10 +40,17 @@ the default design baseline:
   to recreate standard controls.
 - Prefer SwiftUI scenes and system controls for UI and windowing.
 
-## Claude Code Local Snapshot
+## Claude Code StatusLine Source
 
-Claude Code can be configured to read an AI Limitbar-owned local JSON snapshot.
-This is a local estimate, not authoritative account-level quota.
+Claude Code can run the bundled `AILimitBarClaudeStatusLine` helper. It reads the
+documented `statusLine` JSON from stdin and writes an AI Limitbar-owned local
+snapshot. This is a local estimate, not authoritative account-level quota.
+
+In Settings, create or edit a Claude Code account, choose `Local snapshot`, and
+use `Install or Repair Helper`. Add the displayed `statusLine` object to
+`~/.claude/settings.json` explicitly. AI Limitbar does not edit Claude Code
+settings automatically, and the helper replaces the current custom `statusLine`
+when enabled.
 
 ```json
 {
@@ -52,12 +60,23 @@ This is a local estimate, not authoritative account-level quota.
   "usedPercent": 64,
   "remainingLabel": "Approx. 36% remaining",
   "resetAt": "2026-07-07T18:00:00Z",
+  "limitWindows": [
+    {
+      "id": "rolling-5-hour",
+      "displayName": "5-hour",
+      "usedPercent": 64,
+      "remainingLabel": "Approx. 36% remaining",
+      "resetAt": "2026-07-07T18:00:00Z"
+    }
+  ],
   "lastUpdatedAt": "2026-07-07T10:15:00Z"
 }
 ```
 
 `schemaVersion` and `lastUpdatedAt` are required. Dates must be ISO 8601
-strings. `usedPercent`, when present, must be between 0 and 100.
+strings. `usedPercent` and every `limitWindows[].usedPercent`, when present,
+must be between 0 and 100. Claude Code's `five_hour` and `seven_day` statusLine
+windows are mapped to provider-defined `limitWindows` entries.
 The local snapshot must not contain credentials, cookies, tokens, raw provider
 responses, or free-form provider warnings.
 

@@ -201,6 +201,8 @@ struct AccountEditorView: View {
 
     private let initialDraft: AccountEditorDraft
     @State private var draft: AccountEditorDraft
+    @State private var helperSetupMessage: String?
+    @State private var helperSetupError: String?
 
     init(
         appModel: AppModel,
@@ -272,6 +274,42 @@ struct AccountEditorView: View {
 
                         TextField("Local snapshot JSON path", text: $draft.localSnapshotPath)
                             .disabled(draft.sourceMode != .localSnapshot)
+
+                        if draft.sourceMode == .localSnapshot {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Claude Code statusLine helper")
+                                    .font(.subheadline.weight(.semibold))
+
+                                Text("The helper reads Claude Code's official statusLine JSON and writes local-estimate rate-limit data. It replaces the current custom statusLine only after you apply the shown configuration.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+
+                                Button("Install or Repair Helper", action: installHelper)
+
+                                if let helperPathConflict {
+                                    Text(helperPathConflict)
+                                        .font(.caption)
+                                        .foregroundStyle(.orange)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
+
+                                if let helperSetupMessage {
+                                    Text(helperSetupMessage)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .textSelection(.enabled)
+                                }
+
+                                if let helperSetupError {
+                                    Text(helperSetupError)
+                                        .font(.caption)
+                                        .foregroundStyle(.red)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
+                            }
+                            .padding(.vertical, 4)
+                        }
                     }
                 } else {
                     Section("Source") {
@@ -288,7 +326,7 @@ struct AccountEditorView: View {
 
                         Button(account == nil ? "Create" : "Save", action: save)
                             .keyboardShortcut(.defaultAction)
-                            .disabled(draft.providerID.isEmpty || (account != nil && !isDirty))
+                            .disabled(draft.providerID.isEmpty || (account != nil && !isDirty) || helperPathConflict != nil)
                     }
                 }
             }
@@ -328,5 +366,47 @@ struct AccountEditorView: View {
 
     private func updateDirtyState() {
         isDirty = draft.hasChanges(comparedTo: initialDraft)
+    }
+
+    private var helperPathConflict: String? {
+        guard draft.providerID == "claude-code",
+              draft.sourceMode == .localSnapshot,
+              let defaultURL = try? ClaudeCodeStatusLinePaths.snapshotURL()
+        else { return nil }
+
+        let normalizedDraftPath = URL(fileURLWithPath: (draft.localSnapshotPath as NSString).expandingTildeInPath)
+            .standardizedFileURL
+            .path
+        guard normalizedDraftPath == defaultURL.standardizedFileURL.path else { return nil }
+
+        let currentAccountID = account?.accountID
+        let isUsedByAnotherAccount = appModel.providerAccounts.contains {
+            $0.providerID == "claude-code" &&
+                $0.localSnapshotPath.map { normalizedPath($0) } == normalizedDraftPath &&
+                $0.accountID != currentAccountID
+        }
+        guard isUsedByAnotherAccount else { return nil }
+        return "The managed Claude Code helper path is already assigned to another account. Use a different local snapshot path for this account."
+    }
+
+    private func normalizedPath(_ path: String) -> String {
+        URL(fileURLWithPath: (path as NSString).expandingTildeInPath)
+            .standardizedFileURL
+            .path
+    }
+
+    private func installHelper() {
+        do {
+            let installer = ClaudeCodeStatusLineInstaller()
+            let helperURL = try installer.install()
+            let snapshotURL = try installer.defaultSnapshotURL()
+            draft.sourceMode = .localSnapshot
+            draft.localSnapshotPath = snapshotURL.path
+            helperSetupError = nil
+            helperSetupMessage = "Installed at \(helperURL.path). Add this object to ~/.claude/settings.json:\n\n\(installer.settingsSnippet(helperURL: helperURL, snapshotURL: snapshotURL))"
+        } catch {
+            helperSetupMessage = nil
+            helperSetupError = error.localizedDescription
+        }
     }
 }

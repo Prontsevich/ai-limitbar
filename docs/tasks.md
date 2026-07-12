@@ -461,24 +461,68 @@ Acceptance:
 
 Goal: make Claude Code useful without relying on hand-edited JSON files.
 
-- [ ] Define the first supported Claude Code local data source contract.
-- [ ] Add a helper/import path that writes AI Limitbar local snapshot JSON.
-- [ ] Validate helper output before storing snapshots.
-- [ ] Add source diagnostics for missing file, invalid schema, stale helper
+- [x] Define the first supported Claude Code local data source contract.
+- [x] Add a helper/import path that writes AI Limitbar local snapshot JSON.
+- [x] Validate helper output before storing snapshots.
+- [x] Add source diagnostics for missing file, invalid schema, stale helper
   output, and invalid percentage values.
-- [ ] Document how to configure Claude Code local snapshot updates.
-- [ ] Avoid parsing Claude interactive screens, private local state, or browser
+- [x] Document how to configure Claude Code local snapshot updates.
+- [x] Avoid parsing Claude interactive screens, private local state, or browser
   pages.
 
 Acceptance:
 
-- Claude Code can produce useful local-estimate data without manually editing
+- [x] Claude Code can produce useful local-estimate data without manually editing
   JSON.
-- The source remains clearly labeled as local-estimate, not account-authoritative
+- [x] The source remains clearly labeled as local-estimate, not account-authoritative
   live usage.
-- Invalid helper output does not corrupt stored snapshots.
+- [x] Invalid helper output does not corrupt stored snapshots.
 
-## Milestone 14: Provider And Account Readiness
+## Milestone 14: Codex App-Server Data Source
+
+Goal: add an opt-in, experimental OpenAI Codex source that reads structured
+current CLI rate-limit data without scraping an interactive terminal, browser,
+or local session history.
+
+- [ ] Add an `app-server` source mode for OpenAI Codex; keep `manual` as the
+  default and fallback mode.
+- [ ] Locate an installed `codex` executable without storing authentication
+  material, cookies, tokens, or account files.
+- [ ] Start `codex app-server --listen stdio://` for one refresh, complete the
+  JSON-RPC initialization handshake, and request `account/rateLimits/read`.
+- [ ] Normalize `primary` and optional `secondary` rate-limit windows into
+  provider-defined `UsageLimitWindow` values; do not assume a weekly window is
+  always present.
+- [ ] Handle multi-bucket responses defensively and select the Codex limit
+  bucket only when it is explicitly identified.
+- [ ] Discard raw app-server responses and unneeded account fields, including
+  credit balance strings, reset-credit identifiers, and opaque account data.
+- [ ] Add diagnostics for a missing CLI, unauthenticated CLI, unsupported or
+  changed app-server schema, malformed JSON-RPC responses, timeouts, and
+  process-launch failures.
+- [ ] Use the configured refresh schedule rather than high-frequency polling;
+  terminate the short-lived app-server process after each request.
+- [ ] Label the source as experimental in Settings and snapshots, with clear
+  compatibility and data-coverage warnings.
+- [ ] Add fixture-based tests for current, missing-secondary, multi-bucket,
+  malformed, and timeout/error responses without depending on a real account.
+- [ ] Document setup, the experimental compatibility boundary, privacy rules,
+  and the manual fallback.
+
+Acceptance:
+
+- An authenticated local Codex CLI can supply normalized rate-limit windows to
+  an explicitly opted-in OpenAI Codex account.
+- Missing windows or unsupported response fields degrade to a useful warning,
+  never a fabricated quota value.
+- The app never drives `/status` through a PTY and never reads browser content,
+  raw Codex session files, or Codex authentication state.
+- No credentials, raw app-server payloads, or opaque account identifiers are
+  written to AI Limitbar storage or diagnostics.
+- A Codex CLI update or unavailable experimental interface leaves the account
+  in a clear recoverable state and preserves the manual usage-page workflow.
+
+## Milestone 15: Provider And Account Readiness
 
 Goal: prepare the app for more providers and account-level credentials while
 keeping provider implementations conservative.
@@ -498,7 +542,7 @@ Acceptance:
 - Credentials have a clear account-level home without touching JSON storage.
 - Provider adapters can advertise supported source modes.
 
-## Milestone 15: Daily Use Polish
+## Milestone 16: Daily Use Polish
 
 Goal: make the menu bar app useful as a daily status tool before starting the
 WidgetKit extension.
