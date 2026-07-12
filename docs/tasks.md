@@ -478,7 +478,74 @@ Acceptance:
   live usage.
 - [x] Invalid helper output does not corrupt stored snapshots.
 
-## Milestone 14: Codex App-Server Data Source
+## Milestone 14: Ollama Cloud Web Page Data Source
+
+Goal: add an explicit opt-in, experimental Ollama Cloud source that reads the
+authenticated usage page without accessing, copying, or persisting browser
+credentials.
+
+- [ ] Add an `ollama-web-page` source mode; keep `manual` as the default and
+  fallback mode for Ollama Cloud accounts.
+- [ ] Add a compact `Connect Ollama…` / `Reconnect` flow backed by an
+  AI Limitbar-owned `WKWebView`; the user completes sign-in directly with
+  Ollama in that view.
+- [ ] Keep the WebKit session isolated from other browsers and apps. Do not
+  read, export, import, log, or write cookies, tokens, passwords, profile data,
+  or any browser storage outside WebKit's own managed session.
+- [ ] Load only `https://ollama.com/settings` after a successful connection and
+  add a narrowly scoped user script for that exact origin and path.
+- [ ] Parse the current server-rendered usage page through semantic text
+  anchors, not CSS utility-class names: `Session usage`, `Weekly usage`, their
+  used percentages, and reset timestamps.
+- [ ] Validate the extracted payload in Swift before creating a snapshot:
+  required windows must be present, percentages must be in `0...100`, and
+  reset values must be valid future dates when supplied.
+- [ ] Normalize session and weekly values into provider-defined
+  `UsageLimitWindow` entries; do not assume the session window has a fixed
+  duration or that either page section is permanently available.
+- [ ] Keep per-model request counts and extra-usage balance out of the initial
+  snapshot contract; they are not required to represent the two primary limits.
+- [ ] Label the source as `Experimental web page` in Settings, details, and
+  warnings, including the risk that Ollama may change its authenticated page
+  structure without notice.
+- [ ] Run refreshes only through the configured schedule or explicit user
+  action. A refresh must never foreground the login UI, submit account changes,
+  or attempt an unattended reauthentication.
+- [ ] Add clear recovery states for a missing connection, expired session,
+  changed page structure, incomplete usage data, load failure, and timeout;
+  preserve the last valid snapshot when a refresh fails.
+- [ ] Discard raw HTML and JavaScript bridge payloads after validation. Do not
+  write them to snapshots, diagnostics, logs, tests, or export bundles.
+- [ ] Add fixture-based parser and adapter tests for both windows, a missing
+  window, invalid percentages, stale/expired connection, parser drift, and a
+  refresh failure that preserves the prior snapshot.
+- [ ] Document connection, reconnect, privacy, experimental compatibility, and
+  manual-fallback behavior in the README and provider plan.
+
+Acceptance:
+
+- An explicitly connected Ollama account supplies current session and weekly
+  limit windows from its settings page without any AI Limitbar-managed
+  credential storage.
+- The settings and dashboard clearly distinguish this source from an official
+  machine-readable usage API and make reconnection actionable.
+- A page or session change produces a recoverable warning and retains the last
+  valid snapshot instead of inventing or clearing limit values.
+- The initial implementation neither parses another browser's session nor
+  stores raw page content, cookies, tokens, profile data, model request counts,
+  or billing balance.
+
+Decision:
+
+- The current Ollama settings page is account-authenticated and server-rendered;
+  no separate usage JSON response was observed during the research check.
+- This source is intentionally an experimental DOM integration. Re-evaluate it
+  if Ollama publishes a supported account-usage API.
+- The user must sign in again through AI Limitbar's own WebKit view. The app
+  must never reuse or extract a session from Codex, Safari, Chrome, or another
+  browser.
+
+## Milestone 15: Codex App-Server Data Source
 
 Goal: add an opt-in, experimental OpenAI Codex source that reads structured
 current CLI rate-limit data without scraping an interactive terminal, browser,
@@ -522,7 +589,7 @@ Acceptance:
 - A Codex CLI update or unavailable experimental interface leaves the account
   in a clear recoverable state and preserves the manual usage-page workflow.
 
-## Milestone 15: Provider And Account Readiness
+## Milestone 16: Provider And Account Readiness
 
 Goal: prepare the app for more providers and account-level credentials while
 keeping provider implementations conservative.
@@ -542,7 +609,7 @@ Acceptance:
 - Credentials have a clear account-level home without touching JSON storage.
 - Provider adapters can advertise supported source modes.
 
-## Milestone 16: Daily Use Polish
+## Milestone 17: Daily Use Polish
 
 Goal: make the menu bar app useful as a daily status tool before starting the
 WidgetKit extension.

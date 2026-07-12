@@ -53,6 +53,10 @@ quota data. Claude Code can read an AI Limitbar-owned local snapshot as an
 explicit local estimate; the other provider paths remain manual-confidence
 placeholders until stable machine-readable sources are verified.
 
+The planned Ollama Cloud web-page mode is an explicit exception to the
+manual-first baseline. It remains disabled by default and is not part of the
+current implementation until Milestone 14 is complete.
+
 ## Non-Goals For MVP
 
 - Perfect real-time quota accuracy for every provider.
@@ -162,6 +166,12 @@ Each provider adapter should be responsible for:
 
 Adapters should not write UI state directly. They should return normalized
 snapshots to an app-level store.
+
+Experimental web-page sources must keep their authentication boundary inside an
+AI Limitbar-owned WebKit view. They may receive a minimal, validated bridge
+payload from that view, but must not read, import, export, or persist cookies,
+tokens, raw HTML, browser storage, or raw bridge payloads. A parsing or session
+failure must preserve the last valid normalized snapshot.
 
 ## Provider Assumptions
 
@@ -312,22 +322,26 @@ credentials, cookies, and tokens so the app does not persist arbitrary provider
 text outside Keychain.
 
 OpenAI Codex remains manual-first because the checked sources do not document a
-non-interactive personal quota API. Ollama Cloud remains manual-first because
-the checked API docs do not expose account usage or remaining-limit endpoints.
+non-interactive personal quota API. Ollama Cloud remains manual-first by
+default because the checked API docs do not expose account usage or
+remaining-limit endpoints; its planned web-page mode is isolated and clearly
+marked as experimental.
 
 ### Ollama Cloud
 
-Ollama Cloud supports cloud model access and account usage pages. The first
-research pass should determine whether account usage is available through a
-documented API endpoint or only through authenticated web settings.
+Ollama Cloud supports cloud model access and an authenticated account usage
+page. Its documented API does not currently expose account usage or
+remaining-limit endpoints.
 
-Initial integration should prefer API-key based access if usage data is exposed
-there.
+Research result: the authenticated `https://ollama.com/settings` page currently
+server-renders session and weekly usage percentages with reset information. No
+separate usage JSON response was observed during the page-load check.
 
-MVP status: manual-confidence placeholder only. The app does not call Ollama
-Cloud APIs until a documented usage endpoint is confirmed.
+Current implementation status: manual-confidence placeholder only. Planned
+Milestone 14 adds an explicit opt-in `ollama-web-page` source mode; it does not
+turn the undocumented page into a supported Ollama API.
 
-Research date: 2026-07-07.
+Research dates: 2026-07-07 and 2026-07-13.
 
 Official sources checked:
 
@@ -345,15 +359,29 @@ Supported source strategy:
 | Local Ollama API at `http://localhost:11434/api` | Per-request response metrics such as `total_duration`, `load_duration`, `prompt_eval_count`, `eval_count`, and related timing fields. Streaming responses include usage fields in the final chunk. | Useful for request-level local model accounting only when AI Limitbar observes or proxies requests. It does not provide account-level Ollama Cloud usage or remaining quota. |
 | Ollama Cloud API at `https://ollama.com/api` | Same Ollama model interaction API for cloud models, authenticated with an API key. Documented endpoints include model generation/chat, embeddings, tags, running models, model details, and model management. | Supports cloud model calls, but the checked docs do not list a billing, account usage, quota, or remaining-limit endpoint. |
 | Ollama API keys/settings | API keys for programmatic access to `ollama.com`; keys can be revoked and currently do not expire. | Required for future cloud model API calls. Not enough to expose usage limits. |
-| Ollama account pages | Authenticated web settings may show account or billing state. | Manual source only unless Ollama documents a usage endpoint. Do not scrape. |
+| Ollama account settings page | The authenticated `https://ollama.com/settings` page currently server-renders `Session usage` and `Weekly usage` percentages with reset information. | Current manual fallback. Planned experimental source only through an AI Limitbar-owned WebKit connection, semantic DOM parsing, and a visible compatibility warning. It must not reuse another browser's session or store raw page/session data. |
 
-Selected initial confidence level: `manual`.
+Current confidence level: `manual`.
 
-Selected MVP source mode: open Ollama account/settings pages and label the
-snapshot as manual. Do not call Ollama Cloud for usage monitoring until a
-documented account usage endpoint exists. If AI Limitbar later becomes an
-Ollama request proxy, it can expose its own `local-estimate` counters for
-observed requests, but that must be labeled as partial and not account-wide.
+Planned web-page confidence level: `live` only for a successfully parsed current
+settings page, with source text `Ollama settings web page (Experimental)` and a
+visible structural-compatibility warning. `live` describes freshness of the
+provider-displayed value; it does not imply that the DOM integration is a
+documented or stable API.
+
+Current source mode: open Ollama account/settings pages and label the snapshot
+as manual. Do not call Ollama Cloud APIs for usage monitoring until a documented
+account usage endpoint exists.
+
+Planned source mode: `ollama-web-page` is opt-in and starts with an
+AI Limitbar-owned `WKWebView` connection. The user completes sign-in in that
+view; the app never reuses or extracts a session from Codex, Safari, Chrome, or
+another browser. The parser reads only the two normalized limit windows,
+discards raw content after validation, and leaves the last valid snapshot in
+place after a missing session, parser drift, incomplete data, timeout, or load
+failure. If AI Limitbar later becomes an Ollama request proxy, it can expose
+its own `local-estimate` counters for observed requests, but those must remain
+labeled as partial and not account-wide.
 
 ## App Architecture
 
@@ -541,7 +569,8 @@ The widget should:
 - Which exact account types should be supported first for OpenAI Codex?
 - Can Claude Code expose current plan usage through a stable machine-readable
   command or file, or only through UI output?
-- Does Ollama Cloud expose usage through a documented API endpoint?
+- Can the authenticated Ollama settings page retain the semantic usage and reset
+  fields required by the experimental parser as the site evolves?
 - What refresh interval is useful without hitting provider limits?
 
 ## First Implementation Slice
