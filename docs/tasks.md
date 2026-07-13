@@ -865,8 +865,9 @@ Acceptance:
 
 ## Milestone 20: Provider And Account Readiness
 
-Goal: prepare the app for more providers and account-level credentials while
-keeping provider implementations conservative.
+Goal: prepare the app for more providers, multi-account identity mappings, and
+account-level credentials while keeping provider implementations conservative
+and requiring evidence before adding authenticated web sources.
 
 - [ ] Add provider/account source diagnostics model.
 - [ ] Track last successful refresh separately from failed refresh attempts.
@@ -876,12 +877,65 @@ keeping provider implementations conservative.
   delayed modes.
 - [ ] Improve error copy for missing credentials, unsupported source modes, and
   unavailable provider APIs.
+- [ ] Run an authenticated multi-account web-source research gate for Claude and
+  OpenAI Codex before adding either provider to the existing Ollama WebKit
+  implementation. Treat Claude and Codex as independent feasibility decisions;
+  success for one provider must not imply support for the other.
+- [ ] For each provider and available account type, verify the actual usage
+  surface, resolved URL and navigation flow, visible plan-limit and credit data,
+  reset semantics, localization behavior, and whether the page exposes useful
+  account-wide values beyond the existing Claude `statusLine` / `/usage` CLI and
+  Codex app-server sources.
+- [ ] Verify interactive authentication inside an AI Limitbar-owned `WKWebView`,
+  including the login methods available to the test account, MFA or passkey
+  behavior when encountered, expected OAuth/SSO redirects, session restoration
+  after relaunch, explicit reconnect, and clean failure when embedded sign-in is
+  rejected or challenged.
+- [ ] Verify that two saved accounts of the same provider can use distinct
+  persistent `WKWebsiteDataStore` identifiers without sharing authentication,
+  navigation state, extracted values, or reconnect lifecycle. Never import or
+  reuse a session from Safari, Chrome, Codex, Claude Desktop, or another app.
+- [ ] Inspect candidate data shapes without committing to an extractor first.
+  Prefer, in order, a documented provider API, a documented structured local
+  interface, and semantic DOM extraction. Treat an internal/private JSON request
+  as a separate architecture and privacy decision rather than an automatic
+  fallback when DOM parsing is inconvenient.
+- [ ] Use a minimal non-production WebKit probe when necessary to validate real
+  macOS behavior. Do not add a production source mode, generalize the Ollama
+  controller, or retain a speculative parser until the provider passes the
+  research gate.
+- [ ] Keep research artifacts privacy-safe: do not record passwords, tokens,
+  cookies, browser storage, raw HTML, complete network responses, profile data,
+  opaque account identifiers, or unredacted screenshots. Persist only sanitized
+  findings needed to reproduce the capability decision.
+- [ ] Record one evidence-backed outcome for each provider: `documented-interface`,
+  `semantic-dom`, `private-integration-decision`, `embedded-auth-blocked`,
+  `no-additional-value`, or `not-feasible`. Document supported account types,
+  missing coverage, compatibility risks, and the manual/current-source fallback.
+- [ ] If a provider passes the gate, create a separate implementation milestone
+  with its confirmed URL, authentication boundary, extraction method, typed
+  payload, navigation allowlist, reconnect behavior, multi-account contract,
+  fixtures, and manual verification plan. Do not silently expand Milestone 20
+  from research/readiness into production web scraping.
 
 Acceptance:
 
 - The app can explain why each account is or is not refreshable.
 - Credentials have a clear account-level home without touching JSON storage.
 - Provider adapters can advertise supported source modes.
+- Claude and Codex each have an independently documented feasibility result
+  backed by an authenticated WebKit check rather than an assumed page shape or
+  login flow.
+- Multi-account web isolation is either demonstrated with separate persistent
+  WebKit stores or recorded as a blocker; no supported design shares one browser
+  identity across saved accounts.
+- The research identifies whether a web source adds useful data beyond current
+  structured/local sources and selects no private integration by default.
+- A positive result produces a separate implementation milestone; a negative or
+  blocked result leaves the current source and manual fallback intact without
+  speculative production code.
+- Research notes and diagnostics contain no credentials, cookies, raw pages,
+  private responses, opaque account identifiers, or other browser-session data.
 
 ## Milestone 21: Daily Use Polish
 

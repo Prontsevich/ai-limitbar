@@ -438,6 +438,46 @@ scheme. It must not alter visibility, layout, controls, focus, submission,
 navigation, usage extraction, or bridge payloads. The stylesheet must not be
 injected into WorkOS, Google, GitHub, or other third-party OAuth pages.
 
+### Multi-Account Authenticated Web Research
+
+Milestone 20 includes an evidence-first research gate for possible Claude and
+OpenAI Codex authenticated web sources. The existence of Claude Settings > Usage
+and the Codex Usage Dashboard makes both providers plausible candidates, but it
+does not establish that their sign-in flows work in an embedded `WKWebView`,
+that their page structure is suitable for safe extraction, or that they add
+useful values beyond the current Claude and Codex sources.
+
+Official product references:
+
+- <https://support.claude.com/en/articles/9797557-usage-limit-best-practices>
+- <https://support.claude.com/en/articles/12429409-manage-usage-credits-for-paid-claude-plans>
+- <https://help.openai.com/en/articles/12642688>
+
+The research evaluates Claude and Codex independently. For each available
+account type it must verify the real authenticated destination, navigation and
+login flow, visible plan-limit and credit fields, reset semantics, localization,
+session restoration, reconnect behavior, and whether two accounts remain
+isolated in distinct persistent `WKWebsiteDataStore` instances. A provider that
+blocks embedded authentication or exposes no useful data beyond the existing
+source is a valid negative result, not an implementation failure.
+
+Extraction-method selection happens only after feasibility is established. The
+preference order is a documented provider API, a documented structured local
+interface, then narrowly scoped semantic DOM extraction. Reading an undocumented
+internal JSON request is not an automatic fallback; it requires a separate
+architecture and privacy decision. A temporary non-production WebKit probe may
+be used to validate real macOS behavior, but Milestone 20 does not ship a new
+source mode or generalize the Ollama controller on speculation.
+
+Research must not retain credentials, tokens, cookies, browser storage, raw
+HTML, complete network responses, profile data, opaque account identifiers, or
+unredacted screenshots. The durable output is a sanitized capability decision
+for each provider: feasible through a documented interface, feasible through
+semantic DOM, requires a separate private-integration decision, blocked by
+embedded authentication, not useful beyond existing sources, or not feasible.
+Only a positive result creates a separate implementation milestone with a
+confirmed source contract and multi-account verification plan.
+
 ## App Architecture
 
 The app should be structured around:
