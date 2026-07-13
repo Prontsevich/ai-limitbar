@@ -84,8 +84,9 @@ pressed behavior for all interactive elements.
   overlap the dashboard header. Cap the account-list viewport at a compact
   height and use a visible vertical scroll indicator for additional accounts.
   Settings offers `Compact` (320 pt), `Standard` (440 pt), and `Tall` (640 pt)
-  maximum viewport presets. The value is a local `UserDefaults` preference,
-  not provider or account data; short lists do not gain empty vertical space.
+  viewport presets. The value is a local `UserDefaults` preference, not
+  provider or account data. Each preset sets the visible viewport height and
+  account lists scroll within it.
 - Individual Refresh invokes the existing per-account refresh path. It shows
   progress and is disabled while that account or a global refresh is running.
 - Info opens the account-details popover. It must have an accessible label and

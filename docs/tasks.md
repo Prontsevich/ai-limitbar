@@ -694,8 +694,7 @@ Design contract: [`docs/dashboard-design.md`](dashboard-design.md).
 - [x] Add or update focused tests for refresh action availability and preserve
   existing refresh/account ordering behavior.
 - [x] Add persisted device-local Compact (320 pt), Standard (440 pt), and Tall
-  (640 pt) dashboard-height presets; retain a scrolling viewport for overflow
-  without adding empty space to short lists.
+  (640 pt) dashboard-height presets; retain a scrolling viewport for overflow.
 - [ ] Manually verify normal, refreshing, stale, failed, manual-only, and
   no-data examples in Light and Dark appearance.
 

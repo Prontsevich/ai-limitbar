@@ -115,7 +115,7 @@ struct MenuBarPanelView: View {
         .scrollBounceBehavior(.basedOnSize)
         .scrollIndicators(.visible)
         .padding(.trailing, -contentInset)
-        .frame(height: dashboardHeight(for: rows))
+        .frame(height: dashboardHeightPreset.viewportHeight)
     }
 
     private func accountRows(_ rows: [AccountSnapshotRow]) -> some View {
@@ -130,19 +130,9 @@ struct MenuBarPanelView: View {
         }
     }
 
-    private func dashboardHeight(for rows: [AccountSnapshotRow]) -> CGFloat {
-        let estimatedHeight = rows.reduce(CGFloat.zero) { height, row in
-            let windowCount = row.snapshot?.displayLimitWindows.filter { $0.usedPercent != nil }.count ?? 0
-            return height + 48 + CGFloat(max(windowCount, 1) * 31)
-        }
-        let spacing = CGFloat(max(rows.count - 1, 0)) * accountPanelSpacing
-        let contentHeight = estimatedHeight + spacing + legendClearance
-        return min(max(contentHeight, 78), dashboardMaximumHeight)
-    }
-
-    private var dashboardMaximumHeight: CGFloat {
-        DashboardHeightPreset(rawValue: dashboardHeightPresetRawValue)?
-            .maximumViewportHeight ?? DashboardHeightPreset.standard.maximumViewportHeight
+    private var dashboardHeightPreset: DashboardHeightPreset {
+        DashboardHeightPreset(rawValue: dashboardHeightPresetRawValue)
+            ?? .standard
     }
 
     private var canRefreshAll: Bool {

@@ -642,12 +642,12 @@ the account list reserves title clearance at its top, wider inter-panel spacing,
 and a capped scrolling viewport so extra accounts never enlarge the popover or
 break adjacent borders.
 
-The capped dashboard viewport is a device-local preference rather than account
-or provider data. The current Refresh Settings pane offers `Compact` (320 pt),
-`Standard` (440 pt), and `Tall` (640 pt) maximum-height presets stored in
-`UserDefaults`. A preset only increases the available dashboard viewport; short
-account lists retain their natural height and longer lists scroll. Milestone 22
-moves this control with the refresh schedule into General.
+The dashboard viewport is a device-local preference rather than account or
+provider data. The current Refresh Settings pane offers `Compact` (320 pt),
+`Standard` (440 pt), and `Tall` (640 pt) viewport presets stored in
+`UserDefaults`. A preset sets the visible dashboard viewport height and longer
+account lists scroll within it. Milestone 22 moves this control with the refresh
+schedule into General.
 
 Dashboard rows should:
 
