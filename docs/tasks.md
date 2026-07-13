@@ -361,6 +361,11 @@ Decision:
   interactive hover/click/focus smoke still needs manual QA or Accessibility
   permission for GUI automation.
 
+Historical note: Milestone 18 plans to supersede the native `Settings` scene
+decision after daily use exposed unresolved activation, key-window, placement,
+and Spaces behavior in the menu-bar-only `LSUIElement` app. The replacement
+remains SwiftUI-owned and adds only a narrow application-activation boundary.
+
 ## Milestone 12.1: Quality Stabilization Gate
 
 Goal: make the current modern macOS baseline reliable, testable, and maintainable
@@ -408,7 +413,8 @@ Decision:
 - Settings behavior across macOS Spaces is explicitly deferred and is not a
   blocker for this stabilization gate.
 - The native SwiftUI `Settings` scene and the modern macOS/Liquid Glass direction
-  remain in place.
+  remain in place for this stabilization gate. Milestone 18 later revisits the
+  scene choice without returning Settings ownership to AppKit.
 - AppKit may be used only at a narrow platform lifecycle boundary where SwiftUI
   does not expose an equivalent application-termination action.
 
@@ -698,7 +704,65 @@ Acceptance:
 - No provider, refresh, snapshot, or persistence contract changes are required
   solely for the visual redesign.
 
-## Milestone 18: Provider And Account Readiness
+## Milestone 18: Settings Window Lifecycle And Terminal-Adjacent Redesign
+
+Goal: replace the system-managed Settings presentation with a predictable
+singleton SwiftUI window, then align the Settings workspace with the approved
+terminal-fieldset product language without rebuilding native controls.
+
+Design contract: [`docs/settings-design.md`](settings-design.md).
+
+- [ ] Replace the SwiftUI `Settings` scene and `SettingsLink` entry point with a
+  singleton `Window("AI Limitbar Settings", id: "settings")` scene opened through
+  `openWindow(id:)`.
+- [ ] Add one narrow application-activation boundary that calls the current
+  `NSApplication.activate()` API in direct response to the Settings action before
+  opening the SwiftUI window. Do not restore an AppKit-owned `NSWindowController`
+  or use deprecated focus-stealing APIs.
+- [ ] Keep the staged app `LSUIElement` and menu-bar-only. Opening Settings must
+  make the app active and the Settings window key without adding a Dock icon,
+  changing the normal activation policy, or making the window float above other
+  apps.
+- [ ] Make the Settings scene singleton: reopening an existing window brings it
+  forward instead of creating a duplicate or repositioning it.
+- [ ] Define a deterministic default size and center new Settings windows on the
+  active/default visible display. Respect the user's move and resize choices
+  while that window remains open, including multi-display setups.
+- [ ] Disable unwanted restoration for the Settings scene so a closed window does
+  not reappear during launch or Spaces changes. Closing and reopening must reset
+  transient editor, pending-navigation, alert, and section-selection state.
+- [ ] Preserve the current Accounts, Refresh, and Provider Setup information
+  architecture for this milestone. Leave the planned General-section
+  reorganization to Milestone 21 so lifecycle and visual work do not absorb
+  localization or preference-model changes.
+- [ ] Restyle Settings as terminal-adjacent rather than as a literal terminal:
+  reuse compact spacing, thin fieldset borders, restrained semantic status color,
+  and monospaced technical values while retaining native lists, forms, fields,
+  pickers, toggles, dialogs, focus rings, and selection behavior.
+- [ ] Remove opaque sidebar/list backgrounds and decorative glass treatments that
+  fight the new composition. Keep system-adaptive Light and Dark appearances and
+  do not introduce the custom theme-token model planned for Milestone 24.
+- [ ] Preserve add, edit, delete, enable/disable, reorder, refresh, connection,
+  usage-page, source-mode, helper-install, Save/Cancel, and dirty-draft workflows
+  without changing provider, refresh, persistence, or snapshot contracts.
+- [ ] Manually verify opening from behind another app, repeated open, close/reopen,
+  active selection accent, keyboard focus, dirty drafts, Light/Dark appearance,
+  multiple Spaces, and multiple displays in the staged `.app` bundle.
+
+Acceptance:
+
+- Every explicit Settings action opens one active, key Settings window in a
+  predictable location; an already open window comes forward without duplication.
+- Closing Settings prevents spontaneous reappearance and reopening starts from a
+  clean Accounts state without stale editor or confirmation UI.
+- Active native controls use the correct macOS accent and focus appearance; the
+  implementation does not hardcode a blue tint to imitate active-window state.
+- Settings is recognizably related to the terminal-fieldset dashboard while still
+  behaving like a native macOS configuration workspace in Light and Dark modes.
+- The redesign changes windowing and presentation only; existing account and
+  provider workflows and their storage contracts remain intact.
+
+## Milestone 19: Provider And Account Readiness
 
 Goal: prepare the app for more providers and account-level credentials while
 keeping provider implementations conservative.
@@ -718,7 +782,7 @@ Acceptance:
 - Credentials have a clear account-level home without touching JSON storage.
 - Provider adapters can advertise supported source modes.
 
-## Milestone 19: Daily Use Polish
+## Milestone 20: Daily Use Polish
 
 Goal: make the menu bar app useful as a daily status tool before starting the
 WidgetKit extension.
@@ -745,7 +809,7 @@ Acceptance:
 - Ollama-owned pages follow the active appearance without disrupting sign-in,
   navigation, keyboard focus, form controls, or usage parsing.
 
-## Milestone 20: App Localization And General Settings
+## Milestone 21: App Localization And General Settings
 
 Goal: ship an English-first app with Russian localization and a compact
 Settings organization where cross-account preferences live in General.
@@ -794,7 +858,7 @@ Acceptance:
 - `dist/AILimitBar.app` contains and loads both localizations after the normal
   build-and-run workflow.
 
-## Milestone 21: Per-Limit Usage Thresholds
+## Milestone 22: Per-Limit Usage Thresholds
 
 Goal: let users define global warning and critical usage thresholds, then
 override the pair for individual provider-defined limit windows without adding
@@ -845,7 +909,7 @@ Acceptance:
   labels and identifiers remain provider data rather than translated storage
   keys.
 
-## Milestone 22: Usage Limit Notifications
+## Milestone 23: Usage Limit Notifications
 
 Goal: deliver actionable, user-controlled macOS local notifications for newly
 observed warning and critical threshold crossings without prompting on launch,
@@ -914,7 +978,7 @@ Acceptance:
 - All app-owned notification and settings strings are localized in English and
   Russian; provider labels and stable identifiers remain provider data.
 
-## Milestone 23: Dashboard Appearance And Themes
+## Milestone 24: Dashboard Appearance And Themes
 
 Goal: let people choose an app appearance and a reusable dashboard palette
 without weakening the terminal-fieldset visual system or turning severity into
@@ -946,7 +1010,7 @@ a full-panel tint.
   critical threshold, and `Critical` for consumed usage at or above the
   effective critical threshold.
 - [ ] Keep the `Free` portion constant while deriving only the consumed portion
-  from the per-window severity resolved by Milestone 21. Do not introduce a
+  from the per-window severity resolved by Milestone 22. Do not introduce a
   fifth track color or recolor the dashboard, account panel, or popover
   background when a threshold is crossed.
 - [ ] Use the same `Warning` or `Critical` token for a compact status marker on

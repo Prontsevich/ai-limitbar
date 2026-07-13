@@ -100,8 +100,10 @@ Modern-only means:
 - Liquid Glass is the design baseline. Standard SwiftUI controls should provide
   most of that behavior directly; custom glass should be reserved for
   product-specific compositions, not for recreating system controls.
-- SwiftUI scenes and system controls are preferred for UI and windowing.
-  AppKit window lifecycle bridges are out of scope for the modern Settings path.
+- SwiftUI scenes and system controls are preferred for UI and windowing. AppKit
+  is limited to narrow application activation and termination boundaries where
+  the menu-bar-only `LSUIElement` lifecycle needs explicit platform cooperation;
+  it must not own Settings windows or feature state.
 - Compatibility fallbacks for older macOS releases are out of scope unless this
   product decision is explicitly reopened.
 
@@ -409,7 +411,8 @@ injected into WorkOS, Google, GitHub, or other third-party OAuth pages.
 The app should be structured around:
 
 - `MenuBarExtra` for the primary interface.
-- A SwiftUI `Settings` scene for provider/account configuration.
+- A singleton SwiftUI `Window` scene for provider/account configuration, opened
+  through `openWindow(id:)` after explicit application activation.
 - `UsageSnapshotStore` for persisted snapshots.
 - `ProviderRegistry` for available adapters.
 - `ProviderAdapter` protocol for provider-specific logic.
@@ -580,7 +583,8 @@ convenience, but it must not be the only way to access details.
 
 The settings UI should support:
 
-- A native SwiftUI Settings window opened through the system settings action.
+- A singleton native SwiftUI Settings window opened through an explicit app
+  action that activates the menu-bar-only process and calls `openWindow(id:)`.
 - A compact native segmented navigation control for General, Accounts, and
   Provider Setup instead of a permanent top tile bar or navigation sidebar.
 - A General section for app-wide preferences: durable language, refresh,
@@ -605,18 +609,23 @@ The settings UI should support:
   starts from a clean Accounts view.
 - Testing provider connection and opening the provider's usage page.
 
-Settings should be redesigned around the modern macOS system language. Prefer
-native tabs, lists, split layouts, buttons, forms, pickers, toggles, menus, and
-confirmation dialogs because they already include the intended Liquid Glass
-appearance and interaction behavior. Use custom Liquid Glass surfaces for
-AI Limitbar-specific compositions, such as account status clusters or dashboard
-summaries, not to recreate standard controls. Preserve the working account
-workflows while removing legacy-looking custom chrome and custom account cards.
+Settings follows the terminal-adjacent design contract in
+[`docs/settings-design.md`](settings-design.md). It shares compact spacing, thin
+fieldset borders, restrained semantic status color, and monospaced technical
+values with the dashboard without becoming a literal terminal UI. Native tabs,
+lists, split layouts, buttons, forms, pickers, toggles, menus, dialogs, focus
+rings, and selection behavior remain the default. Opaque sidebar backgrounds and
+decorative glass that fight the composition should be removed, while Light and
+Dark appearance remain system-adaptive.
 
-Settings windowing should use SwiftUI's `Settings` scene. Previous controlled
-AppKit window lifecycle work is no longer the desired direction. Settings
-behavior across macOS Spaces is explicitly deferred and is not part of the
-current quality gate.
+Settings windowing uses a singleton SwiftUI `Window` scene rather than the
+system-managed `Settings` scene or an AppKit-owned `NSWindowController`. The
+entry action explicitly activates the `LSUIElement` process through the current
+`NSApplication.activate()` API and then calls `openWindow(id:)`. New windows use
+deterministic default placement, existing windows come forward without moving or
+duplicating, and unwanted restoration is disabled so a closed window does not
+reappear during launch or Spaces changes. The window remains a normal window,
+not an always-on-top panel.
 
 ## Usage Thresholds
 
@@ -721,8 +730,9 @@ literals.
 The app is intentionally menu-bar-only. Local development, debugging, logging,
 telemetry, and verification should all run the same staged `LSUIElement` app
 bundle so lifecycle behavior does not change between development modes. AppKit
-is permitted at a narrow application-lifecycle boundary for normal termination;
-it should not own Settings or feature state.
+is permitted at narrow application-lifecycle boundaries for explicit activation
+and normal termination; it should not own a window, Settings content, or feature
+state.
 
 ## Localization And Language Preferences
 
