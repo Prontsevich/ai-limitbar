@@ -2,17 +2,15 @@ import SwiftUI
 
 struct SettingsView: View {
     @ObservedObject var appModel: AppModel
-    @State private var selection: SettingsSection = .accounts
-    @State private var editorSession = AccountEditorSession()
-    @State private var pendingNavigation: SettingsNavigationDestination?
-    @State private var isShowingDiscardConfirmation = false
+    @State private var workspace = SettingsWorkspaceState()
+    @State private var workspaceGeneration = UUID()
 
     var body: some View {
         VStack(spacing: 0) {
             if let warning = appModel.storageWarning {
                 Label(warning, systemImage: "externaldrive.badge.exclamationmark")
-                    .font(.callout)
-                    .foregroundStyle(.orange)
+                    .font(TerminalTheme.bodyFont)
+                    .foregroundStyle(TerminalTheme.warning)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 18)
                     .padding(.vertical, 10)
@@ -23,16 +21,19 @@ struct SettingsView: View {
             sectionNavigation
             Divider()
             sectionContent
+                .id(workspaceGeneration)
         }
         .frame(minWidth: 760, idealWidth: 840, minHeight: 500, idealHeight: 560)
-        .alert("Discard Changes?", isPresented: $isShowingDiscardConfirmation) {
+        .font(TerminalTheme.bodyFont)
+        .tint(TerminalTheme.primary)
+        .alert("Discard Changes?", isPresented: $workspace.isShowingDiscardConfirmation) {
             Button("Discard Changes", role: .destructive) {
-                guard let pendingNavigation else { return }
+                guard let pendingNavigation = workspace.pendingNavigation else { return }
                 applyNavigation(pendingNavigation)
-                self.pendingNavigation = nil
+                workspace.pendingNavigation = nil
             }
             Button("Keep Editing", role: .cancel) {
-                pendingNavigation = nil
+                workspace.pendingNavigation = nil
             }
         } message: {
             Text("Your account changes have not been saved.")
@@ -41,46 +42,43 @@ struct SettingsView: View {
             AppTelemetry.lifecycle.info("Settings appeared")
         }
         .onDisappear {
-            selection = .accounts
-            editorSession.reset()
-            pendingNavigation = nil
-            isShowingDiscardConfirmation = false
+            resetWorkspace()
         }
     }
 
     private var sectionNavigation: some View {
-        Picker("Settings Section", selection: $selection) {
-            ForEach(SettingsSection.allCases) { section in
-                Text(section.title)
-                    .tag(section)
+        TerminalSegmentedControl(
+            "Settings Section",
+            selection: $workspace.selection,
+            options: SettingsSection.allCases.map {
+                TerminalSegmentedOption(value: $0, title: $0.title)
             }
-        }
-        .pickerStyle(.segmented)
+        )
         .labelsHidden()
         .frame(maxWidth: 520)
         .padding(.horizontal, 20)
         .padding(.vertical, 10)
         .frame(maxWidth: .infinity)
-        .onChange(of: selection) { oldSelection, newSelection in
+        .onChange(of: workspace.selection) { oldSelection, newSelection in
             guard oldSelection != newSelection else { return }
-            guard editorSession.isDirty else {
-                editorSession.discardEditor()
+            guard workspace.editorSession.isDirty else {
+                workspace.editorSession.discardEditor()
                 return
             }
 
-            selection = oldSelection
-            pendingNavigation = .section(newSelection)
-            isShowingDiscardConfirmation = true
+            workspace.selection = oldSelection
+            workspace.pendingNavigation = .section(newSelection)
+            workspace.isShowingDiscardConfirmation = true
         }
     }
 
     @ViewBuilder
     private var sectionContent: some View {
-        switch selection {
+        switch workspace.selection {
         case .accounts:
             AccountsSettingsPane(
                 appModel: appModel,
-                editorSession: $editorSession,
+                editorSession: $workspace.editorSession,
                 onRequestAccountSelection: requestAccountSelection
             )
         case .refresh:
@@ -91,35 +89,54 @@ struct SettingsView: View {
     }
 
     private func requestAccountSelection(_ accountID: String?) {
-        guard accountID != editorSession.selectedAccountID else { return }
+        guard accountID != workspace.editorSession.selectedAccountID else { return }
         requestNavigation(.account(accountID))
     }
 
     private func requestNavigation(_ destination: SettingsNavigationDestination) {
-        guard editorSession.isDirty else {
+        guard workspace.editorSession.isDirty else {
             applyNavigation(destination)
             return
         }
 
-        pendingNavigation = destination
-        isShowingDiscardConfirmation = true
+        workspace.pendingNavigation = destination
+        workspace.isShowingDiscardConfirmation = true
     }
 
     private func applyNavigation(_ destination: SettingsNavigationDestination) {
-        editorSession.discardEditor()
+        workspace.editorSession.discardEditor()
 
         switch destination {
         case let .section(section):
-            selection = section
+            workspace.selection = section
         case let .account(accountID):
-            editorSession.selectedAccountID = accountID
+            workspace.editorSession.selectedAccountID = accountID
         }
+    }
+
+    private func resetWorkspace() {
+        workspace.reset()
+        workspaceGeneration = UUID()
     }
 }
 
-private enum SettingsNavigationDestination: Equatable {
+enum SettingsNavigationDestination: Equatable {
     case section(SettingsSection)
     case account(String?)
+}
+
+struct SettingsWorkspaceState: Equatable {
+    var selection: SettingsSection = .accounts
+    var editorSession = AccountEditorSession()
+    var pendingNavigation: SettingsNavigationDestination?
+    var isShowingDiscardConfirmation = false
+
+    mutating func reset() {
+        selection = .accounts
+        editorSession.reset()
+        pendingNavigation = nil
+        isShowingDiscardConfirmation = false
+    }
 }
 
 struct AccountEditorSession: Equatable {
@@ -154,7 +171,7 @@ enum AccountEditorMode: Equatable {
     case editing
 }
 
-private enum SettingsSection: String, CaseIterable, Hashable, Identifiable {
+enum SettingsSection: String, CaseIterable, Hashable, Identifiable {
     case accounts
     case refresh
     case providerSetup

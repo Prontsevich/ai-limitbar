@@ -1,11 +1,10 @@
 # Ollama Cloud Experimental Web Page Source
 
-Ollama Cloud does not currently document an account-usage API. AI Limitbar keeps
-`Manual` as the default source and offers an opt-in `Experimental web page`
-source for an Ollama account.
+Ollama Cloud does not currently document an account-usage API. AI Limitbar uses
+the `Experimental web page` source for each Ollama account.
 
-In Settings, save the account with `Experimental web page`, then choose
-`Connect Ollama…`. Sign in only in the AI Limitbar-owned WebKit view. Each
+In Settings, save the account, then choose `Connect Ollama…`. Sign in only in
+the AI Limitbar-owned WebKit view. Each
 account receives its own persistent WebKit data store identified by an opaque
 UUID; AI Limitbar never reads, imports, exports, logs, or stores cookies,
 passwords, tokens, browser profile data, raw HTML, or raw bridge payloads.
@@ -29,5 +28,4 @@ billing values are intentionally excluded.
 `Reconnect` is available when the session expires or the page structure
 changes. Scheduled refreshes never foreground the login view or attempt
 unattended reauthentication. A failed refresh keeps the last valid snapshot and
-falls back to a visible recovery warning; switching back to `Manual` remains
-supported.
+shows a visible recovery warning.

@@ -13,28 +13,15 @@ public struct ClaudeCodeProviderAdapter: ProviderAdapter {
 
     public func fetchSnapshot(account: ProviderAccount) async throws -> UsageSnapshot {
         switch account.sourceMode {
-        case .manual:
-            return manualSnapshot(account: account)
         case .claudeStatusLine:
             return try managedStatusLineSnapshot(account: account)
-        case .ollamaWebPage, .appServer:
-            return manualSnapshot(account: account)
+        case .manual, .ollamaWebPage, .appServer:
+            throw ProviderAdapterError(
+                providerID: id,
+                message: "Claude Code account has an unsupported source configuration.",
+                recoverySuggestion: "Open this account in Settings and save it again."
+            )
         }
-    }
-
-    private func manualSnapshot(account: ProviderAccount) -> UsageSnapshot {
-        UsageSnapshot(
-            providerID: id,
-            accountID: account.accountID,
-            accountDisplayName: account.displayName,
-            displayName: displayName,
-            status: .unavailable,
-            remainingLabel: "Open provider usage page",
-            lastUpdatedAt: Date(),
-            confidence: .manual,
-            source: "Claude account usage page",
-            warnings: ["No verified machine-readable usage source is configured yet."]
-        )
     }
 
     private func managedStatusLineSnapshot(account: ProviderAccount) throws -> UsageSnapshot {

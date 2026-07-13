@@ -13,7 +13,11 @@ public struct CodexAppServerProviderAdapter: ProviderAdapter {
 
     public func fetchSnapshot(account: ProviderAccount) async throws -> UsageSnapshot {
         guard account.sourceMode == .appServer else {
-            return manualSnapshot(account: account)
+            throw ProviderAdapterError(
+                providerID: id,
+                message: "OpenAI Codex account has an unsupported source configuration.",
+                recoverySuggestion: "Open this account in Settings and save it again."
+            )
         }
 
         do {
@@ -38,7 +42,7 @@ public struct CodexAppServerProviderAdapter: ProviderAdapter {
             throw ProviderAdapterError(
                 providerID: id,
                 message: "Codex rate limits could not be read.",
-                recoverySuggestion: "Try refreshing again or switch this account back to Manual.",
+                recoverySuggestion: "Try refreshing again after updating Codex CLI.",
                 isTransient: true
             )
         }
@@ -67,20 +71,6 @@ public struct CodexAppServerProviderAdapter: ProviderAdapter {
         )
     }
 
-    private func manualSnapshot(account: ProviderAccount) -> UsageSnapshot {
-        UsageSnapshot(
-            providerID: id,
-            accountID: account.accountID,
-            accountDisplayName: account.displayName,
-            displayName: displayName,
-            status: .unavailable,
-            remainingLabel: "Open provider usage page",
-            lastUpdatedAt: Date(),
-            confidence: .manual,
-            source: "OpenAI Codex product surfaces",
-            warnings: ["No verified machine-readable usage source is configured yet."]
-        )
-    }
 }
 
 public struct CodexParsedRateLimits: Equatable, Sendable {
@@ -102,7 +92,7 @@ public enum CodexRateLimitsParserError: Error, LocalizedError, Equatable, Sendab
     }
 
     public var recoverySuggestion: String? {
-        "Update Codex CLI or switch this account back to Manual."
+        "Update Codex CLI and try refreshing again."
     }
 }
 

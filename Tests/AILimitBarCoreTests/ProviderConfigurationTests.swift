@@ -2,6 +2,31 @@ import XCTest
 @testable import AILimitBarCore
 
 final class ProviderConfigurationTests: XCTestCase {
+    func testProviderDefaultsUseTheConfiguredSourceForRealProviders() {
+        XCTAssertEqual(ProviderSourceMode.defaultMode(for: "claude-code"), .claudeStatusLine)
+        XCTAssertEqual(ProviderSourceMode.defaultMode(for: "ollama-cloud"), .ollamaWebPage)
+        XCTAssertEqual(ProviderSourceMode.defaultMode(for: "openai-codex"), .appServer)
+        XCTAssertEqual(ProviderSourceMode.defaultMode(for: "mock"), .manual)
+    }
+
+    func testProviderAccountWithoutSourceUsesProviderDefault() {
+        XCTAssertEqual(
+            ProviderAccount(providerID: "openai-codex", isEnabled: true).sourceMode,
+            .appServer
+        )
+    }
+
+    func testProviderAccountRejectsManualSourceForRealProviders() {
+        XCTAssertEqual(
+            ProviderAccount(
+                providerID: "ollama-cloud",
+                isEnabled: true,
+                sourceMode: .manual
+            ).sourceMode,
+            .ollamaWebPage
+        )
+    }
+
     func testProviderAccountDecodesLegacyLocalSnapshotAsManagedStatusLine() throws {
         let account = try JSONDecoder().decode(
             ProviderAccount.self,

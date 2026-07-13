@@ -32,13 +32,33 @@ struct AccountsSettingsPane: View {
 
     private var accountList: some View {
         VStack(spacing: 0) {
-            List(selection: accountSelection) {
+            HStack {
+                Text("ACCOUNTS")
+                    .font(TerminalTheme.legendFont)
+                    .foregroundStyle(TerminalTheme.secondary)
+                Spacer()
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+
+            Divider()
+
+            List {
                 ForEach(appModel.providerAccounts) { account in
-                    AccountListRow(
-                        account: account,
-                        providerName: appModel.providerDisplayName(for: account.providerID)
-                    )
-                    .tag(account.id)
+                    Button {
+                        onRequestAccountSelection(account.id)
+                    } label: {
+                        AccountListRow(
+                            account: account,
+                            providerName: appModel.providerDisplayName(for: account.providerID),
+                            isSelected: editorSession.selectedAccountID == account.id
+                        )
+                    }
+                    .buttonStyle(TerminalListRowButtonStyle(
+                        isSelected: editorSession.selectedAccountID == account.id
+                    ))
+                    .listRowInsets(EdgeInsets(top: 1, leading: 6, bottom: 1, trailing: 6))
+                    .listRowBackground(Color.clear)
                     .contextMenu {
                         Button("Move Up") {
                             appModel.moveAccountUp(providerID: account.providerID, accountID: account.accountID)
@@ -64,23 +84,24 @@ struct AccountsSettingsPane: View {
             }
             .listStyle(.sidebar)
             .scrollContentBackground(.hidden)
-            .background(Color(nsColor: .controlBackgroundColor))
+            .tint(TerminalTheme.primary)
 
             Divider()
 
             HStack(spacing: 10) {
                 Button(action: beginAdding) {
-                    SettingsGlassIcon(systemName: "plus")
+                    SettingsActionIcon(systemName: "plus")
                 }
-                .settingsGlassIconButton(help: "Add account")
+                .settingsIconButton(help: "Add account")
                 .accessibilityLabel("Add account")
+                .disabled(editorSession.isDirty || !hasAvailableProvider)
 
                 Button(role: .destructive) {
                     isShowingDeleteConfirmation = true
                 } label: {
-                    SettingsGlassIcon(systemName: "minus")
+                    SettingsActionIcon(systemName: "minus")
                 }
-                .settingsGlassIconButton(help: "Delete selected account")
+                .settingsIconButton(help: "Delete selected account")
                 .accessibilityLabel("Delete selected account")
                 .disabled(selectedAccount == nil || editorSession.isDirty)
 
@@ -89,9 +110,9 @@ struct AccountsSettingsPane: View {
                 Button {
                     appModel.refresh()
                 } label: {
-                    SettingsGlassIcon(systemName: "arrow.clockwise")
+                    SettingsActionIcon(systemName: "arrow.clockwise")
                 }
-                .settingsGlassIconButton(help: appModel.isRefreshing ? "Refreshing all accounts" : "Refresh all accounts")
+                .settingsIconButton(help: appModel.isRefreshing ? "Refreshing all accounts" : "Refresh all accounts")
                 .accessibilityLabel(appModel.isRefreshing ? "Refreshing all accounts" : "Refresh all accounts")
                 .disabled(appModel.isRefreshing || appModel.hasActiveProviderRefresh || !appModel.hasEnabledAccounts)
             }
@@ -142,15 +163,6 @@ struct AccountsSettingsPane: View {
         }
     }
 
-    private var accountSelection: Binding<String?> {
-        Binding(
-            get: { editorSession.selectedAccountID },
-            set: { requestedAccountID in
-                requestAccountSelection(requestedAccountID)
-            }
-        )
-    }
-
     private var selectedAccount: ProviderAccount? {
         guard let selectedAccountID = editorSession.selectedAccountID else { return nil }
         return appModel.providerAccounts.first { $0.id == selectedAccountID }
@@ -160,8 +172,12 @@ struct AccountsSettingsPane: View {
         appModel.providerAccounts.map(\.id)
     }
 
+    private var hasAvailableProvider: Bool {
+        appModel.providerIDs.contains(where: appModel.canAddAccount)
+    }
+
     private func beginAdding() {
-        guard !editorSession.isDirty else { return }
+        guard !editorSession.isDirty, hasAvailableProvider else { return }
         editorSession.selectedAccountID = nil
         editorSession.mode = .creating
         editorSession.isDirty = false
@@ -216,20 +232,23 @@ struct AccountsSettingsPane: View {
 private struct AccountListRow: View {
     let account: ProviderAccount
     let providerName: String
+    let isSelected: Bool
 
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: "person.crop.square")
-                .foregroundStyle(.secondary)
+                .foregroundStyle(TerminalTheme.secondary)
                 .frame(width: 18)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(account.displayName)
+                    .font(TerminalTheme.emphasizedBodyFont)
+                    .foregroundStyle(TerminalTheme.primary)
                     .lineLimit(1)
 
                 Text(providerName)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .font(TerminalTheme.captionFont)
+                    .foregroundStyle(isSelected ? TerminalTheme.primary.opacity(0.82) : TerminalTheme.secondary)
                     .lineLimit(1)
             }
         }

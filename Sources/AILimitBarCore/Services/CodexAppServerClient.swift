@@ -105,9 +105,9 @@ public enum CodexAppServerClientError: Error, LocalizedError, Equatable, Sendabl
         case .authenticationUnavailable:
             "Sign in with codex login, then refresh this account again."
         case .unsupportedProtocol:
-            "Update Codex CLI or switch this account back to Manual."
+            "Update Codex CLI and try refreshing again."
         case .malformedResponse, .responseTooLarge, .processExited:
-            "Update Codex CLI or switch this account back to Manual."
+            "Update Codex CLI and try refreshing again."
         case .timedOut:
             "Check your Codex connection and try the refresh again."
         }

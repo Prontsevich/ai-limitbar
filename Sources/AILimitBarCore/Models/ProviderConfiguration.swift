@@ -24,6 +24,27 @@ public enum ProviderSourceMode: String, Codable, CaseIterable, Sendable {
         }
     }
 
+    public static func defaultMode(for providerID: String) -> ProviderSourceMode {
+        switch providerID {
+        case "claude-code":
+            .claudeStatusLine
+        case "ollama-cloud":
+            .ollamaWebPage
+        case "openai-codex":
+            .appServer
+        default:
+            .manual
+        }
+    }
+
+    public static func resolvedMode(
+        _ requestedMode: ProviderSourceMode?,
+        for providerID: String
+    ) -> ProviderSourceMode {
+        let providerDefault = defaultMode(for: providerID)
+        return providerDefault == .manual ? requestedMode ?? .manual : providerDefault
+    }
+
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         switch try container.decode(String.self) {
@@ -66,7 +87,7 @@ public struct ProviderAccount: Codable, Identifiable, Equatable, Sendable {
         accountID: String = ProviderAccount.defaultAccountID,
         displayName: String = ProviderAccount.defaultDisplayName,
         isEnabled: Bool,
-        sourceMode: ProviderSourceMode = .manual,
+        sourceMode: ProviderSourceMode? = nil,
         localSnapshotPath: String? = nil,
         webDataStoreID: UUID? = nil,
         codexExecutablePath: String? = nil
@@ -75,7 +96,7 @@ public struct ProviderAccount: Codable, Identifiable, Equatable, Sendable {
         self.accountID = accountID
         self.displayName = displayName
         self.isEnabled = isEnabled
-        self.sourceMode = sourceMode
+        self.sourceMode = ProviderSourceMode.resolvedMode(sourceMode, for: providerID)
         self.localSnapshotPath = localSnapshotPath
         self.webDataStoreID = webDataStoreID
         self.codexExecutablePath = codexExecutablePath
@@ -87,7 +108,10 @@ public struct ProviderAccount: Codable, Identifiable, Equatable, Sendable {
         accountID = try container.decode(String.self, forKey: .accountID)
         displayName = try container.decode(String.self, forKey: .displayName)
         isEnabled = try container.decode(Bool.self, forKey: .isEnabled)
-        sourceMode = try container.decodeIfPresent(ProviderSourceMode.self, forKey: .sourceMode) ?? .manual
+        sourceMode = ProviderSourceMode.resolvedMode(
+            try container.decodeIfPresent(ProviderSourceMode.self, forKey: .sourceMode),
+            for: providerID
+        )
         localSnapshotPath = try container.decodeIfPresent(String.self, forKey: .localSnapshotPath)
         webDataStoreID = try container.decodeIfPresent(UUID.self, forKey: .webDataStoreID)
         codexExecutablePath = try container.decodeIfPresent(String.self, forKey: .codexExecutablePath)

@@ -2,6 +2,15 @@ import AILimitBarCore
 import Foundation
 
 extension AppModel {
+    func canAddAccount(providerID: String) -> Bool {
+        guard adapter(for: providerID) != nil else { return false }
+        return !hasCodexAppServerConflict(
+            providerID: providerID,
+            accountID: nil,
+            sourceMode: ProviderSourceMode.defaultMode(for: providerID)
+        )
+    }
+
     func setAccount(_ providerID: String, accountID: String, enabled: Bool) {
         let previousAccounts = providerAccounts
         guard let index = providerAccounts.firstIndex(where: {
@@ -61,6 +70,7 @@ extension AppModel {
         let trimmedDisplayName = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedCodexExecutablePath = codexExecutablePath?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let resolvedDisplayName = trimmedDisplayName.isEmpty ? ProviderAccount.defaultDisplayName : trimmedDisplayName
+        let resolvedSourceMode = ProviderSourceMode.resolvedMode(sourceMode, for: providerID)
 
         guard !hasDisplayNameConflict(
             accountID: accountID,
@@ -70,11 +80,11 @@ extension AppModel {
         guard !hasCodexAppServerConflict(
             providerID: providerID,
             accountID: accountID,
-            sourceMode: sourceMode
+            sourceMode: resolvedSourceMode
         ) else { return false }
 
         providerAccounts[index].displayName = resolvedDisplayName
-        providerAccounts[index].sourceMode = sourceMode
+        providerAccounts[index].sourceMode = resolvedSourceMode
         providerAccounts[index].codexExecutablePath = trimmedCodexExecutablePath.isEmpty ? nil : trimmedCodexExecutablePath
         updateSnapshotAccountDisplayName(
             providerID: providerID,
@@ -112,15 +122,16 @@ extension AppModel {
 
     func setAccountSourceMode(_ providerID: String, accountID: String, sourceMode: ProviderSourceMode) {
         let previousAccounts = providerAccounts
+        let resolvedSourceMode = ProviderSourceMode.resolvedMode(sourceMode, for: providerID)
         guard let index = providerAccounts.firstIndex(where: {
             $0.providerID == providerID && $0.accountID == accountID
         }), !hasCodexAppServerConflict(
             providerID: providerID,
             accountID: accountID,
-            sourceMode: sourceMode
+            sourceMode: resolvedSourceMode
         ) else { return }
 
-        providerAccounts[index].sourceMode = sourceMode
+        providerAccounts[index].sourceMode = resolvedSourceMode
         if !saveConfiguration() {
             providerAccounts = previousAccounts
         }
@@ -174,24 +185,25 @@ extension AppModel {
         providerID: String,
         displayName: String? = nil,
         isEnabled: Bool = true,
-        sourceMode: ProviderSourceMode = .manual,
+        sourceMode: ProviderSourceMode? = nil,
         codexExecutablePath: String? = nil
     ) -> ProviderAccount? {
         guard adapter(for: providerID) != nil else { return nil }
         let previousAccounts = providerAccounts
         let trimmedDisplayName = displayName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let trimmedCodexExecutablePath = codexExecutablePath?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let resolvedSourceMode = ProviderSourceMode.resolvedMode(sourceMode, for: providerID)
         guard !hasCodexAppServerConflict(
             providerID: providerID,
             accountID: nil,
-            sourceMode: sourceMode
+            sourceMode: resolvedSourceMode
         ) else { return nil }
         let account = ProviderAccount(
             providerID: providerID,
             accountID: "account-\(UUID().uuidString.lowercased())",
             displayName: trimmedDisplayName.isEmpty ? nextAccountDisplayName(for: providerID) : trimmedDisplayName,
             isEnabled: isEnabled,
-            sourceMode: sourceMode,
+            sourceMode: resolvedSourceMode,
             codexExecutablePath: trimmedCodexExecutablePath.isEmpty ? nil : trimmedCodexExecutablePath
         )
         guard !hasDisplayNameConflict(

@@ -89,47 +89,329 @@ struct TerminalStatusMeter: View {
 
 struct TerminalIconButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .foregroundStyle(configuration.isPressed ? TerminalTheme.primary : TerminalTheme.secondary)
-            .frame(minWidth: 22, minHeight: 22)
-            .contentShape(Rectangle())
-            .background(configuration.isPressed ? TerminalTheme.primary.opacity(0.18) : .clear)
-            .clipShape(RoundedRectangle(cornerRadius: 2, style: .continuous))
-            .terminalControlHighlight()
+        TerminalInteractiveSurface(
+            label: configuration.label,
+            isPressed: configuration.isPressed,
+            isSelected: false,
+            showsBorder: false,
+            showsHoverBorder: true,
+            horizontalPadding: 4,
+            verticalPadding: 4,
+            minimumWidth: 22,
+            minimumHeight: nil,
+            expandsHorizontally: false
+        )
     }
 }
 
 struct TerminalTextButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(TerminalTheme.bodyFont)
-            .foregroundStyle(configuration.isPressed ? TerminalTheme.primary : TerminalTheme.secondary)
-            .padding(.horizontal, 2)
-            .padding(.vertical, 2)
-            .contentShape(Rectangle())
-            .background(configuration.isPressed ? TerminalTheme.primary.opacity(0.18) : .clear)
-            .clipShape(RoundedRectangle(cornerRadius: 2, style: .continuous))
-            .terminalControlHighlight()
+        TerminalInteractiveSurface(
+            label: configuration.label,
+            isPressed: configuration.isPressed,
+            isSelected: false,
+            showsBorder: false,
+            showsHoverBorder: true,
+            horizontalPadding: 4,
+            verticalPadding: 3,
+            minimumWidth: nil,
+            minimumHeight: nil,
+            expandsHorizontally: false
+        )
     }
 }
 
-private struct TerminalControlHighlight: ViewModifier {
+struct TerminalActionButtonStyle: ButtonStyle {
+    var isProminent = false
+
+    func makeBody(configuration: Configuration) -> some View {
+        TerminalInteractiveSurface(
+            label: configuration.label,
+            isPressed: configuration.isPressed,
+            isSelected: isProminent,
+            showsBorder: true,
+            showsHoverBorder: false,
+            horizontalPadding: 9,
+            verticalPadding: 5,
+            minimumWidth: nil,
+            minimumHeight: nil,
+            expandsHorizontally: false
+        )
+    }
+}
+
+struct TerminalSegmentedOption<Selection: Hashable>: Identifiable {
+    let value: Selection
+    let title: String
+
+    var id: Selection { value }
+}
+
+struct TerminalSegmentedControl<Selection: Hashable>: View {
+    let accessibilityLabel: String
+    @Binding var selection: Selection
+    let options: [TerminalSegmentedOption<Selection>]
+
+    init(
+        _ accessibilityLabel: String,
+        selection: Binding<Selection>,
+        options: [TerminalSegmentedOption<Selection>]
+    ) {
+        self.accessibilityLabel = accessibilityLabel
+        _selection = selection
+        self.options = options
+    }
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(Array(options.enumerated()), id: \.element.id) { index, option in
+                Button {
+                    selection = option.value
+                } label: {
+                    Text(option.title)
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity, minHeight: 28)
+                }
+                .buttonStyle(TerminalSegmentButtonStyle(isSelected: selection == option.value))
+                .accessibilityValue(selection == option.value ? "Selected" : "Not selected")
+
+                if index < options.count - 1 {
+                    Rectangle()
+                        .fill(TerminalTheme.border.opacity(0.62))
+                        .frame(width: 1, height: 22)
+                        .accessibilityHidden(true)
+                }
+            }
+        }
+        .padding(2)
+        .background(TerminalTheme.surface)
+        .overlay {
+            RoundedRectangle(cornerRadius: 3, style: .continuous)
+                .strokeBorder(TerminalTheme.border.opacity(0.8), lineWidth: 1)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
+        .fixedSize(horizontal: false, vertical: true)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(accessibilityLabel)
+    }
+}
+
+struct TerminalToggleStyle: ToggleStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        Button {
+            configuration.isOn.toggle()
+        } label: {
+            HStack(spacing: 7) {
+                configuration.label
+                Text(configuration.isOn ? "ON" : "OFF")
+                    .font(TerminalTheme.captionFont)
+            }
+        }
+        .buttonStyle(TerminalToggleButtonStyle(isOn: configuration.isOn))
+        .accessibilityValue(configuration.isOn ? "On" : "Off")
+    }
+}
+
+private struct TerminalSegmentButtonStyle: ButtonStyle {
+    let isSelected: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        TerminalInteractiveSurface(
+            label: configuration.label,
+            isPressed: configuration.isPressed,
+            isSelected: isSelected,
+            showsBorder: false,
+            showsHoverBorder: false,
+            horizontalPadding: 10,
+            verticalPadding: 0,
+            minimumWidth: nil,
+            minimumHeight: 28,
+            expandsHorizontally: true
+        )
+    }
+}
+
+private struct TerminalToggleButtonStyle: ButtonStyle {
+    let isOn: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        TerminalInteractiveSurface(
+            label: configuration.label,
+            isPressed: configuration.isPressed,
+            isSelected: isOn,
+            showsBorder: true,
+            showsHoverBorder: false,
+            horizontalPadding: 8,
+            verticalPadding: 5,
+            minimumWidth: nil,
+            minimumHeight: nil,
+            expandsHorizontally: false
+        )
+    }
+}
+
+struct TerminalListRowButtonStyle: ButtonStyle {
+    let isSelected: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        TerminalListRowSurface(
+            label: configuration.label,
+            isPressed: configuration.isPressed,
+            isSelected: isSelected
+        )
+    }
+}
+
+struct TerminalChoiceButtonStyle: ButtonStyle {
+    let isSelected: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        TerminalInteractiveSurface(
+            label: configuration.label,
+            isPressed: configuration.isPressed,
+            isSelected: isSelected,
+            showsBorder: true,
+            showsHoverBorder: false,
+            horizontalPadding: 8,
+            verticalPadding: 0,
+            minimumWidth: nil,
+            minimumHeight: 28,
+            expandsHorizontally: true
+        )
+    }
+}
+
+private struct TerminalInteractiveSurface<Label: View>: View {
+    let label: Label
+    let isPressed: Bool
+    let isSelected: Bool
+    let showsBorder: Bool
+    let showsHoverBorder: Bool
+    let horizontalPadding: CGFloat
+    let verticalPadding: CGFloat
+    let minimumWidth: CGFloat?
+    let minimumHeight: CGFloat?
+    let expandsHorizontally: Bool
+    @Environment(\.isEnabled) private var isEnabled
     @State private var isHovering = false
 
-    func body(content: Content) -> some View {
-        content
-            .background(
-                RoundedRectangle(cornerRadius: 2, style: .continuous)
-                    .fill(isHovering ? TerminalTheme.primary.opacity(0.12) : .clear)
+    private var fill: Color {
+        guard isEnabled else { return .clear }
+        if isPressed {
+            return TerminalTheme.primary.opacity(0.32)
+        }
+        if isHovering {
+            return TerminalTheme.primary.opacity(isSelected ? 0.28 : 0.20)
+        }
+        if isSelected {
+            return TerminalTheme.primary.opacity(0.22)
+        }
+        return .clear
+    }
+
+    private var foreground: Color {
+        guard isEnabled else { return TerminalTheme.secondary.opacity(0.42) }
+        return isPressed || isSelected || isHovering ? TerminalTheme.primary : TerminalTheme.secondary
+    }
+
+    private var borderOpacity: Double {
+        guard isEnabled else { return showsBorder ? 0.28 : 0 }
+        if showsBorder {
+            if isPressed || isSelected { return 0.98 }
+            if isHovering { return 0.90 }
+            return 0.52
+        }
+        if showsHoverBorder, isPressed || isHovering {
+            return isPressed ? 0.98 : 0.90
+        }
+        return 0
+    }
+
+    var body: some View {
+        label
+            .font(TerminalTheme.bodyFont)
+            .foregroundStyle(foreground)
+            .padding(.horizontal, horizontalPadding)
+            .padding(.vertical, verticalPadding)
+            .frame(
+                minWidth: minimumWidth,
+                maxWidth: expandsHorizontally ? .infinity : nil,
+                minHeight: minimumHeight
             )
+            .contentShape(Rectangle())
+            .background(fill)
+            .overlay {
+                RoundedRectangle(cornerRadius: 2, style: .continuous)
+                    .strokeBorder(TerminalTheme.border.opacity(borderOpacity), lineWidth: 1)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 2, style: .continuous))
+            .scaleEffect(isPressed ? 0.98 : 1)
             .animation(.easeOut(duration: 0.12), value: isHovering)
+            .animation(.easeOut(duration: 0.08), value: isPressed)
             .onHover { isHovering = $0 }
     }
 }
 
-private extension View {
-    func terminalControlHighlight() -> some View {
-        modifier(TerminalControlHighlight())
+private struct TerminalListRowSurface<Label: View>: View {
+    let label: Label
+    let isPressed: Bool
+    let isSelected: Bool
+    @State private var isHovering = false
+
+    private var fill: Color {
+        if isPressed {
+            return TerminalTheme.primary.opacity(0.32)
+        }
+        if isHovering {
+            return TerminalTheme.primary.opacity(isSelected ? 0.28 : 0.20)
+        }
+        if isSelected {
+            return TerminalTheme.primary.opacity(0.22)
+        }
+        return .clear
+    }
+
+    var body: some View {
+        label
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+            .contentShape(Rectangle())
+            .background(fill)
+            .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
+            .animation(.easeOut(duration: 0.12), value: isHovering)
+            .animation(.easeOut(duration: 0.08), value: isPressed)
+            .onHover { isHovering = $0 }
+    }
+}
+
+struct TerminalTextField: View {
+    let title: String
+    @Binding var text: String
+    @FocusState private var isFocused: Bool
+
+    init(_ title: String, text: Binding<String>) {
+        self.title = title
+        _text = text
+    }
+
+    var body: some View {
+        TextField(title, text: $text)
+            .textFieldStyle(.plain)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+            .background(TerminalTheme.surface)
+            .overlay {
+                RoundedRectangle(cornerRadius: 3, style: .continuous)
+                    .strokeBorder(
+                        isFocused ? TerminalTheme.primary : TerminalTheme.border.opacity(0.72),
+                        lineWidth: isFocused ? 2 : 1
+                    )
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
+            .focused($isFocused)
+            .accessibilityLabel(title)
+            .animation(.easeOut(duration: 0.12), value: isFocused)
     }
 }
 

@@ -14,9 +14,9 @@ struct NativeActionsMenuButton: View {
             Button {
                 menuRequest &+= 1
             } label: {
-                SettingsGlassIcon(systemName: "ellipsis", verticalOffset: -1)
+                SettingsActionIcon(systemName: "ellipsis", verticalOffset: -1)
             }
-            .settingsGlassIconButton(help: "More account actions")
+            .settingsIconButton(help: "More account actions")
             .accessibilityLabel("More account actions")
 
             NativeActionsMenuAnchor(

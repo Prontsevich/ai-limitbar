@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct MenuBarPanelView: View {
+    @Environment(\.openWindow) private var openWindow
     @ObservedObject var appModel: AppModel
     @AppStorage(DashboardHeightPreset.storageKey)
     private var dashboardHeightPresetRawValue = DashboardHeightPreset.standard.rawValue
@@ -86,7 +87,9 @@ struct MenuBarPanelView: View {
 
     private var footerControls: some View {
         HStack {
-            SettingsLink {
+            Button {
+                ApplicationLifecycle.openSettings(using: openWindow)
+            } label: {
                 Text("Settings")
             }
             .buttonStyle(TerminalTextButtonStyle())

@@ -21,8 +21,22 @@ struct AILimitBarApp: App {
         }
         .menuBarExtraStyle(.window)
 
-        Settings {
+        Window(SettingsWindowConfiguration.title, id: SettingsWindowConfiguration.id) {
             SettingsView(appModel: appModel)
+                .windowMinimizeBehavior(.disabled)
+                .windowResizeBehavior(.disabled)
+                .windowFullScreenBehavior(.disabled)
+        }
+        .defaultLaunchBehavior(.suppressed)
+        .restorationBehavior(.disabled)
+        .windowResizability(.contentMinSize)
+        .defaultWindowPlacement { content, context in
+            let contentSize = content.sizeThatFits(.unspecified)
+            let placement = SettingsWindowConfiguration.defaultPlacement(
+                contentSize: contentSize,
+                visibleRect: context.defaultDisplay.visibleRect
+            )
+            return WindowPlacement(placement.position, size: placement.size)
         }
     }
 }

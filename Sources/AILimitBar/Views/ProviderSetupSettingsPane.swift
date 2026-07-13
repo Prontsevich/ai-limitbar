@@ -6,28 +6,28 @@ struct ProviderSetupSettingsPane: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             VStack(alignment: .leading, spacing: 4) {
-                Text("Provider Setup")
-                    .font(.title2.weight(.semibold))
+                Text("PROVIDER SETUP")
+                    .font(TerminalTheme.titleFont)
+                    .foregroundStyle(TerminalTheme.primary)
                 Text("Provider access stays conservative until stable machine-readable sources are verified.")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
+                    .font(TerminalTheme.bodyFont)
+                    .foregroundStyle(TerminalTheme.secondary)
             }
 
-            Form {
-                Section("Providers") {
+            TerminalFieldset(title: "PROVIDERS") {
+                EmptyView()
+            } content: {
+                VStack(spacing: 0) {
                     ForEach(appModel.providerIDs, id: \.self) { providerID in
                         ProviderSetupRow(appModel: appModel, providerID: providerID)
+
+                        if providerID != appModel.providerIDs.last {
+                            TerminalRule()
+                                .padding(.vertical, 8)
+                        }
                     }
                 }
-
-                Section("Credentials") {
-                    Text("Credential entry is disabled until real provider requirements are verified.")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
             }
-            .formStyle(.grouped)
             Spacer()
         }
         .padding(.horizontal, 24)
@@ -46,10 +46,11 @@ private struct ProviderSetupRow: View {
         HStack(alignment: .center, spacing: 16) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(appModel.providerDisplayName(for: providerID))
-                    .font(.headline)
+                    .font(TerminalTheme.emphasizedBodyFont)
+                    .foregroundStyle(TerminalTheme.primary)
                 Text(sourceSummary)
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
+                    .font(TerminalTheme.captionFont)
+                    .foregroundStyle(TerminalTheme.secondary)
             }
             Spacer()
             Button {
@@ -57,6 +58,7 @@ private struct ProviderSetupRow: View {
             } label: {
                 Label("Open Usage", systemImage: "arrow.up.forward.square")
             }
+            .buttonStyle(TerminalActionButtonStyle())
             .disabled(usageURL == nil)
         }
     }
@@ -67,9 +69,11 @@ private struct ProviderSetupRow: View {
 
     private var sourceSummary: String {
         switch providerID {
-        case "claude-code": "Manual or managed statusLine · local database"
-        case "openai-codex": "Manual or experimental app-server"
-        default: "Manual source"
+        case "mock": "Built-in local fixture"
+        case "claude-code": "Managed statusLine · local database"
+        case "openai-codex": "Experimental app-server"
+        case "ollama-cloud": "Experimental web page"
+        default: "No configured source"
         }
     }
 }

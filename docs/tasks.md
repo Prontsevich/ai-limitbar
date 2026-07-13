@@ -718,44 +718,68 @@ Acceptance:
 
 Goal: replace the system-managed Settings presentation with a predictable
 singleton SwiftUI window, then align the Settings workspace with the approved
-terminal-fieldset product language without rebuilding native controls.
+terminal-fieldset product language and one consistent interactive control layer.
 
 Design contract: [`docs/settings-design.md`](settings-design.md).
 
-- [ ] Replace the SwiftUI `Settings` scene and `SettingsLink` entry point with a
+- [x] Replace the SwiftUI `Settings` scene and `SettingsLink` entry point with a
   singleton `Window("AI Limitbar Settings", id: "settings")` scene opened through
   `openWindow(id:)`.
-- [ ] Add one narrow application-activation boundary that calls the current
+- [x] Add one narrow application-activation boundary that calls the current
   `NSApplication.activate()` API in direct response to the Settings action before
   opening the SwiftUI window. Do not restore an AppKit-owned `NSWindowController`
   or use deprecated focus-stealing APIs.
-- [ ] Keep the staged app `LSUIElement` and menu-bar-only. Opening Settings must
+- [x] Keep the staged app `LSUIElement` and menu-bar-only. Opening Settings must
   make the app active and the Settings window key without adding a Dock icon,
   changing the normal activation policy, or making the window float above other
   apps.
-- [ ] Make the Settings scene singleton: reopening an existing window brings it
-  forward instead of creating a duplicate or repositioning it.
-- [ ] Define a deterministic default size and center new Settings windows on the
-  active/default visible display. Respect the user's move and resize choices
-  while that window remains open, including multi-display setups.
-- [ ] Disable unwanted restoration for the Settings scene so a closed window does
+- [x] Disable the native minimize, resize, and full-screen controls while
+  preserving close. A menu-bar utility Settings window is closed to dismiss it
+  rather than minimized to the Dock or expanded into a primary app window.
+- [x] Make the Settings scene singleton: reopening an existing window brings it
+  forward instead of creating a duplicate or repositioning it. A closed or
+  hidden window is centered again on the display hosting the new Settings action.
+- [x] Define a deterministic default size and center new Settings windows on the
+  display that hosts the menu-bar panel when the Settings action is invoked,
+  using the pointer display and then the active/default visible display only as
+  fallbacks. After creation, use the real window frame to center it in that
+  display's visible bounds.
+  Respect the user's move and resize choices while that window remains open,
+  including multi-display setups.
+- [x] Disable unwanted restoration for the Settings scene so a closed window does
   not reappear during launch or Spaces changes. Closing and reopening must reset
   transient editor, pending-navigation, alert, and section-selection state.
-- [ ] Preserve the current Accounts, Refresh, and Provider Setup information
+- [x] Preserve the current Accounts, Refresh, and Provider Setup information
   architecture for this milestone. Leave the planned General-section
   reorganization to Milestone 22 so lifecycle and visual work do not absorb
   localization or preference-model changes.
-- [ ] Restyle Settings as terminal-adjacent rather than as a literal terminal:
+- [x] Restyle Settings as terminal-adjacent rather than as a literal terminal:
   reuse compact spacing, thin fieldset borders, restrained semantic status color,
-  and monospaced technical values while retaining native lists, forms, fields,
-  pickers, toggles, dialogs, focus rings, and selection behavior.
-- [ ] Remove opaque sidebar/list backgrounds and decorative glass treatments that
+  and a monospaced text hierarchy. Terminal selectors, sidebar selection,
+  toggles, and actions share visible hover/pressed feedback; native editing,
+  dialogs, menus, and focus behavior remain intact.
+- [x] Remove opaque sidebar/list backgrounds and decorative glass treatments that
   fight the new composition. Keep system-adaptive Light and Dark appearances and
   do not introduce the custom theme-token model planned for Milestone 25.
-- [ ] Preserve add, edit, delete, enable/disable, reorder, refresh, connection,
-  usage-page, source-mode, helper-install, Save/Cancel, and dirty-draft workflows
-  without changing provider, refresh, persistence, or snapshot contracts.
-- [ ] Manually verify opening from behind another app, repeated open, close/reopen,
+- [x] Hide the non-actionable Credentials placeholder from Provider Setup until a
+  verified provider integration needs an actual credential workflow.
+- [x] Replace the account create/edit `Form` column layout with top-aligned
+  `ACCOUNT` and `SOURCE` terminal fieldsets while preserving text editing, file
+  import, validation, Save/Cancel, Return, and Escape.
+- [x] Replace the account editor's system Provider popup and text-field focus
+  ring with a keyboard-accessible terminal provider selector, a terminal focus
+  border, and a square-cornered, scrollable provider overlay without a decorative
+  title. Space/Return opens the selector, arrows move its list focus, Tab enters
+  and traverses its items, and Escape closes it. Hide a provider that cannot
+  accept another account, and hide the redundant source fieldset for providers
+  with no configurable source.
+- [x] Remove `Manual` as a real-provider Create/Edit source. New and saved real
+  accounts use the provider's single current source; `Manual` remains only for
+  the built-in Mock provider.
+- [x] Preserve add, edit, delete, enable/disable, reorder, refresh, connection,
+  usage-page, configured-source, helper-install, Save/Cancel, and dirty-draft
+  workflows without changing refresh, persistence, or snapshot contracts.
+- [x] Manually verify opening from behind another app, repeated open, close/reopen,
   active selection accent, keyboard focus, dirty drafts, Light/Dark appearance,
   multiple Spaces, and multiple displays in the staged `.app` bundle.
 
@@ -765,8 +789,16 @@ Acceptance:
   predictable location; an already open window comes forward without duplication.
 - Closing Settings prevents spontaneous reappearance and reopening starts from a
   clean Accounts state without stale editor or confirmation UI.
-- Active native controls use the correct macOS accent and focus appearance; the
-  implementation does not hardcode a blue tint to imitate active-window state.
+- Active selectors, selection, toggles, and actions use the terminal palette with
+  visible hover/pressed feedback; the implementation does not use system-blue
+  selection or a mixed control style.
+- Every selector segment has a compact fixed height and responds across its full
+  bordered cell, not only over its label.
+- Account creation and editing remain top-aligned and readable at the normal
+  Settings window size; labels, source selectors, and validation do not clip or
+  overlap one another.
+- Provider choices, text-field focus, and action hover feedback use the terminal
+  palette without system-blue popup or focus styling.
 - Settings is recognizably related to the terminal-fieldset dashboard while still
   behaving like a native macOS configuration workspace in Light and Dark modes.
 - The redesign changes windowing and presentation only; existing account and

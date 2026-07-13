@@ -72,17 +72,6 @@ final class OllamaCloudProviderAdapterTests: XCTestCase {
         }
     }
 
-    func testManualModeRemainsManualFallback() async throws {
-        let adapter = OllamaCloudProviderAdapter(client: StubOllamaClient(payload: nil))
-        let account = ProviderAccount(providerID: "ollama-cloud", isEnabled: true)
-
-        let snapshot = try await adapter.fetchSnapshot(account: account)
-
-        XCTAssertEqual(snapshot.confidence, .manual)
-        XCTAssertEqual(snapshot.source, "Ollama account settings")
-        XCTAssertEqual(snapshot.status, .unavailable)
-    }
-
     func testWebPageModeBuildsLiveSnapshotWithCompatibilityWarning() async throws {
         let payload = OllamaUsagePagePayload(
             session: OllamaUsagePageWindowPayload(usedPercent: 42),

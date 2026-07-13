@@ -120,7 +120,11 @@ public struct OllamaCloudProviderAdapter: ProviderAdapter {
 
     public func fetchSnapshot(account: ProviderAccount) async throws -> UsageSnapshot {
         guard account.sourceMode == .ollamaWebPage else {
-            return manualSnapshot(account: account)
+            throw ProviderAdapterError(
+                providerID: id,
+                message: "Ollama Cloud account has an unsupported source configuration.",
+                recoverySuggestion: "Open this account in Settings and save it again."
+            )
         }
         guard account.webDataStoreID != nil else {
             throw ProviderAdapterError(
@@ -174,18 +178,4 @@ public struct OllamaCloudProviderAdapter: ProviderAdapter {
         )
     }
 
-    private func manualSnapshot(account: ProviderAccount) -> UsageSnapshot {
-        UsageSnapshot(
-            providerID: id,
-            accountID: account.accountID,
-            accountDisplayName: account.displayName,
-            displayName: displayName,
-            status: .unavailable,
-            remainingLabel: "Open provider usage page",
-            lastUpdatedAt: Date(),
-            confidence: .manual,
-            source: "Ollama account settings",
-            warnings: ["No verified machine-readable usage source is configured yet."]
-        )
-    }
 }

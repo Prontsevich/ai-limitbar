@@ -79,7 +79,7 @@ final class CodexAppServerProviderAdapterTests: XCTestCase {
             XCTFail("Expected malformed response to fail.")
         } catch let error as ProviderAdapterError {
             XCTAssertEqual(error.message, "Codex app-server returned an unsupported response.")
-            XCTAssertEqual(error.recoverySuggestion, "Update Codex CLI or switch this account back to Manual.")
+            XCTAssertEqual(error.recoverySuggestion, "Update Codex CLI and try refreshing again.")
             XCTAssertFalse(error.isTransient)
         }
     }
@@ -101,16 +101,6 @@ final class CodexAppServerProviderAdapterTests: XCTestCase {
             XCTAssertEqual(error.message, "Codex app-server timed out while reading rate limits.")
             XCTAssertTrue(error.isTransient)
         }
-    }
-
-    func testManualModeRetainsManualFallback() async throws {
-        let adapter = CodexAppServerProviderAdapter(client: FixtureCodexClient(result: .failure(.timedOut)))
-        let account = ProviderAccount(providerID: adapter.id, isEnabled: true)
-
-        let snapshot = try await adapter.fetchSnapshot(account: account)
-
-        XCTAssertEqual(snapshot.confidence, .manual)
-        XCTAssertEqual(snapshot.status, .unavailable)
     }
 
     private func fixture(_ name: String) throws -> CodexRateLimitsPayload {

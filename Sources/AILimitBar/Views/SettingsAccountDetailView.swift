@@ -19,38 +19,59 @@ struct AccountDetailView: View {
 
             Divider()
 
-            Form {
-                Section("Account") {
-                    LabeledContent("Name", value: currentAccount.displayName)
-                    LabeledContent("Provider", value: appModel.providerDisplayName(for: currentAccount.providerID))
-                }
-
-                Section("Configuration") {
-                    LabeledContent("Source", value: currentAccount.sourceMode.displayName)
-                    if let codexExecutablePath = currentAccount.codexExecutablePath, !codexExecutablePath.isEmpty {
-                        LabeledContent("Codex executable", value: codexExecutablePath)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    TerminalFieldset(title: "STATUS") {
+                        EmptyView()
+                    } content: {
+                        SettingsDetailValueRow(
+                            label: "Source",
+                            value: currentAccount.sourceMode.displayName,
+                            isTechnical: true
+                        )
+                        SettingsDetailValueRow(
+                            label: "Refresh",
+                            value: appModel.refreshStatus(for: currentAccount).displayName
+                        )
+                        SettingsDetailValueRow(
+                            label: "Last updated",
+                            value: lastUpdatedText,
+                            isTechnical: true
+                        )
                     }
-                }
 
-                Section("Status") {
-                    LabeledContent("Refresh", value: appModel.refreshStatus(for: currentAccount).displayName)
-                    if let snapshot = appModel.snapshot(for: currentAccount) {
-                        LabeledContent("Last updated", value: snapshot.lastUpdatedAt.formatted(date: .abbreviated, time: .shortened))
-                    } else {
-                        LabeledContent("Last updated", value: "No usage data")
+                    TerminalFieldset(title: "CONFIGURATION") {
+                        EmptyView()
+                    } content: {
+                        SettingsDetailValueRow(
+                            label: "Provider",
+                            value: appModel.providerDisplayName(for: currentAccount.providerID)
+                        )
+                        if let codexExecutablePath = currentAccount.codexExecutablePath,
+                           !codexExecutablePath.isEmpty {
+                            SettingsDetailValueRow(
+                                label: "Codex executable",
+                                value: codexExecutablePath,
+                                isTechnical: true
+                            )
+                        }
                     }
-                }
 
-                if !appModel.migrationDiagnostics(for: currentAccount).isEmpty {
-                    Section("Migration") {
-                        ForEach(appModel.migrationDiagnostics(for: currentAccount)) { diagnostic in
-                            Label(diagnostic.message, systemImage: "exclamationmark.triangle")
-                                .foregroundStyle(.orange)
+                    if !appModel.migrationDiagnostics(for: currentAccount).isEmpty {
+                        TerminalFieldset(title: "MIGRATION") {
+                            EmptyView()
+                        } content: {
+                            ForEach(appModel.migrationDiagnostics(for: currentAccount)) { diagnostic in
+                                Label(diagnostic.message, systemImage: "exclamationmark.triangle")
+                                    .font(TerminalTheme.bodyFont)
+                                    .foregroundStyle(TerminalTheme.warning)
+                            }
                         }
                     }
                 }
+                .padding(20)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .formStyle(.grouped)
             .scrollBounceBehavior(.basedOnSize)
         }
         .sheet(isPresented: $isShowingOllamaConnection) {
@@ -75,26 +96,34 @@ struct AccountDetailView: View {
 
     private var header: some View {
         HStack(alignment: .center, spacing: 8) {
-            Toggle("Enabled", isOn: enabledBinding)
-                .toggleStyle(.switch)
-                .controlSize(.small)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(currentAccount.displayName)
+                    .font(TerminalTheme.titleFont)
+                    .foregroundStyle(TerminalTheme.primary)
+                Text(appModel.providerDisplayName(for: currentAccount.providerID))
+                    .font(TerminalTheme.bodyFont)
+                    .foregroundStyle(TerminalTheme.secondary)
+            }
 
             Spacer()
 
+            Toggle("Enabled", isOn: enabledBinding)
+                .toggleStyle(TerminalToggleStyle())
+
             Button(action: onEdit) {
-                SettingsGlassIcon(systemName: "square.and.pencil", verticalOffset: -1)
+                SettingsActionIcon(systemName: "square.and.pencil", verticalOffset: -1)
             }
-            .settingsGlassIconButton(help: "Edit account")
-            .frame(width: 40, height: 40)
+            .settingsIconButton(help: "Edit account")
+            .frame(width: 32, height: 32)
 
             if currentAccount.providerID == "ollama-cloud",
                currentAccount.sourceMode == .ollamaWebPage {
                 Button(action: beginOllamaConnection) {
-                    SettingsGlassIcon(systemName: "person.crop.circle.badge.checkmark")
+                    SettingsActionIcon(systemName: "person.crop.circle.badge.checkmark")
                 }
                 .disabled(appModel.ollamaWebPageClient == nil)
-                .settingsGlassIconButton(help: ollamaConnectionTitle)
-                .frame(width: 40, height: 40)
+                .settingsIconButton(help: ollamaConnectionTitle)
+                .frame(width: 32, height: 32)
             }
 
             Button {
@@ -103,11 +132,11 @@ struct AccountDetailView: View {
                     accountID: currentAccount.accountID
                 )
             } label: {
-                SettingsGlassIcon(systemName: "arrow.clockwise")
+                SettingsActionIcon(systemName: "arrow.clockwise")
             }
             .disabled(isAccountActionDisabled)
-            .settingsGlassIconButton(help: refreshButtonTitle)
-            .frame(width: 40, height: 40)
+            .settingsIconButton(help: refreshButtonTitle)
+            .frame(width: 32, height: 32)
 
             NativeActionsMenuButton(
                 isTestEnabled: !isAccountActionDisabled,
@@ -124,7 +153,7 @@ struct AccountDetailView: View {
                     }
                 }
             )
-            .frame(width: 40, height: 40)
+            .frame(width: 32, height: 32)
         }
     }
 
@@ -144,6 +173,13 @@ struct AccountDetailView: View {
 
     private var usageURL: URL? {
         appModel.usageURL(providerID: currentAccount.providerID, accountID: currentAccount.accountID)
+    }
+
+    private var lastUpdatedText: String {
+        guard let snapshot = appModel.snapshot(for: currentAccount) else {
+            return "No usage data"
+        }
+        return snapshot.lastUpdatedAt.formatted(date: .abbreviated, time: .shortened)
     }
 
     private var enabledBinding: Binding<Bool> {
@@ -184,7 +220,28 @@ struct AccountDetailView: View {
     }
 }
 
-struct SettingsGlassIcon: View {
+private struct SettingsDetailValueRow: View {
+    let label: String
+    let value: String
+    var isTechnical = false
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 16) {
+            Text(label)
+                .font(TerminalTheme.detailLabelFont)
+                .foregroundStyle(TerminalTheme.secondary)
+                .frame(width: 120, alignment: .leading)
+
+            Text(value)
+                .font(isTechnical ? TerminalTheme.bodyFont : TerminalTheme.detailValueFont)
+                .foregroundStyle(TerminalTheme.primary)
+                .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+}
+
+struct SettingsActionIcon: View {
     let systemName: String
     var verticalOffset: CGFloat = 0
 
@@ -197,13 +254,10 @@ struct SettingsGlassIcon: View {
 }
 
 extension View {
-    func settingsGlassIconButton(help: String) -> some View {
-        buttonStyle(.glass)
-            .buttonBorderShape(.circle)
-            .controlSize(.large)
+    func settingsIconButton(help: String) -> some View {
+        buttonStyle(TerminalIconButtonStyle())
             .help(help)
     }
-
 }
 
 struct AccountEditorDraft: Equatable {
@@ -217,22 +271,23 @@ struct AccountEditorDraft: Equatable {
         providerID: String,
         displayName: String = "",
         isEnabled: Bool = true,
-        sourceMode: ProviderSourceMode = .manual,
+        sourceMode: ProviderSourceMode? = nil,
         codexExecutablePath: String = ""
     ) {
         self.providerID = providerID
         self.displayName = displayName
         self.isEnabled = isEnabled
-        self.sourceMode = sourceMode
+        self.sourceMode = ProviderSourceMode.resolvedMode(sourceMode, for: providerID)
         self.codexExecutablePath = codexExecutablePath
     }
 
     init(account: ProviderAccount?, defaultProviderID: String) {
+        let providerID = account?.providerID ?? defaultProviderID
         self.init(
-            providerID: account?.providerID ?? defaultProviderID,
+            providerID: providerID,
             displayName: account?.displayName ?? "",
             isEnabled: account?.isEnabled ?? true,
-            sourceMode: account?.sourceMode ?? .manual,
+            sourceMode: account?.sourceMode,
             codexExecutablePath: account?.codexExecutablePath ?? ""
         )
     }
@@ -287,7 +342,7 @@ struct AccountEditorView: View {
 
         let initialDraft = AccountEditorDraft(
             account: account,
-            defaultProviderID: appModel.providerIDs.first ?? ""
+            defaultProviderID: appModel.providerIDs.first(where: appModel.canAddAccount) ?? ""
         )
         self.initialDraft = initialDraft
         _draft = State(initialValue: initialDraft)
@@ -295,171 +350,52 @@ struct AccountEditorView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack(alignment: .firstTextBaseline) {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(account == nil ? "New Account" : "Edit Account")
-                        .font(.title3.weight(.semibold))
-
-                    Text(account == nil ? "Add a provider account to track its usage." : "Save to apply account configuration changes.")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                }
-
-                Spacer()
-            }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 14)
+            editorHeader
 
             Divider()
 
-            Form {
-                Section("Account") {
-                    if account == nil {
-                        Picker("Provider", selection: $draft.providerID) {
-                            ForEach(appModel.providerIDs, id: \.self) { providerID in
-                                Text(appModel.providerDisplayName(for: providerID)).tag(providerID)
-                            }
-                        }
-                    } else {
-                        LabeledContent("Provider", value: appModel.providerDisplayName(for: draft.providerID))
-                    }
-
-                    TextField("Account Name", text: $draft.displayName)
-                    if let displayNameConflict {
-                        Text(displayNameConflict)
-                            .font(.caption)
-                            .foregroundStyle(.orange)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    if account == nil {
-                        Toggle("Enabled", isOn: $draft.isEnabled)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    accountFieldset
+                    if hasSourceConfiguration {
+                        sourceFieldset
                     }
                 }
-
-                if draft.providerID == "claude-code" {
-                    Section("Source") {
-                        Picker("Source", selection: $draft.sourceMode) {
-                            Text(ProviderSourceMode.manual.displayName).tag(ProviderSourceMode.manual)
-                            Text(ProviderSourceMode.claudeStatusLine.displayName).tag(ProviderSourceMode.claudeStatusLine)
-                        }
-                        .pickerStyle(.segmented)
-
-                        if draft.sourceMode == .claudeStatusLine {
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text("Claude Code statusLine helper")
-                                    .font(.subheadline.weight(.semibold))
-
-                                Text("The helper reads Claude Code's official statusLine JSON and writes local-estimate rate-limit data to AI Limitbar's managed database. No JSON path is configured or retained.")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                    .fixedSize(horizontal: false, vertical: true)
-
-                                Button("Install or Repair Helper", action: installHelper)
-                                    .disabled(account == nil)
-
-                                if account == nil {
-                                    Text("Save this account first, then install its helper configuration.")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-
-                                if let helperSetupMessage {
-                                    Text(helperSetupMessage)
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                        .textSelection(.enabled)
-                                }
-
-                                if let helperSetupError {
-                                    Text(helperSetupError)
-                                        .font(.caption)
-                                        .foregroundStyle(.red)
-                                        .fixedSize(horizontal: false, vertical: true)
-                                }
-                            }
-                            .padding(.vertical, 4)
-                        }
-                    }
-                } else if draft.providerID == "ollama-cloud" {
-                    Section("Source") {
-                        Picker("Source", selection: $draft.sourceMode) {
-                            Text(ProviderSourceMode.manual.displayName).tag(ProviderSourceMode.manual)
-                            Text(ProviderSourceMode.ollamaWebPage.displayName).tag(ProviderSourceMode.ollamaWebPage)
-                        }
-                        .pickerStyle(.segmented)
-
-                        if draft.sourceMode == .ollamaWebPage {
-                            Text("Experimental source: AI Limitbar opens an isolated WebKit session for https://ollama.com/settings. The session is never copied from another browser, and raw page content is not stored.")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                    }
-                } else if draft.providerID == "openai-codex" {
-                    Section("Source") {
-                        Picker("Source", selection: $draft.sourceMode) {
-                            Text(ProviderSourceMode.manual.displayName).tag(ProviderSourceMode.manual)
-                            Text(ProviderSourceMode.appServer.displayName).tag(ProviderSourceMode.appServer)
-                        }
-                        .pickerStyle(.segmented)
-
-                        if draft.sourceMode == .appServer {
-                            Text("Experimental source: AI Limitbar starts a short-lived local Codex app-server to read current rate-limit windows. It never reads Codex credentials, session files, browser data, or terminal output.")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .fixedSize(horizontal: false, vertical: true)
-
-                            TextField("Codex executable path (optional)", text: $draft.codexExecutablePath)
-
-                            HStack {
-                                Text("Leave blank to locate Codex automatically.")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                Spacer()
-                                Button("Browse…") {
-                                    isSelectingCodexExecutable = true
-                                }
-                            }
-
-                            if let codexAppServerConflict {
-                                Text(codexAppServerConflict)
-                                    .font(.caption)
-                                    .foregroundStyle(.orange)
-                                    .fixedSize(horizontal: false, vertical: true)
-                            }
-                        }
-                    }
-                } else {
-                    Section("Source") {
-                        LabeledContent("Source", value: ProviderSourceMode.manual.displayName)
-                    }
-                }
-
-                Section {
-                    HStack {
-                        Spacer()
-
-                        Button("Cancel", action: onCancel)
-                            .keyboardShortcut(.cancelAction)
-
-                        Button(account == nil ? "Create" : "Save", action: save)
-                            .keyboardShortcut(.defaultAction)
-                            .disabled(
-                                draft.providerID.isEmpty ||
-                                (account != nil && !isDirty) ||
-                                    displayNameConflict != nil ||
-                                    codexAppServerConflict != nil
-                            )
-                    }
-                }
+                .padding(20)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .formStyle(.grouped)
             .scrollBounceBehavior(.basedOnSize)
+
+            Divider()
+
+            HStack {
+                Spacer()
+
+                Button("Cancel", action: onCancel)
+                    .buttonStyle(TerminalActionButtonStyle())
+                    .keyboardShortcut(.cancelAction)
+
+                Button(account == nil ? "Create" : "Save", action: save)
+                    .buttonStyle(TerminalActionButtonStyle(isProminent: true))
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(
+                        draft.providerID.isEmpty ||
+                        (account != nil && !isDirty) ||
+                            displayNameConflict != nil ||
+                            codexAppServerConflict != nil
+                    )
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 12)
             .onAppear {
                 updateDirtyState()
             }
             .onChange(of: draft) { _, _ in
                 updateDirtyState()
+            }
+            .onChange(of: draft.providerID) { previousProviderID, providerID in
+                guard account == nil, previousProviderID != providerID else { return }
+                draft.sourceMode = ProviderSourceMode.defaultMode(for: providerID)
             }
             .fileImporter(
                 isPresented: $isSelectingCodexExecutable,
@@ -470,6 +406,167 @@ struct AccountEditorView: View {
                     draft.codexExecutablePath = url.path
                 }
             }
+        }
+    }
+
+    private var editorHeader: some View {
+        HStack(alignment: .firstTextBaseline) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(account == nil ? "New Account" : "Edit Account")
+                    .font(TerminalTheme.titleFont)
+                    .foregroundStyle(TerminalTheme.primary)
+
+                Text(account == nil ? "Add a provider account to track its usage." : "Save to apply account configuration changes.")
+                    .font(TerminalTheme.bodyFont)
+                    .foregroundStyle(TerminalTheme.secondary)
+            }
+
+            Spacer()
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 14)
+    }
+
+    private var accountFieldset: some View {
+        TerminalFieldset(title: "ACCOUNT") {
+            EmptyView()
+        } content: {
+            SettingsEditorValueRow("Provider") {
+                if account == nil {
+                    TerminalProviderPicker(
+                        selection: $draft.providerID,
+                        options: availableProviderIDs.map {
+                            TerminalSegmentedOption(
+                                value: $0,
+                                title: appModel.providerDisplayName(for: $0)
+                            )
+                        }
+                    )
+                } else {
+                    Text(appModel.providerDisplayName(for: draft.providerID))
+                        .font(TerminalTheme.detailValueFont)
+                        .foregroundStyle(TerminalTheme.primary)
+                }
+            }
+            .zIndex(1)
+
+            SettingsEditorValueRow("Account Name") {
+                TerminalTextField("Account Name", text: $draft.displayName)
+            }
+
+            if let displayNameConflict {
+                Text(displayNameConflict)
+                    .font(TerminalTheme.captionFont)
+                    .foregroundStyle(TerminalTheme.warning)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            if account == nil {
+                SettingsEditorValueRow("Enabled") {
+                    Toggle("Enabled", isOn: $draft.isEnabled)
+                        .labelsHidden()
+                        .toggleStyle(TerminalToggleStyle())
+                        .accessibilityLabel("Enabled")
+                }
+            }
+        }
+        .zIndex(1)
+    }
+
+    private var sourceFieldset: some View {
+        TerminalFieldset(title: "SOURCE") {
+            EmptyView()
+        } content: {
+            sourceSelector
+            sourceDetails
+        }
+    }
+
+    @ViewBuilder
+    private var sourceSelector: some View {
+        if let sourceMode = configuredSourceMode {
+            SettingsEditorValueRow("Mode") {
+                Text(sourceMode.displayName)
+                    .font(TerminalTheme.detailValueFont)
+                    .foregroundStyle(TerminalTheme.primary)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var sourceDetails: some View {
+        if draft.providerID == "claude-code" {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Claude Code statusLine helper")
+                    .font(TerminalTheme.emphasizedBodyFont)
+                    .foregroundStyle(TerminalTheme.primary)
+
+                Text("The helper reads Claude Code's official statusLine JSON and writes local-estimate rate-limit data to AI Limitbar's managed database. No JSON path is configured or retained.")
+                    .font(TerminalTheme.captionFont)
+                    .foregroundStyle(TerminalTheme.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Button("Install or Repair Helper", action: installHelper)
+                    .buttonStyle(TerminalActionButtonStyle())
+                    .disabled(account == nil)
+
+                if account == nil {
+                    Text("Save this account first, then install its helper configuration.")
+                        .font(TerminalTheme.captionFont)
+                        .foregroundStyle(TerminalTheme.secondary)
+                }
+
+                if let helperSetupMessage {
+                    Text(helperSetupMessage)
+                        .font(TerminalTheme.captionFont)
+                        .foregroundStyle(TerminalTheme.secondary)
+                        .textSelection(.enabled)
+                }
+
+                if let helperSetupError {
+                    Text(helperSetupError)
+                        .font(TerminalTheme.captionFont)
+                        .foregroundStyle(TerminalTheme.error)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .padding(.top, 4)
+        } else if draft.providerID == "ollama-cloud" {
+            Text("Experimental source: AI Limitbar opens an isolated WebKit session for https://ollama.com/settings. The session is never copied from another browser, and raw page content is not stored.")
+                .font(TerminalTheme.captionFont)
+                .foregroundStyle(TerminalTheme.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.top, 4)
+        } else if draft.providerID == "openai-codex" {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Experimental source: AI Limitbar starts a short-lived local Codex app-server to read current rate-limit windows. It never reads Codex credentials, session files, browser data, or terminal output.")
+                    .font(TerminalTheme.captionFont)
+                    .foregroundStyle(TerminalTheme.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                SettingsEditorValueRow("Codex Path") {
+                    TerminalTextField("Codex executable path", text: $draft.codexExecutablePath)
+                }
+
+                HStack {
+                    Text("Leave blank to locate Codex automatically.")
+                        .font(TerminalTheme.captionFont)
+                        .foregroundStyle(TerminalTheme.secondary)
+                    Spacer()
+                    Button("Browse…") {
+                        isSelectingCodexExecutable = true
+                    }
+                    .buttonStyle(TerminalActionButtonStyle())
+                }
+
+                if let codexAppServerConflict {
+                    Text(codexAppServerConflict)
+                        .font(TerminalTheme.captionFont)
+                        .foregroundStyle(TerminalTheme.warning)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .padding(.top, 4)
         }
     }
 
@@ -501,9 +598,23 @@ struct AccountEditorView: View {
     }
 
     private var persistedSourceMode: ProviderSourceMode {
+        ProviderSourceMode.defaultMode(for: draft.providerID)
+    }
+
+    private var availableProviderIDs: [String] {
+        appModel.providerIDs.filter(appModel.canAddAccount)
+    }
+
+    private var hasSourceConfiguration: Bool {
+        configuredSourceMode != nil
+    }
+
+    private var configuredSourceMode: ProviderSourceMode? {
         switch draft.providerID {
-        case "claude-code", "ollama-cloud", "openai-codex": draft.sourceMode
-        default: .manual
+        case "claude-code", "ollama-cloud", "openai-codex":
+            ProviderSourceMode.defaultMode(for: draft.providerID)
+        default:
+            nil
         }
     }
 
@@ -513,11 +624,11 @@ struct AccountEditorView: View {
 
     private var codexAppServerConflict: String? {
         guard draft.providerID == "openai-codex",
-              draft.sourceMode == .appServer,
+              persistedSourceMode == .appServer,
               appModel.hasCodexAppServerConflict(
                   providerID: draft.providerID,
                   accountID: account?.accountID,
-                  sourceMode: draft.sourceMode
+                  sourceMode: persistedSourceMode
               )
         else { return nil }
 
@@ -546,6 +657,28 @@ struct AccountEditorView: View {
         } catch {
             helperSetupMessage = nil
             helperSetupError = error.localizedDescription
+        }
+    }
+}
+
+private struct SettingsEditorValueRow<Content: View>: View {
+    let title: String
+    @ViewBuilder let content: () -> Content
+
+    init(_ title: String, @ViewBuilder content: @escaping () -> Content) {
+        self.title = title
+        self.content = content
+    }
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 16) {
+            Text(title)
+                .font(TerminalTheme.detailLabelFont)
+                .foregroundStyle(TerminalTheme.secondary)
+                .frame(width: 120, alignment: .leading)
+
+            content()
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 }

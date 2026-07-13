@@ -131,16 +131,6 @@ final class ClaudeCodeProviderAdapterTests: XCTestCase {
         }
     }
 
-    func testManualModeReturnsManualSnapshot() async throws {
-        let adapter = ClaudeCodeProviderAdapter()
-        let account = ProviderAccount(providerID: "claude-code", accountID: "work", displayName: "Work", isEnabled: true)
-
-        let snapshot = try await adapter.fetchSnapshot(account: account)
-
-        XCTAssertEqual(snapshot.confidence, .manual)
-        XCTAssertEqual(snapshot.status, .unavailable)
-    }
-
     private func claudeAccount() -> ProviderAccount {
         ProviderAccount(
             providerID: "claude-code",

@@ -1,8 +1,8 @@
 # OpenAI Codex Experimental App-Server Source
 
-OpenAI Codex accounts use `Manual` by default. For one explicitly configured
-account, Settings also offers `Experimental app-server`. On refresh, AI
-Limitbar starts a short-lived local process:
+OpenAI Codex accounts use the `Experimental app-server` source. Only one
+account can be configured because it reflects the current local Codex CLI
+identity. On refresh, AI Limitbar starts a short-lived local process:
 
 ```text
 codex app-server --listen stdio://
@@ -25,7 +25,6 @@ identifiers, and other unneeded account fields before a snapshot is created.
 Only one OpenAI Codex account can use this source at a time, since it reflects
 the currently authenticated local Codex CLI identity. If the CLI is missing,
 not authenticated, unsupported, malformed, or times out, the account shows a
-recoverable diagnostic and the existing manual usage-page workflow remains
-available.
+recoverable diagnostic with steps to update or authenticate Codex CLI and retry.
 
 Reference: <https://developers.openai.com/codex/app-server/>.

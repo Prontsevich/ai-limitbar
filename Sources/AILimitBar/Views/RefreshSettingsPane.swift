@@ -9,41 +9,59 @@ struct RefreshSettingsPane: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             VStack(alignment: .leading, spacing: 4) {
-                Text("Refresh")
-                    .font(.title2.weight(.semibold))
+                Text("REFRESH")
+                    .font(TerminalTheme.titleFont)
+                    .foregroundStyle(TerminalTheme.primary)
                 Text("Choose how often AI Limitbar refreshes enabled accounts.")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
+                    .font(TerminalTheme.bodyFont)
+                    .foregroundStyle(TerminalTheme.secondary)
             }
 
-            Form {
-                Section("Schedule") {
-                    Picker("Interval", selection: refreshIntervalBinding) {
-                        ForEach(RefreshInterval.allCases) { interval in
-                            Text(interval.displayName).tag(interval)
-                        }
-                    }
-                    .pickerStyle(.segmented)
+            TerminalFieldset(title: "SCHEDULE") {
+                EmptyView()
+            } content: {
+                HStack(alignment: .center, spacing: 14) {
+                    Text("Interval")
+                        .font(TerminalTheme.bodyFont)
+                        .foregroundStyle(TerminalTheme.secondary)
+                        .frame(width: 80, alignment: .leading)
 
-                    Text("Manual refresh stays available from the menu bar panel.")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
+                    TerminalSegmentedControl(
+                        "Refresh interval",
+                        selection: refreshIntervalBinding,
+                        options: RefreshInterval.allCases.map {
+                            TerminalSegmentedOption(value: $0, title: $0.displayName)
+                        }
+                    )
                 }
 
-                Section("Dashboard") {
-                    Picker("Height", selection: dashboardHeightPresetBinding) {
-                        ForEach(DashboardHeightPreset.allCases) { preset in
-                            Text(preset.displayName).tag(preset)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-
-                    Text("Controls the maximum visible height of the menu-bar dashboard. Longer account lists scroll.")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                }
+                Text("Manual refresh stays available from the menu bar panel.")
+                    .font(TerminalTheme.bodyFont)
+                    .foregroundStyle(TerminalTheme.secondary)
             }
-            .formStyle(.grouped)
+
+            TerminalFieldset(title: "DASHBOARD") {
+                EmptyView()
+            } content: {
+                HStack(alignment: .center, spacing: 14) {
+                    Text("Height")
+                        .font(TerminalTheme.bodyFont)
+                        .foregroundStyle(TerminalTheme.secondary)
+                        .frame(width: 80, alignment: .leading)
+
+                    TerminalSegmentedControl(
+                        "Dashboard height",
+                        selection: dashboardHeightPresetBinding,
+                        options: DashboardHeightPreset.allCases.map {
+                            TerminalSegmentedOption(value: $0, title: $0.displayName)
+                        }
+                    )
+                }
+
+                Text("Controls the maximum visible height of the menu-bar dashboard. Longer account lists scroll.")
+                    .font(TerminalTheme.bodyFont)
+                    .foregroundStyle(TerminalTheme.secondary)
+            }
             Spacer()
         }
         .padding(.horizontal, 24)

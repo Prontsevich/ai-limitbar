@@ -1,4 +1,5 @@
 import AILimitBarCore
+import CoreGraphics
 import XCTest
 @testable import AILimitBar
 
@@ -263,33 +264,17 @@ final class AppModelTests: XCTestCase {
             sourceMode: .appServer,
             codexExecutablePath: "  ~/.local/bin/codex  "
         ))
-        let secondAccount = try XCTUnwrap(model.addAccount(
-            providerID: adapter.id,
-            displayName: "Work",
-            sourceMode: .manual
-        ))
-
         XCTAssertNil(model.addAccount(
             providerID: adapter.id,
             displayName: "Duplicate",
             sourceMode: .appServer
         ))
-        XCTAssertFalse(model.updateAccount(
-            providerID: secondAccount.providerID,
-            accountID: secondAccount.accountID,
-            displayName: secondAccount.displayName,
-            sourceMode: .appServer,
-            codexExecutablePath: nil
+        XCTAssertNil(model.addAccount(
+            providerID: adapter.id,
+            displayName: "Work",
+            sourceMode: .manual
         ))
-        model.setAccountSourceMode(
-            secondAccount.providerID,
-            accountID: secondAccount.accountID,
-            sourceMode: .appServer
-        )
-        XCTAssertEqual(
-            model.account(providerID: secondAccount.providerID, accountID: secondAccount.accountID)?.sourceMode,
-            .manual
-        )
+        XCTAssertFalse(model.canAddAccount(providerID: adapter.id))
 
         let reloaded = AppModel(
             registry: ProviderRegistry(adapters: [adapter]),
@@ -363,6 +348,74 @@ final class AppModelTests: XCTestCase {
         XCTAssertNil(session.selectedAccountID)
         XCTAssertNil(session.mode)
         XCTAssertFalse(session.isDirty)
+    }
+
+    func testSettingsWorkspaceResetRestoresCleanAccountsState() {
+        var workspace = SettingsWorkspaceState()
+        workspace.selection = .providerSetup
+        workspace.editorSession = AccountEditorSession(
+            selectedAccountID: "account-1",
+            mode: .editing,
+            isDirty: true
+        )
+        workspace.pendingNavigation = .account("account-2")
+        workspace.isShowingDiscardConfirmation = true
+
+        workspace.reset()
+
+        XCTAssertEqual(workspace.selection, .accounts)
+        XCTAssertNil(workspace.editorSession.selectedAccountID)
+        XCTAssertNil(workspace.editorSession.mode)
+        XCTAssertFalse(workspace.editorSession.isDirty)
+        XCTAssertNil(workspace.pendingNavigation)
+        XCTAssertFalse(workspace.isShowingDiscardConfirmation)
+    }
+
+    func testSettingsWindowDefaultSizeUsesPreferredSizeWhenItFits() {
+        let size = SettingsWindowConfiguration.defaultSize(
+            contentSize: CGSize(width: 840, height: 560),
+            visibleRect: CGRect(x: 0, y: 0, width: 1_440, height: 900)
+        )
+
+        XCTAssertEqual(size, CGSize(width: 840, height: 560))
+    }
+
+    func testSettingsWindowDefaultSizeClampsToVisibleDisplay() {
+        let size = SettingsWindowConfiguration.defaultSize(
+            contentSize: CGSize(width: 840, height: 560),
+            visibleRect: CGRect(x: 0, y: 0, width: 700, height: 480)
+        )
+
+        XCTAssertEqual(size, CGSize(width: 700, height: 480))
+    }
+
+    func testSettingsWindowDefaultPlacementCentersOnRequestedDisplay() {
+        let placement = SettingsWindowConfiguration.defaultPlacement(
+            contentSize: CGSize(width: 840, height: 560),
+            visibleRect: CGRect(x: -2_560, y: 25, width: 2_560, height: 1_415)
+        )
+
+        XCTAssertEqual(placement.size, CGSize(width: 840, height: 560))
+        XCTAssertEqual(placement.position, CGPoint(x: -1_700, y: 452.5))
+    }
+
+    func testSettingsWindowDefaultPlacementKeepsClampedWindowInsideDisplay() {
+        let placement = SettingsWindowConfiguration.defaultPlacement(
+            contentSize: CGSize(width: 840, height: 560),
+            visibleRect: CGRect(x: 100, y: 40, width: 700, height: 480)
+        )
+
+        XCTAssertEqual(placement.size, CGSize(width: 700, height: 480))
+        XCTAssertEqual(placement.position, CGPoint(x: 100, y: 40))
+    }
+
+    func testSettingsWindowFrameCentersUsingActualWindowFrame() {
+        let frame = SettingsWindowConfiguration.centeredWindowFrame(
+            CGRect(x: 0, y: 0, width: 840, height: 588),
+            in: CGRect(x: -2_560, y: 25, width: 2_560, height: 1_415)
+        )
+
+        XCTAssertEqual(frame, CGRect(x: -1_700, y: 438.5, width: 840, height: 588))
     }
 
     @MainActor

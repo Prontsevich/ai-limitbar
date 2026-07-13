@@ -47,8 +47,8 @@ The app ships with:
 - `ClaudeCodeProviderAdapter` with manual and opt-in managed statusLine modes.
 - One app-owned GRDB/SQLite database for persisted accounts, snapshots,
   refresh settings, and safe source diagnostics.
-- A disabled credential surface plus a Keychain service interface for future
-  real provider integrations.
+- A Keychain service interface for future real provider integrations; credential
+  UI remains hidden until a verified provider requirement makes it actionable.
 
 The MVP fetches live data only through explicitly opted-in experimental source
 paths. The Codex app-server source uses the documented local app-server protocol
@@ -675,24 +675,30 @@ The settings UI should support:
 
 - A singleton native SwiftUI Settings window opened through an explicit app
   action that activates the menu-bar-only process and calls `openWindow(id:)`.
-- A compact native segmented navigation control for General, Accounts, and
+- A compact terminal segmented navigation control for Accounts, Refresh, and
   Provider Setup instead of a permanent top tile bar or navigation sidebar.
-- A General section for app-wide preferences: durable language, refresh,
-  dashboard height, threshold, and appearance choices. Refresh is not a
-  separate top-level Settings section.
+- A Refresh section for schedule and dashboard-height preferences. The planned
+  General section, language, thresholds, and appearance choices remain in
+  Milestone 22.
 - An Accounts master-detail layout with an account-name-first list, provider as
   secondary text, footer add/delete controls, and selected-account detail pane.
 - Enabling/disabling providers.
 - Ordering accounts through native drag-and-drop, with Move Up/Down context-menu
   actions as a keyboard/accessibility fallback.
-- Selecting auth/source mode where applicable.
+- Showing the single current verified or experimental source for each real
+  provider; only the built-in Mock provider uses the internal manual source.
 - A visible Refresh All icon action in the account-list footer and a
   selected-account Refresh action, with Test Connection and Open Usage in an
   overflow menu without a separate disclosure chevron.
-- The overflow trigger should remain visually consistent with the other glass
-  buttons; its popup may use a narrow native `NSMenu` bridge when the SwiftUI
-  Settings renderer cannot reproduce the standard macOS menu presentation.
+- The overflow trigger should use the same terminal action treatment as the
+  other account actions; its popup may use a narrow native `NSMenu` bridge when
+  the SwiftUI Settings renderer cannot reproduce the standard macOS menu
+  presentation.
 - Read-first account details with explicit Edit, Save, and Cancel actions.
+- Top-aligned Create and Edit account fieldsets for account data and source
+  configuration; a keyboard-accessible terminal provider selector and focused
+  text fields remain inside those groups, rather than relying on an adaptive
+  `Form` column layout.
 - A single discard-confirmation flow for meaningful unsaved account changes
   when switching accounts or Settings sections.
 - Reset of transient account-editor state when Settings closes, so reopening
@@ -701,12 +707,15 @@ The settings UI should support:
 
 Settings follows the terminal-adjacent design contract in
 [`docs/settings-design.md`](settings-design.md). It shares compact spacing, thin
-fieldset borders, restrained semantic status color, and monospaced technical
-values with the dashboard without becoming a literal terminal UI. Native tabs,
-lists, split layouts, buttons, forms, pickers, toggles, menus, dialogs, focus
-rings, and selection behavior remain the default. Opaque sidebar backgrounds and
-decorative glass that fight the composition should be removed, while Light and
-Dark appearance remain system-adaptive.
+fieldset borders, restrained semantic status color, and a monospaced text
+hierarchy with the dashboard without becoming a literal terminal UI. Terminal
+selectors, sidebar selection, toggles, and actions share one palette with visible
+hover and pressed feedback; account-editor choice and focus treatments use the
+same terminal layer, while file panels, menus, dialogs, and keyboard behavior
+remain native where platform semantics matter. Opaque sidebar
+backgrounds, system-blue selection, and decorative glass that fight the
+composition should be removed, while Light and Dark appearance remain
+system-adaptive.
 
 Settings windowing uses a singleton SwiftUI `Window` scene rather than the
 system-managed `Settings` scene or an AppKit-owned `NSWindowController`. The
