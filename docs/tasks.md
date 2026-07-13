@@ -746,6 +746,55 @@ Acceptance:
 - Ollama-owned pages follow the active appearance without disrupting sign-in,
   navigation, keyboard focus, form controls, or usage parsing.
 
+## Milestone 20: App Localization And General Settings
+
+Goal: ship an English-first app with Russian localization and a compact
+Settings organization where cross-account preferences live in General.
+
+- [ ] Declare English as the Swift package's default localization and add
+  English and Russian localized app resources. Ensure the custom app-bundle
+  script stages the resources in `AILimitBar.app` instead of copying only
+  binaries.
+- [ ] Add a durable `AppLanguage` preference with `System Default`, `English`,
+  and `Russian` choices. Render the native language `Picker` in a new General
+  Settings section and apply a selection immediately to the menu bar panel,
+  Settings window, alerts, accessibility text, and formatted values without a
+  restart.
+- [ ] Replace the current Settings navigation with General, Accounts, and
+  Provider Setup. Move the refresh-schedule control and its explanatory copy
+  into General; remove Refresh as a top-level Settings section without changing
+  the persisted refresh setting or refresh behavior.
+- [ ] Localize all app-owned, user-facing UI text, including dashboard labels,
+  Settings, buttons, alerts, tooltips, accessibility labels and values, empty
+  states, status text, and app-generated warnings or recovery instructions.
+- [ ] Resolve dynamic app-owned strings at presentation time using the selected
+  locale. Do not persist translated output or translate provider IDs, raw
+  provider content, account names, JSON keys, file paths, or other technical
+  identifiers.
+- [ ] Replace hardcoded formatter locales with the effective app locale so
+  dates, relative dates, numbers, and percentages follow the selected language.
+- [ ] Add automated checks for English/Russian key parity, English fallback,
+  language-preference persistence, immediate locale updates, and preservation
+  of the refresh schedule. Manually verify the staged app in English and
+  Russian, including long Settings labels and all dashboard states.
+- [ ] Document the language choices, the System Default behavior, and the
+  localization maintenance rule: every new app-owned user-facing string must
+  ship with both English and Russian translations.
+
+Acceptance:
+
+- A user can select System Default, English, or Russian from General, and the
+  visible app changes immediately without relaunching.
+- English is the complete fallback language. A missing Russian translation
+  cannot expose a raw localization key or make the interface unusable.
+- General contains language and refresh schedule; Accounts and Provider Setup
+  remain focused on their existing workflows, and refresh scheduling works
+  exactly as before.
+- User-created names, provider data, and persisted technical values stay intact
+  when the language changes; only the app's presentation is localized.
+- `dist/AILimitBar.app` contains and loads both localizations after the normal
+  build-and-run workflow.
+
 ## Later
 
 - [ ] Add notifications for near-limit state.

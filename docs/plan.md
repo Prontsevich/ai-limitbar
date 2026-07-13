@@ -581,8 +581,10 @@ convenience, but it must not be the only way to access details.
 The settings UI should support:
 
 - A native SwiftUI Settings window opened through the system settings action.
-- A compact native segmented navigation control for Accounts, Refresh, and
+- A compact native segmented navigation control for General, Accounts, and
   Provider Setup instead of a permanent top tile bar or navigation sidebar.
+- A General section for app-wide preferences: a durable language choice and the
+  refresh schedule. Refresh is not a separate top-level Settings section.
 - An Accounts master-detail layout with an account-name-first list, provider as
   secondary text, footer add/delete controls, and selected-account detail pane.
 - Enabling/disabling providers.
@@ -620,6 +622,38 @@ telemetry, and verification should all run the same staged `LSUIElement` app
 bundle so lifecycle behavior does not change between development modes. AppKit
 is permitted at a narrow application-lifecycle boundary for normal termination;
 it should not own Settings or feature state.
+
+## Localization And Language Preferences
+
+English is the complete default language. Russian is the first additional
+language, but the app must not force users to adopt the macOS system language:
+General provides a persistent language choice of System Default, English, or
+Russian.
+
+The selected language applies immediately to every app-owned presentation
+surface, including the menu-bar panel, Settings, alerts, help text,
+accessibility labels and values, dates, relative dates, numbers, and
+percentages. System Default follows the active macOS locale; English and
+Russian explicitly override it inside AI Limitbar without changing global
+system settings.
+
+The SwiftPM package declares English as its default localization and carries
+both English and Russian resources into the staged `AILimitBar.app` bundle.
+The custom build script must verify that those resources are copied alongside
+the executable and helper before signing the app.
+
+UI literals and dynamically assembled app-owned messages must be localized at
+presentation time. Domain and persisted data remain locale-neutral: provider
+IDs, user-created account names, JSON keys, file paths, raw provider content,
+and other technical identifiers are never translated or rewritten. Provider
+adapters should expose structured states and values where possible so the UI
+can render localized status, warnings, and recovery copy without persisting a
+translated string.
+
+Every new app-owned user-facing string requires English and Russian entries,
+with automated key-parity and fallback checks. Locale-sensitive formatters must
+use the effective app locale; no view may hardcode an English or US formatter
+locale.
 
 ## Widget Direction
 
