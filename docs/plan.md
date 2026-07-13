@@ -225,10 +225,13 @@ Initial integration should separate local estimates from official account-level
 usage if both become available.
 
 MVP status: opt-in `local-estimate` source backed by an AI Limitbar-owned
-snapshot written by the Claude Code `statusLine` helper. The app does not parse
-Claude interactive screens, private local files, or browser pages.
+snapshot written by the Claude Code `statusLine` helper. The implemented source
+does not parse Claude interactive screens, private local files, or browser
+pages. Milestone 19 plans a separate opt-in experimental source that invokes
+the supported non-interactive `/usage` slash command and parses only its plan
+limit text from the CLI JSON result envelope.
 
-Research date: 2026-07-12.
+Research dates: 2026-07-12 and 2026-07-13.
 
 Official sources checked:
 
@@ -237,12 +240,15 @@ Official sources checked:
 - <https://code.claude.com/docs/en/statusline>
 - <https://code.claude.com/docs/en/monitoring-usage>
 - <https://code.claude.com/docs/en/analytics>
+- <https://code.claude.com/docs/en/headless>
+- <https://code.claude.com/docs/en/agent-sdk/slash-commands>
+- <https://code.claude.com/docs/en/desktop>
 
 Supported source strategy:
 
 | Source | Output shape | Fit for AI Limitbar |
 | --- | --- | --- |
-| Claude Code `/usage`, `/cost`, and `/stats` commands | Interactive session screen showing session cost, plan usage limits, activity stats, and per-feature breakdown on supported plans. API session cost is computed locally from token counts. Pro, Max, Team, and Enterprise plans include plan usage bars and breakdowns; day/week breakdown is approximate and computed from local session history on the current machine. | Good manual source. Not a reliable parser target for MVP because the checked docs describe an interactive command, not a stable JSON CLI/API output for current remaining plan quota. |
+| Claude Code `/usage`, `/cost`, and `/stats` commands | `/usage` is a built-in slash command that can be dispatched in non-interactive mode on supported CLI versions. `--output-format json` returns a result envelope, while the plan limits inside `result` remain human-readable text. On Claude Code `2.1.207`, the verified text included current session, all-model weekly, and Fable weekly percentages with reset times, and the envelope reported zero model turns, cost, and token usage. The same screen also includes approximate machine-local activity attribution. | Planned opt-in `claude-usage-cli` experimental source in Milestone 19. Parse only recognized plan-limit lines in memory and ignore the local activity breakdown. The JSON envelope and non-interactive dispatch make this safer than PTY scraping, but the inner text is not a stable machine-readable quota schema and must fail closed on drift. |
 | Claude Code status line | User-configured command receives JSON session data on stdin, including `rate_limits.five_hour` and `rate_limits.seven_day` with consumed percentages and reset timestamps when available. | Selected opt-in source. AI Limitbar's helper validates the input and writes a normalized `local-estimate` snapshot to the app-owned database. It remains machine/session-local, not authoritative account-wide usage. |
 | OpenTelemetry export | Metrics and logs/events for organization usage, cost, token counters, active time, tool activity, and API request events when telemetry is enabled. | Future team/admin mode can ingest telemetry with `local-estimate` or organization-reporting confidence. It requires explicit telemetry configuration and is not a default personal account source. |
 | Claude Code analytics dashboard | Team/Enterprise usage and contribution dashboards, with CSV export; API customers have Console team insights. | Future admin/reporting mode only. Not a live personal remaining-limit source. |
@@ -258,6 +264,32 @@ user must explicitly add the generated `--account-id` command to
 `~/.claude/settings.json`; AI Limitbar does not edit Claude Code settings
 automatically.
 
+Planned post-MVP experimental source: AI Limitbar locates an explicitly selected
+local Claude executable and runs the equivalent of:
+
+```zsh
+TZ=UTC LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8 \
+  claude --safe-mode -p "/usage" \
+  --output-format json --tools "" --no-session-persistence
+```
+
+The process client decodes the outer JSON envelope, requires a successful
+built-in response with zero model turns, cost, and model-token usage, and parses
+only `Current session`, `Current week (all models)`, and generic
+`Current week (<model>)` plan-limit lines. It ignores and never persists the
+machine-local activity breakdown. The source writes only normalized snapshot
+values to SQLite, never raw command output, stderr, credentials, session data,
+or activity attribution.
+
+The `/usage` CLI source represents the one identity currently authenticated in
+the selected CLI environment, so only one saved Claude Code account may use it
+at a time. Managed `statusLine` remains available for explicit multi-account
+configuration and as the documented fallback. A missing executable,
+unauthenticated CLI, unsupported command, non-zero inference metadata, changed
+text format, malformed or oversized response, invalid percentage/reset value,
+timeout, or cancellation preserves the last valid snapshot and surfaces a
+sanitized recovery path.
+
 First real provider decision: Claude Code is the initial Milestone 5 provider.
 The implementation does not parse Claude's interactive screens or private local
 files. It provides an opt-in helper that writes only a normalized local-machine
@@ -266,10 +298,14 @@ estimate, not authoritative account-level quota.
 Configuration requirements:
 
 - Provider settings persist a source mode for each provider.
-- Claude Code supports `manual` and `claude-status-line` source modes.
+- Claude Code currently supports `manual` and `claude-status-line`; Milestone 19
+  adds the opt-in experimental `claude-usage-cli` source mode.
 - Claude Code statusLine setup never persists a user-controlled JSON path.
 - Each managed helper command carries a saved account ID, so multiple accounts
   can have independent statusLine snippets.
+- Only one account may use `claude-usage-cli` because it represents the active
+  identity of the selected local executable. Its optional executable override
+  uses a provider-neutral persisted field shared with other CLI-backed sources.
 - Existing provider settings without source fields must continue to load as
   `manual` mode.
 
@@ -570,7 +606,7 @@ The capped dashboard viewport is a device-local preference rather than account
 or provider data. The current Refresh Settings pane offers `Compact` (320 pt),
 `Standard` (440 pt), and `Tall` (640 pt) maximum-height presets stored in
 `UserDefaults`. A preset only increases the available dashboard viewport; short
-account lists retain their natural height and longer lists scroll. Milestone 21
+account lists retain their natural height and longer lists scroll. Milestone 22
 moves this control with the refresh schedule into General.
 
 Dashboard rows should:
@@ -795,8 +831,8 @@ The widget should:
 ## Open Questions
 
 - Which exact account types should be supported first for OpenAI Codex?
-- Can Claude Code expose current plan usage through a stable machine-readable
-  command or file, or only through UI output?
+- How stable will the human-readable plan-limit text inside Claude Code's
+  non-interactive `/usage` JSON result remain across CLI releases?
 - Can the authenticated Ollama settings page retain the semantic usage and reset
   fields required by the experimental parser as the site evolves?
 - What refresh interval is useful without hitting provider limits?

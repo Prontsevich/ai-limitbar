@@ -743,7 +743,7 @@ Design contract: [`docs/settings-design.md`](settings-design.md).
   transient editor, pending-navigation, alert, and section-selection state.
 - [ ] Preserve the current Accounts, Refresh, and Provider Setup information
   architecture for this milestone. Leave the planned General-section
-  reorganization to Milestone 21 so lifecycle and visual work do not absorb
+  reorganization to Milestone 22 so lifecycle and visual work do not absorb
   localization or preference-model changes.
 - [ ] Restyle Settings as terminal-adjacent rather than as a literal terminal:
   reuse compact spacing, thin fieldset borders, restrained semantic status color,
@@ -751,7 +751,7 @@ Design contract: [`docs/settings-design.md`](settings-design.md).
   pickers, toggles, dialogs, focus rings, and selection behavior.
 - [ ] Remove opaque sidebar/list backgrounds and decorative glass treatments that
   fight the new composition. Keep system-adaptive Light and Dark appearances and
-  do not introduce the custom theme-token model planned for Milestone 24.
+  do not introduce the custom theme-token model planned for Milestone 25.
 - [ ] Preserve add, edit, delete, enable/disable, reorder, refresh, connection,
   usage-page, source-mode, helper-install, Save/Cancel, and dirty-draft workflows
   without changing provider, refresh, persistence, or snapshot contracts.
@@ -772,7 +772,98 @@ Acceptance:
 - The redesign changes windowing and presentation only; existing account and
   provider workflows and their storage contracts remain intact.
 
-## Milestone 19: Provider And Account Readiness
+## Milestone 19: Claude Code `/usage` CLI Data Source
+
+Goal: add an explicit opt-in experimental Claude Code source that actively
+reads current subscription plan limits through the local non-interactive CLI,
+including model-specific weekly limits such as Fable, without driving a PTY,
+running a model turn, or replacing the existing managed `statusLine` source.
+
+- [ ] Add a `claude-usage-cli` provider source mode for Claude Code. Keep
+  `manual` and `claude-status-line` available, preserve the current default,
+  and label `/usage` CLI as informational `Experimental` rather than a warning
+  after a successful read.
+- [ ] Allow only one saved Claude Code account to use `/usage` CLI at a time,
+  because the launched process reads the identity currently authenticated in
+  that CLI environment. Keep managed `statusLine` available for explicitly
+  configured multi-account snapshots.
+- [ ] Add automatic Claude executable discovery plus an optional saved
+  executable override. Reuse a provider-neutral executable-path model instead
+  of placing Claude paths in the existing Codex-specific field; migrate the
+  current Codex value without changing Codex behavior.
+- [ ] Add a bounded, cancellable process client that launches the selected
+  executable with `--safe-mode`, `-p "/usage"`, `--output-format json`,
+  `--tools ""`, and `--no-session-persistence`, while forcing UTC and an English
+  POSIX-compatible locale. Apply a short timeout and stdout size limit,
+  terminate the child on cancellation, and do not expose stderr or raw command
+  output through logs or diagnostics.
+- [ ] Decode the CLI JSON result envelope before parsing usage text. Accept
+  only a successful built-in command response with zero model turns, zero
+  model-token usage, and zero reported model cost; reject unsupported versions,
+  authentication failures, inference activity, malformed envelopes, and
+  oversized responses.
+- [ ] Parse only recognized plan-limit lines from the in-memory `result` text:
+  `Current session`, `Current week (all models)`, and generic
+  `Current week (<model>)` entries. Ignore session-cost details, activity
+  attribution, skills, subagents, MCP servers, request counts, and every other
+  local-history breakdown.
+- [ ] Normalize the recognized values into stable `UsageLimitWindow` entries:
+  `session`, `weekly-all`, and provider-derived model IDs such as
+  `weekly-fable`. Preserve provider display labels while keeping stored IDs
+  locale-independent and collision-safe.
+- [ ] Parse UTC reset timestamps with and without minutes and across year
+  boundaries. Reject percentages outside `0...100`, unparseable reset values,
+  duplicate required windows, and responses with no usable plan limits instead
+  of fabricating quota data.
+- [ ] Produce a normalized live snapshot with the experimental Claude Code
+  `/usage` source label. A successful read remains `OK` unless normal usage
+  thresholds require another status; parser compatibility is represented by
+  the source-mode label and diagnostics, not by forcing every valid snapshot
+  into Warning.
+- [ ] Preserve the last valid snapshot when the executable is missing, the CLI
+  is unauthenticated, `/usage` is unavailable, the text format changes, reset
+  parsing fails, the process times out, or cancellation occurs. Surface a
+  sanitized actionable recovery message and keep Manual and managed
+  `statusLine` as selectable fallbacks.
+- [ ] Add compact Settings support for the new source: optional Claude
+  executable path, automatic-location help, Browse, source conflict feedback,
+  and connection testing. Do not show the statusLine helper installer when
+  `/usage` CLI is selected.
+- [ ] Add fixture-based parser and process-client tests for the verified Claude
+  Code `2.1.207` result, no-minute reset times, year rollover, generic
+  model-specific windows, absent Fable, API-key/session-only output, malformed
+  JSON, non-zero inference metadata, unsupported CLI output, timeout,
+  cancellation, response limits, executable discovery, account conflicts, and
+  last-valid-snapshot preservation.
+- [ ] Document setup, the authenticated-CLI identity boundary, the distinction
+  between account-wide plan bars and machine-local activity attribution, the
+  experimental text-compatibility boundary, privacy rules, diagnostics, and
+  fallback behavior in `docs/plan.md`, the provider docs, and README.
+- [ ] Manually verify the staged app against an authenticated Claude Code CLI:
+  confirm session, all-model weekly, and Fable weekly windows; confirm reset
+  times, refresh scheduling, connection testing, relaunch persistence, format
+  failure recovery, zero model turns/cost/tokens, and no raw payloads in SQLite
+  or logs.
+
+Acceptance:
+
+- An explicitly opted-in Claude Code account can refresh current session,
+  all-model weekly, and available model-specific weekly plan limits through the
+  authenticated local CLI without opening an interactive terminal.
+- A successful refresh performs no model turn, exposes no tools, creates no
+  persisted Claude session, and stores only the normalized `UsageSnapshot` in
+  AI Limitbar's database.
+- Machine-local activity attribution from `/usage` is never presented as an
+  account-wide quota value or retained in storage or diagnostics.
+- A Claude CLI or text-format change fails closed, preserves the last valid
+  snapshot, and leaves Manual and managed `statusLine` immediately available.
+- The experimental source is `OK` after a valid read, while its compatibility
+  boundary remains visible without turning the informational Experimental label
+  into a false health warning.
+- Only one `/usage` CLI account can claim the active local CLI identity; other
+  Claude accounts remain configurable through Manual or managed `statusLine`.
+
+## Milestone 20: Provider And Account Readiness
 
 Goal: prepare the app for more providers and account-level credentials while
 keeping provider implementations conservative.
@@ -792,7 +883,7 @@ Acceptance:
 - Credentials have a clear account-level home without touching JSON storage.
 - Provider adapters can advertise supported source modes.
 
-## Milestone 20: Daily Use Polish
+## Milestone 21: Daily Use Polish
 
 Goal: make the menu bar app useful as a daily status tool before starting the
 WidgetKit extension.
@@ -819,7 +910,7 @@ Acceptance:
 - Ollama-owned pages follow the active appearance without disrupting sign-in,
   navigation, keyboard focus, form controls, or usage parsing.
 
-## Milestone 21: App Localization And General Settings
+## Milestone 22: App Localization And General Settings
 
 Goal: ship an English-first app with Russian localization and a compact
 Settings organization where cross-account preferences live in General.
@@ -868,7 +959,7 @@ Acceptance:
 - `dist/AILimitBar.app` contains and loads both localizations after the normal
   build-and-run workflow.
 
-## Milestone 22: Per-Limit Usage Thresholds
+## Milestone 23: Per-Limit Usage Thresholds
 
 Goal: let users define global warning and critical usage thresholds, then
 override the pair for individual provider-defined limit windows without adding
@@ -919,7 +1010,7 @@ Acceptance:
   labels and identifiers remain provider data rather than translated storage
   keys.
 
-## Milestone 23: Usage Limit Notifications
+## Milestone 24: Usage Limit Notifications
 
 Goal: deliver actionable, user-controlled macOS local notifications for newly
 observed warning and critical threshold crossings without prompting on launch,
@@ -988,7 +1079,7 @@ Acceptance:
 - All app-owned notification and settings strings are localized in English and
   Russian; provider labels and stable identifiers remain provider data.
 
-## Milestone 24: Dashboard Appearance And Themes
+## Milestone 25: Dashboard Appearance And Themes
 
 Goal: let people choose an app appearance and a reusable dashboard palette
 without weakening the terminal-fieldset visual system or turning severity into
@@ -1020,7 +1111,7 @@ a full-panel tint.
   critical threshold, and `Critical` for consumed usage at or above the
   effective critical threshold.
 - [ ] Keep the `Free` portion constant while deriving only the consumed portion
-  from the per-window severity resolved by Milestone 22. Do not introduce a
+  from the per-window severity resolved by Milestone 23. Do not introduce a
   fifth track color or recolor the dashboard, account panel, or popover
   background when a threshold is crossed.
 - [ ] Use the same `Warning` or `Critical` token for a compact status marker on
