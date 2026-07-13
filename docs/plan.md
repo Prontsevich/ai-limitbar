@@ -583,8 +583,9 @@ The settings UI should support:
 - A native SwiftUI Settings window opened through the system settings action.
 - A compact native segmented navigation control for General, Accounts, and
   Provider Setup instead of a permanent top tile bar or navigation sidebar.
-- A General section for app-wide preferences: a durable language choice and the
-  refresh schedule. Refresh is not a separate top-level Settings section.
+- A General section for app-wide preferences: durable language, refresh,
+  threshold, and appearance choices. Refresh is not a separate top-level
+  Settings section.
 - An Accounts master-detail layout with an account-name-first list, provider as
   secondary text, footer add/delete controls, and selected-account detail pane.
 - Enabling/disabling providers.
@@ -654,6 +655,43 @@ crossed level. A window becomes eligible again after its usage falls below the
 warning threshold or the provider reports a newer reset cycle. Editing
 threshold values updates the visible state immediately but does not itself
 send a notification.
+
+## Dashboard Appearance And Themes
+
+Appearance has two independent layers. The app appearance is `System`, `Light`,
+or `Dark` and controls the effective macOS color scheme immediately. Dashboard
+appearance keeps separate `lightPaletteID` and `darkPaletteID` selections, so
+System follows the corresponding macOS mode while an explicit Light or Dark
+choice uses its matching selection. Standard controls in Settings retain their
+native macOS presentation; custom colors apply only to the product-specific
+dashboard and its matching account-details popover.
+
+A palette is an independently selectable light or dark variant, either a
+curated preset or a user-created item. Each palette uses named, serializable
+sRGB tokens: dashboard background, fieldset surface and border, primary and
+secondary text, and four progress-bar colors. The progress tokens are `Free`
+for the unused portion, `Used` for the consumed portion below Warning,
+`Warning` for the consumed portion from Warning to Critical, and `Critical` for
+the consumed portion at or above Critical. The `Free` color is the track, so
+there is no separate fifth track color.
+
+Themes are importable and exportable as JSON. An import may provide a complete
+light palette, a complete dark palette, or both; at least one is required. The
+import preview resolves a missing mode to the corresponding built-in Default
+palette. On `Apply`, only provided palette variants are saved to GRDB, and the
+two selected palette IDs become the imported or Default variants shown in the
+preview. On `Cancel`, neither the palette library nor selections change. The
+app does not keep a live dependency on the source file, auto-generate an
+inverse palette, or change the user's selected app-appearance mode during
+import.
+
+Thresholds never tint the entire dashboard, an account panel, or the details
+popover. They change only the consumed segment of the affected progress bar and
+a compact marker for that limit window. The percent and an explicit textual and
+accessibility state remain present, so color is an enhancement rather than the
+sole severity signal. The palette is stored through the versioned GRDB settings
+layer and resolves into shared view tokens instead of scattered per-view color
+literals.
 
 The app is intentionally menu-bar-only. Local development, debugging, logging,
 telemetry, and verification should all run the same staged `LSUIElement` app

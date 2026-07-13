@@ -858,6 +858,80 @@ Acceptance:
   labels and identifiers remain provider data rather than translated storage
   keys.
 
+## Milestone 22: Dashboard Appearance And Themes
+
+Goal: let people choose an app appearance and a reusable dashboard palette
+without weakening the terminal-fieldset visual system or turning severity into
+a full-panel tint.
+
+- [ ] Add a durable app-appearance choice: `System`, `Light`, or `Dark`. It
+  changes the app's effective color scheme immediately; native Settings
+  controls remain native macOS controls rather than receiving custom chrome.
+- [ ] Store individual light and dark dashboard palettes, including curated
+  presets and user-created palettes, then persist separate `lightPaletteID` and
+  `darkPaletteID` selections. Resolve the active palette from the effective app
+  appearance and apply it consistently to the menu-bar dashboard and its
+  matching account-details popover.
+- [ ] Add `Import Theme…` and `Export Theme…` for portable JSON theme files.
+  An import must contain at least one complete `light` or `dark` palette; copy
+  the missing selection from the matching built-in `Default` palette for the
+  import preview. `Apply` persists only the imported palette variants, selects
+  the imported or Default palette for each mode, and leaves no dependency on
+  the source file. `Cancel` changes neither the palette library nor current
+  selections; import never changes the user's selected `System` / `Light` /
+  `Dark` app appearance.
+- [ ] Model palette values as named, Codable sRGB color tokens rather than
+  serializing platform color objects or assigning colors directly inside views.
+  Custom tokens include dashboard background, fieldset surface and border,
+  primary and secondary text, plus the four progress colors below.
+- [ ] Provide exactly four configurable progress-bar colors: `Free` for the
+  unused portion/track, `Used` for consumed usage below the warning threshold,
+  `Warning` for consumed usage from the effective warning threshold up to the
+  critical threshold, and `Critical` for consumed usage at or above the
+  effective critical threshold.
+- [ ] Keep the `Free` portion constant while deriving only the consumed portion
+  from the per-window severity resolved by Milestone 21. Do not introduce a
+  fifth track color or recolor the dashboard, account panel, or popover
+  background when a threshold is crossed.
+- [ ] Use the same `Warning` or `Critical` token for a compact status marker on
+  the affected limit window. Keep the percentage and a textual/accessibility
+  state available so color is never the sole threshold signal.
+- [ ] Add an `Appearance` section to General with preset selection, custom
+  color controls, separate Light Theme and Dark Theme pickers, a live compact
+  preview with `Apply` / `Cancel`, and a reset-to-Default action. Keep the
+  General, Accounts, and Provider Setup workflows compact and unchanged.
+- [ ] Store the appearance preference through the app's GRDB settings layer;
+  add a versioned migration and use defaults for existing installations.
+- [ ] Add tests for default values, Codable color round-tripping, storage
+  migration, light-only and dark-only theme imports, rejection of an import
+  with no complete palette, per-appearance palette resolution, import preview
+  apply/cancel behavior, reset behavior, and all normal/warning/critical
+  progress-color boundaries.
+- [ ] Manually verify the staged app in System, Light, and Dark appearance with
+  every preset and a custom palette, including dashboard, details popover,
+  native Settings controls, keyboard focus, and accessibility values.
+
+Acceptance:
+
+- A person can choose System, Light, or Dark appearance, then independently
+  select the palette used in Light and Dark without restarting the app.
+- A JSON theme with either one complete light or dark palette imports
+  predictably: preview uses the matching Default palette for its missing mode;
+  Apply selects that Default palette while keeping the imported variant
+  available for editing or export.
+- Cancelling an import preview leaves persisted palettes and both selected
+  palette IDs unchanged.
+- Dashboard and details popover use the same resolved static palette; native
+  Settings retains macOS-standard control behavior and appearance.
+- Each progress bar visibly separates its free portion from its consumed
+  portion, and the consumed portion changes from Used to Warning to Critical at
+  the effective per-window thresholds.
+- Warning and Critical never dynamically recolor an entire dashboard, account
+  panel, or popover; they affect only the consumed progress portion and its
+  compact marker.
+- Threshold state remains understandable through text and accessibility APIs
+  when colors are indistinguishable or overridden by a custom palette.
+
 ## Later
 
 - [ ] Add Linear backlog if the project grows beyond local docs.
