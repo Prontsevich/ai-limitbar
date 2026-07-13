@@ -17,7 +17,9 @@ unknown.
   snapshots.
 - Provider enablement settings.
 - Configurable refresh interval with manual-only as the default.
-- Local JSON storage in Application Support.
+- Device-local `Compact` (320 pt), `Standard` (440 pt), and `Tall` (640 pt)
+  dashboard-height presets in Settings > Refresh.
+- Local SQLite storage in Application Support.
 - Disabled credential surface and a Keychain service interface for future real
   integrations.
 
@@ -61,8 +63,9 @@ codex app-server --listen stdio://
 It completes the documented app-server initialization handshake and requests
 `account/rateLimits/read` over JSONL. The app normalizes only the explicitly
 identified `codex` rate-limit bucket, its `primary` window, and its optional
-`secondary` window. The resulting snapshot is marked `live` and carries an
-experimental compatibility warning because the local CLI protocol may change.
+`secondary` window. The resulting snapshot is marked `live` and visibly labeled
+as experimental because the local CLI protocol may change; a successful read is
+still presented as `OK`.
 
 Leave `Codex executable` blank to use automatic discovery from the shell PATH
 and standard local install locations, or select a specific executable for that
@@ -127,10 +130,10 @@ redirect through `api.workos.com`,
 auth redirects. Interactive sign-in remains open until it completes or the user
 cancels it; scheduled refreshes retain a 20-second load timeout. After login,
 extraction remains restricted to the settings page.
-The values are labeled
-`Ollama settings web page (Experimental)` with `live` confidence and a warning
-that the page structure is undocumented and may change. Model request counts,
-extra-usage balance, and billing values are intentionally excluded.
+The values are labeled `Ollama settings web page (Experimental)` with `live`
+confidence. The page structure is undocumented and may change, but a successful
+read is presented as `OK`; model request counts, extra-usage balance, and
+billing values are intentionally excluded.
 
 `Reconnect` is available when the session expires or the page structure changes.
 Scheduled refreshes never foreground the login view or attempt unattended
@@ -180,16 +183,11 @@ staging.
 
 ## Storage
 
-Snapshots and provider settings are stored as JSON files under the user's
-Application Support directory:
+Accounts, normalized snapshots, refresh settings, and safe source diagnostics
+are stored in `~/Library/Application Support/AI Limitbar/AI Limitbar.sqlite`.
+The device-local dashboard-height preset is stored separately in `UserDefaults`;
+it is not provider or account data. Neither store contains provider credentials,
+raw tokens, cookies, raw provider responses, or raw statusLine payloads.
 
-- `snapshots.json`
-- `providers.json`
-- `refresh-settings.json`
-
-These files must not contain provider credentials, raw tokens, cookies, or raw
-provider responses.
-
-If `snapshots.json` is malformed or uses another format version, AI Limitbar
-does not decode it as current data. Before the next save replaces that document,
-the original file is copied beside it with a `.backup` suffix.
+Legacy `snapshots.json`, `providers.json`, and `refresh-settings.json` files are
+imported once when valid and then retained as recovery backups.

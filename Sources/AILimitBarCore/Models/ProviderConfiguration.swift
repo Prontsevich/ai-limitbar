@@ -15,6 +15,15 @@ public enum ProviderSourceMode: String, Codable, CaseIterable, Sendable {
         }
     }
 
+    public var isExperimental: Bool {
+        switch self {
+        case .ollamaWebPage, .appServer:
+            true
+        case .manual, .claudeStatusLine:
+            false
+        }
+    }
+
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         switch try container.decode(String.self) {

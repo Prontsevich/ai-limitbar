@@ -511,9 +511,9 @@ credentials.
   duration or that either page section is permanently available.
 - [x] Keep per-model request counts and extra-usage balance out of the initial
   snapshot contract; they are not required to represent the two primary limits.
-- [x] Label the source as `Experimental web page` in Settings, details, and
-  warnings, including the risk that Ollama may change its authenticated page
-  structure without notice.
+- [x] Label the source as `Experimental web page` in Settings and details,
+  including the risk that Ollama may change its authenticated page structure
+  without notice; a successful experimental read remains `OK`.
 - [x] Run refreshes only through the configured schedule or explicit user
   action. A refresh must never foreground the login UI, submit account changes,
   or attempt an unattended reauthentication.
@@ -576,7 +576,8 @@ or local session history.
 - [x] Use the configured refresh schedule rather than high-frequency polling;
   terminate the short-lived app-server process after each request.
 - [x] Label the source as experimental in Settings and snapshots, with clear
-  compatibility and data-coverage warnings.
+  compatibility and data-coverage context; a successful experimental read
+  remains `OK`.
 - [x] Add fixture-based tests for current, missing-secondary, multi-bucket,
   malformed, and timeout/error responses without depending on a real account.
 - [x] Document setup, the experimental compatibility boundary, privacy rules,
@@ -666,28 +667,35 @@ refresh, or persistence behavior.
 
 Design contract: [`docs/dashboard-design.md`](dashboard-design.md).
 
-- [ ] Replace dashboard glass cards with fieldset-style account panels whose
+- [x] Replace dashboard glass cards with fieldset-style account panels whose
   border is interrupted by the account name.
-- [ ] Truncate a long account legend with a tail ellipsis without displacing
+- [x] Truncate a long account legend with a tail ellipsis without displacing
   Refresh or Info controls, and expose the complete name in a tooltip and its
   accessibility label.
-- [ ] Render one `NN% used` value, one progress bar, and a relative reset label
+- [x] Render one `NN% used` value, one compact outlined usage meter, and a relative reset label
   per known limit window; do not show normal-state update timestamps or a
   duplicate remaining percentage.
-- [ ] Move Refresh All to a glyph control in the menu-panel header and show its
+- [x] Move Refresh All to a glyph control in the menu-panel header and show its
   in-progress/disabled state.
-- [ ] Add glyph-only individual Refresh and explicit Info controls to every
+- [x] Add glyph-only individual Refresh and explicit Info controls to every
   account panel, using the existing per-account refresh and details paths.
-- [ ] Keep stale, failed, manual-only, unavailable, and no-data states visible
+- [x] Keep stale, failed, manual-only, unavailable, and no-data states visible
   inline without inventing usage values or permanently occupying normal cards.
-- [ ] Redesign `AccountDetailsView` as the matching technical inspector with
+- [x] Redesign `AccountDetailsView` as the matching technical inspector with
   precise timestamps, source, confidence, resets, diagnostics, and secondary
   actions.
-- [ ] Remove dashboard and account-details Liquid Glass treatments, including
+- [x] Remove dashboard and account-details Liquid Glass treatments, including
   glass buttons and glass/card hover behavior, while preserving accessible
   system control semantics.
-- [ ] Add or update focused tests for refresh action availability and preserve
+- [x] Apply the approved Codex `/status` and lazygit visual grammar: adaptive
+  terminal palette, monospaced hierarchy, thin outlined custom usage meters,
+  flat actions, and one label/value details inspector with a nested diagnostics
+  note.
+- [x] Add or update focused tests for refresh action availability and preserve
   existing refresh/account ordering behavior.
+- [x] Add persisted device-local Compact (320 pt), Standard (440 pt), and Tall
+  (640 pt) dashboard-height presets; retain a scrolling viewport for overflow
+  without adding empty space to short lists.
 - [ ] Manually verify normal, refreshing, stale, failed, manual-only, and
   no-data examples in Light and Dark appearance.
 
@@ -701,6 +709,8 @@ Acceptance:
   or lose keyboard/accessibility support.
 - The details popover holds timestamps and diagnostics without duplicating the
   dashboard or individual Refresh action.
+- The selected dashboard-height preset persists between launches, changes the
+  scroll viewport immediately, and leaves short account lists naturally sized.
 - No provider, refresh, snapshot, or persistence contract changes are required
   solely for the visual redesign.
 
@@ -824,9 +834,9 @@ Settings organization where cross-account preferences live in General.
   Settings window, alerts, accessibility text, and formatted values without a
   restart.
 - [ ] Replace the current Settings navigation with General, Accounts, and
-  Provider Setup. Move the refresh-schedule control and its explanatory copy
-  into General; remove Refresh as a top-level Settings section without changing
-  the persisted refresh setting or refresh behavior.
+  Provider Setup. Move the refresh-schedule and dashboard-height controls and
+  their explanatory copy into General; remove Refresh as a top-level Settings
+  section without changing either persisted preference or refresh behavior.
 - [ ] Localize all app-owned, user-facing UI text, including dashboard labels,
   Settings, buttons, alerts, tooltips, accessibility labels and values, empty
   states, status text, and app-generated warnings or recovery instructions.
@@ -850,9 +860,9 @@ Acceptance:
   visible app changes immediately without relaunching.
 - English is the complete fallback language. A missing Russian translation
   cannot expose a raw localization key or make the interface unusable.
-- General contains language and refresh schedule; Accounts and Provider Setup
-  remain focused on their existing workflows, and refresh scheduling works
-  exactly as before.
+- General contains language, refresh schedule, and dashboard height; Accounts
+  and Provider Setup remain focused on their existing workflows, and refresh
+  scheduling works exactly as before.
 - User-created names, provider data, and persisted technical values stay intact
   when the language changes; only the app's presentation is localized.
 - `dist/AILimitBar.app` contains and loads both localizations after the normal

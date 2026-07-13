@@ -1,4 +1,3 @@
-import AILimitBarCore
 import SwiftUI
 
 struct DashboardAccountRowView: View {
@@ -8,188 +7,173 @@ struct DashboardAccountRowView: View {
 
     @State private var isShowingDetails = false
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 7) {
-            header
-
-            if let snapshot = row.snapshot {
-                let windows = snapshot.displayLimitWindows
-                if windows.isEmpty {
-                    unavailableText(snapshot.remainingLabel ?? snapshot.status.displayName)
-                } else {
-                    VStack(alignment: .leading, spacing: 5) {
-                        ForEach(windows) { window in
-                            LimitWindowProgressRow(window: window)
-                        }
-                    }
-                }
-            } else {
-                unavailableText("No usage data")
-            }
-        }
-        .padding(.horizontal, 4)
-        .padding(.vertical, 9)
+    private var presentation: DashboardAccountPresentation {
+        DashboardAccountPresentation(
+            row: row,
+            isStale: isStale,
+            isGlobalRefresh: appModel.isRefreshing
+        )
     }
 
-    private var header: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Image(systemName: statusImage)
-                .foregroundStyle(statusColor)
-                .frame(width: 16)
+    var body: some View {
+        TerminalFieldset(
+            title: presentation.accountName,
+            titleAccessibilityLabel: presentation.accountName
+        ) {
+            accountControls
+        } content: {
+            accountContent
+        }
+    }
 
-            Text(row.account.displayName)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.primary)
-                .lineLimit(1)
-
-            Spacer(minLength: 8)
-
-            Text(statusText)
-                .font(.caption2.weight(.medium))
-                .foregroundStyle(statusColor)
-                .lineLimit(1)
+    @ViewBuilder
+    private var accountControls: some View {
+        HStack(spacing: 7) {
+            Button {
+                appModel.refreshAccount(
+                    providerID: row.account.providerID,
+                    accountID: row.account.accountID
+                )
+            } label: {
+                refreshIndicator
+            }
+            .buttonStyle(TerminalIconButtonStyle())
+            .disabled(!presentation.canRefresh)
+            .help(presentation.refreshHelp)
+            .accessibilityLabel("Refresh \(presentation.accountName)")
+            .accessibilityValue(presentation.isRefreshing ? "Refreshing" : "Ready")
 
             Button {
                 isShowingDetails.toggle()
             } label: {
                 Image(systemName: "info.circle")
-                    .imageScale(.medium)
+                    .frame(width: 14, height: 14)
             }
-            .buttonStyle(.glass)
+            .buttonStyle(TerminalIconButtonStyle())
             .help("Show account details")
-            .accessibilityLabel("Show details for \(row.account.displayName)")
+            .accessibilityLabel("Show details for \(presentation.accountName)")
             .popover(isPresented: $isShowingDetails, arrowEdge: .trailing) {
                 AccountDetailsView(appModel: appModel, row: row)
-                    .frame(width: 340)
+                    .frame(width: 360)
             }
         }
     }
 
-    private func unavailableText(_ text: String) -> some View {
-        Text(text)
-            .font(.caption)
-            .foregroundStyle(row.snapshot?.status == .error ? .red : .secondary)
-            .lineLimit(2)
-            .fixedSize(horizontal: false, vertical: true)
-            .frame(maxWidth: .infinity, alignment: .leading)
+    @ViewBuilder
+    private var accountContent: some View {
+        if !presentation.windows.isEmpty {
+            ForEach(presentation.windows) { window in
+                LimitWindowProgressRow(window: window, tint: progressTint)
+
+                if window.id != presentation.windows.last?.id ?? "" {
+                    TerminalRule()
+                        .padding(.vertical, 1)
+                }
+            }
+        }
+
+        if let bodyMessage = presentation.bodyMessage {
+            Text(bodyMessage)
+                .font(TerminalTheme.bodyFont)
+                .foregroundStyle(messageColor)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+
+        if let statusText = presentation.statusText {
+            Label(statusText, systemImage: statusSymbol)
+                .font(TerminalTheme.captionFont)
+                .foregroundStyle(statusColor)
+                .accessibilityLabel(statusText)
+        }
     }
 
-    private var statusText: String {
-        if row.refreshStatus == .refreshing {
-            return row.refreshStatus.displayName
-        }
-        if row.refreshIssue != nil {
-            return "Failed"
-        }
-        guard let snapshot = row.snapshot else {
-            return "No Data"
-        }
-        if isStale {
-            return "Stale"
-        }
-        if snapshot.status != .ok && !snapshot.warnings.isEmpty {
-            return "Warning"
-        }
-        return snapshot.status.displayName
+    private var progressTint: Color {
+        TerminalTheme.border
     }
 
-    private var statusImage: String {
-        if row.refreshStatus == .refreshing {
-            return "arrow.clockwise.circle"
+    private var refreshIndicator: some View {
+        Group {
+            if presentation.isRefreshing {
+                ProgressView()
+                    .controlSize(.mini)
+                    .tint(TerminalTheme.secondary)
+            } else {
+                Image(systemName: "arrow.clockwise")
+            }
         }
-        if row.refreshIssue != nil {
-            return "exclamationmark.arrow.triangle.2.circlepath"
-        }
-        guard let status = row.snapshot?.status else {
-            return "circle.dashed"
-        }
-        switch status {
-        case .ok: return "checkmark.circle"
-        case .warning: return "exclamationmark.triangle"
-        case .error: return "xmark.octagon"
-        case .unavailable: return "questionmark.circle"
+        .frame(width: 14, height: 14)
+    }
+
+    private var messageColor: Color {
+        switch presentation.state {
+        case .failed:
+            TerminalTheme.error
+        case .warning, .stale:
+            TerminalTheme.warning
+        case .normal, .refreshing, .manual, .unavailable, .noData:
+            TerminalTheme.secondary
         }
     }
 
     private var statusColor: Color {
-        if row.refreshStatus == .refreshing {
-            return .secondary
+        switch presentation.state {
+        case .failed:
+            TerminalTheme.error
+        case .warning, .stale:
+            TerminalTheme.warning
+        case .normal, .refreshing, .manual, .unavailable, .noData:
+            TerminalTheme.secondary
         }
-        if row.refreshIssue != nil {
-            return .red
-        }
-        guard let snapshot = row.snapshot else {
-            return .secondary
-        }
-        if isStale {
-            return .orange
-        }
-        switch snapshot.status {
-        case .ok: return .green
-        case .warning: return .orange
-        case .error: return .red
-        case .unavailable: return .secondary
+    }
+
+    private var statusSymbol: String {
+        switch presentation.state {
+        case .failed:
+            "exclamationmark.triangle"
+        case .stale:
+            "clock.badge.exclamationmark"
+        case .warning:
+            "exclamationmark.circle"
+        case .normal, .refreshing, .manual, .unavailable, .noData:
+            "info.circle"
         }
     }
 }
 
 private struct LimitWindowProgressRow: View {
-    let window: UsageLimitWindow
-
-    private static let relativeDateFormatter: RelativeDateTimeFormatter = {
-        let formatter = RelativeDateTimeFormatter()
-        formatter.locale = Locale(identifier: "en_US")
-        formatter.unitsStyle = .full
-        return formatter
-    }()
+    let window: DashboardLimitWindowPresentation
+    let tint: Color
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
+        VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .firstTextBaseline) {
                 Text(window.displayName)
-                    .font(.caption2.weight(.semibold))
+                    .font(TerminalTheme.emphasizedBodyFont)
+                    .foregroundStyle(TerminalTheme.primary)
                     .lineLimit(1)
 
-                Spacer(minLength: 6)
+                Spacer(minLength: 8)
 
-                Text(valueText)
-                    .font(.caption2.monospacedDigit())
-                    .foregroundStyle(.secondary)
+                Text(window.usedText)
+                    .font(TerminalTheme.emphasizedBodyFont)
+                    .foregroundStyle(TerminalTheme.primary)
                     .lineLimit(1)
             }
 
-            if let usedPercent = window.usedPercent {
-                ProgressView(value: usedPercent, total: 100)
-                    .controlSize(.small)
-                    .accessibilityLabel(window.displayName)
-                    .accessibilityValue(valueText)
-            }
+            TerminalStatusMeter(
+                value: window.usedPercent,
+                tint: tint,
+                accessibilityLabel: window.accessibilityLabel,
+                accessibilityValue: window.accessibilityValue
+            )
 
-            if let detailText {
-                Text(detailText)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+            if let resetText = window.resetText {
+                Text(resetText)
+                    .font(TerminalTheme.captionFont)
+                    .foregroundStyle(TerminalTheme.secondary)
                     .lineLimit(1)
             }
         }
-    }
-
-    private var valueText: String {
-        guard let usedPercent = window.usedPercent else {
-            return window.remainingLabel ?? "Unknown"
-        }
-        return "\(Int(usedPercent.rounded()))%"
-    }
-
-    private var detailText: String? {
-        if let remainingLabel = window.remainingLabel, let resetText {
-            return "\(remainingLabel) - \(resetText)"
-        }
-        return window.remainingLabel ?? resetText
-    }
-
-    private var resetText: String? {
-        guard let resetAt = window.resetAt else { return nil }
-        return "resets \(Self.relativeDateFormatter.localizedString(for: resetAt, relativeTo: Date()))"
     }
 }

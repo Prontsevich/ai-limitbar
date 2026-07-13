@@ -3,6 +3,8 @@ import SwiftUI
 
 struct RefreshSettingsPane: View {
     @ObservedObject var appModel: AppModel
+    @AppStorage(DashboardHeightPreset.storageKey)
+    private var dashboardHeightPresetRawValue = DashboardHeightPreset.standard.rawValue
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -27,6 +29,19 @@ struct RefreshSettingsPane: View {
                         .font(.callout)
                         .foregroundStyle(.secondary)
                 }
+
+                Section("Dashboard") {
+                    Picker("Height", selection: dashboardHeightPresetBinding) {
+                        ForEach(DashboardHeightPreset.allCases) { preset in
+                            Text(preset.displayName).tag(preset)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+
+                    Text("Controls the maximum visible height of the menu-bar dashboard. Longer account lists scroll.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
             }
             .formStyle(.grouped)
             Spacer()
@@ -41,6 +56,15 @@ struct RefreshSettingsPane: View {
         Binding(
             get: { appModel.refreshSettings.interval },
             set: { appModel.setRefreshInterval($0) }
+        )
+    }
+
+    private var dashboardHeightPresetBinding: Binding<DashboardHeightPreset> {
+        Binding(
+            get: {
+                DashboardHeightPreset(rawValue: dashboardHeightPresetRawValue) ?? .standard
+            },
+            set: { dashboardHeightPresetRawValue = $0.rawValue }
         )
     }
 }

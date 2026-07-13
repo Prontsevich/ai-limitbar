@@ -7,7 +7,8 @@ account-details popover. It is the implementation contract for Milestone 17.
 
 The scope is limited to `MenuBarPanelView`, dashboard account presentation, and
 `AccountDetailsView`. It deliberately excludes Settings redesign, provider
-adapters, refresh semantics, persistence, and the `UsageSnapshot` contract.
+adapters, refresh semantics, persistence, and the `UsageSnapshot` contract,
+except for a device-local dashboard-height preference.
 
 ## Outcome
 
@@ -24,17 +25,33 @@ Technical provenance and timestamps belong in the on-demand details popover.
 ## Visual System
 
 The dashboard uses a compact terminal-fieldset composition rather than Liquid
-Glass cards:
+Glass cards. The visual references are Codex CLI `/status` for the inspector
+typography and outlined usage meter, and lazygit for the dense nested-panel
+grid. They guide the visual grammar; the app does not imitate ANSI escape codes
+or become a text-mode interface.
 
-- Each account is enclosed by a thin bordered panel with subtly rounded corners.
-- The account name interrupts the upper border, like a `fieldset` legend.
+- Each account is enclosed by a thin muted-gold bordered panel with a small
+  corner radius.
+- The account name interrupts the upper border, like a `fieldset` legend. Its
+  vertical placement is independent from the right-aligned controls, so a
+  refresh spinner cannot move the legend or overlap the border.
+- Legend and control masks cover only their intrinsic content, never a reserved
+  maximum title width. Account panels leave enough vertical spacing for those
+  masks without breaking a neighbouring panel's lower border.
 - There are no glass effects, translucent surfaces, gradients, shadows, large
   corner radii, or card hover scaling on these two surfaces.
-- Use adaptive semantic foreground and background colors so the composition
-  works in both Light and Dark appearance. The dark mockup is a style reference,
-  not a fixed color-mode requirement.
-- Keep the visual density and aligned, monospaced numeric values associated with
-  a developer status tool, without attempting to emulate a literal terminal.
+- Use an adaptive warm paper/charcoal surface, muted-gold structural borders,
+  and restrained green, amber, and red semantic status colors. The dark
+  screenshots are style references, not a fixed color-mode requirement.
+- Use monospaced labels and values, tight vertical rhythm, aligned label/value
+  rows, and one-pixel separators associated with a developer status tool.
+- Usage meters are thin rectangular outlined meters with a muted-gold fill that
+  matches the structural border; do not use the default `ProgressView` track on
+  these surfaces. Green is reserved for successful status copy, amber for
+  warning/stale copy, and red for failure copy.
+- Actions remain SwiftUI controls but use flat text or glyph presentation rather
+  than prominent system pill buttons. They have a subtle neutral hover fill and
+  a pressed state, without card scaling or a pill-shaped hover treatment.
 
 This is an intentional product-specific composition. Standard SwiftUI controls
 must still provide pointer, keyboard, focus, accessibility, disabled, and
@@ -59,7 +76,16 @@ pressed behavior for all interactive elements.
   its controls, truncate it with a tail ellipsis and expose the complete name in
   a tooltip and accessibility label.
 - Place a glyph-only individual Refresh control and an explicit Info control in
-  the upper-right portion of each account border.
+  the upper-right portion of each account border. Center both on the border,
+  reserve a visible gap between their hit targets, and preserve the same
+  dimensions while Refresh swaps its glyph for progress. Inset the group enough
+  to leave the fieldset's top-right corner visible.
+- Leave a small top clearance before the first account so its legend cannot
+  overlap the dashboard header. Cap the account-list viewport at a compact
+  height and use a visible vertical scroll indicator for additional accounts.
+  Settings offers `Compact` (320 pt), `Standard` (440 pt), and `Tall` (640 pt)
+  maximum viewport presets. The value is a local `UserDefaults` preference,
+  not provider or account data; short lists do not gain empty vertical space.
 - Individual Refresh invokes the existing per-account refresh path. It shows
   progress and is disabled while that account or a global refresh is running.
 - Info opens the account-details popover. It must have an accessible label and
@@ -71,7 +97,7 @@ For each known limit window, render only:
 
 1. The provider-defined window label, such as `5-hour` or `7-day`.
 2. One right-aligned `NN% used` value.
-3. One compact horizontal progress bar.
+3. One compact rectangular outlined usage meter.
 4. A relative reset label when a reset date is available, such as
    `resets in 2 hours`.
 
@@ -90,6 +116,9 @@ the only indication of state.
   the Info popover.
 - Manual-only, unavailable, and no-data accounts state that condition in the
   account body instead of inventing a progress bar.
+- A successful experimental source remains `OK`; its `Experimental` source
+  label is informational. Amber warning state is reserved for real usage
+  thresholds, stale data, or failed refreshes.
 
 The dashboard should not scroll for common setups of three to five accounts.
 
@@ -97,7 +126,9 @@ The dashboard should not scroll for common setups of three to five accounts.
 
 The Info control opens a compact technical inspector in the same terminal-
 fieldset visual system. It is not a second dashboard and does not repeat the
-usage bars.
+usage bars. The popover uses one outer inspector fieldset with aligned
+monospaced label/value rows, separated by thin rules. Diagnostics are the only
+inner bordered block and use a `NOTE`-style label.
 
 It contains:
 

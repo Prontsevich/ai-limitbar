@@ -201,8 +201,9 @@ normalizes a valid `primary` window and an optional valid `secondary` window.
 Malformed percentages, missing buckets, invalid reset timestamps, and changed
 protocol shapes result in a useful warning or recoverable error; they never
 produce a fabricated quota value. If a valid response is received, the snapshot
-is `live` and is labeled `Codex app-server (Experimental)` with a compatibility
-warning.
+is `live` and visibly labeled `Codex app-server (Experimental)`. The experimental
+label is informational: a successful read remains `OK` unless a real usage
+threshold or source failure requires a warning.
 
 Raw JSON-RPC payloads remain process-local and are discarded. The decoder
 projects only the limit identifier, percentage, duration, and reset timestamp;
@@ -358,15 +359,15 @@ Supported source strategy:
 | Local Ollama API at `http://localhost:11434/api` | Per-request response metrics such as `total_duration`, `load_duration`, `prompt_eval_count`, `eval_count`, and related timing fields. Streaming responses include usage fields in the final chunk. | Useful for request-level local model accounting only when AI Limitbar observes or proxies requests. It does not provide account-level Ollama Cloud usage or remaining quota. |
 | Ollama Cloud API at `https://ollama.com/api` | Same Ollama model interaction API for cloud models, authenticated with an API key. Documented endpoints include model generation/chat, embeddings, tags, running models, model details, and model management. | Supports cloud model calls, but the checked docs do not list a billing, account usage, quota, or remaining-limit endpoint. |
 | Ollama API keys/settings | API keys for programmatic access to `ollama.com`; keys can be revoked and currently do not expire. | Required for future cloud model API calls. Not enough to expose usage limits. |
-| Ollama account settings page | The authenticated `https://ollama.com/settings` page currently server-renders `Session usage` and `Weekly usage` percentages with reset information. | Current manual fallback. Planned experimental source only through an AI Limitbar-owned WebKit connection, semantic DOM parsing, and a visible compatibility warning. It must not reuse another browser's session or store raw page/session data. |
+| Ollama account settings page | The authenticated `https://ollama.com/settings` page currently server-renders `Session usage` and `Weekly usage` percentages with reset information. | Current manual fallback. Planned experimental source only through an AI Limitbar-owned WebKit connection and semantic DOM parsing. Its `Experimental` source label is informational when a read succeeds. It must not reuse another browser's session or store raw page/session data. |
 
 Current confidence level: `manual`.
 
 Planned web-page confidence level: `live` only for a successfully parsed current
-settings page, with source text `Ollama settings web page (Experimental)` and a
-visible structural-compatibility warning. `live` describes freshness of the
-provider-displayed value; it does not imply that the DOM integration is a
-documented or stable API.
+settings page, with source text `Ollama settings web page (Experimental)`. The
+experimental label is informational when parsing succeeds; `live` describes
+freshness of the provider-displayed value and does not imply that the DOM
+integration is a documented or stable API.
 
 Current source mode: open Ollama account/settings pages and label the snapshot
 as manual. Do not call Ollama Cloud APIs for usage monitoring until a documented
@@ -551,16 +552,33 @@ The menu-bar dashboard and its account-details popover are an intentional
 product-specific exception to the broader Liquid Glass baseline. They follow the
 approved terminal-fieldset composition in
 [`docs/dashboard-design.md`](dashboard-design.md): thin bordered account panels,
-an account-name border interruption, compact progress bars, and no decorative
-glass, blur, or hover-card effects. Interactive controls must still retain
-native pointer, keyboard, focus, disabled, and accessibility behavior.
+an account-name border interruption, compact outlined usage meters, and no
+decorative glass, blur, or hover-card effects. Codex CLI `/status` and lazygit
+are the visual references for monospaced label/value inspection, warm adaptive
+terminal colors, thin separators, and flat actions; they are not a request to
+emulate ANSI or text-mode controls. Interactive controls must still retain
+native pointer, keyboard, focus, disabled, accessibility, and a restrained
+neutral hover state. Fieldset legends and their right-aligned controls are
+independent overlays centered on the border, so refresh progress cannot move a
+legend; normal usage meters use the border color while amber stays reserved for
+warning/stale status copy. Overlay masks use their intrinsic content width, and
+the account list reserves title clearance at its top, wider inter-panel spacing,
+and a capped scrolling viewport so extra accounts never enlarge the popover or
+break adjacent borders.
+
+The capped dashboard viewport is a device-local preference rather than account
+or provider data. The current Refresh Settings pane offers `Compact` (320 pt),
+`Standard` (440 pt), and `Tall` (640 pt) maximum-height presets stored in
+`UserDefaults`. A preset only increases the available dashboard viewport; short
+account lists retain their natural height and longer lists scroll. Milestone 21
+moves this control with the refresh schedule into General.
 
 Dashboard rows should:
 
 - Show accounts in user-defined order, not grouped by provider by default.
 - Use the globally unique account name as the fieldset legend. Keep provider
   context out of the normal dashboard body.
-- Render one compact progress bar and one `NN% used` value per known limit
+- Render one compact outlined usage meter and one `NN% used` value per known limit
   window, such as weekly plus provider-defined 3-hour, 4-hour, 5-hour, or other
   rolling windows.
 - Show a relative reset label when available, but keep normal-state refresh
@@ -571,10 +589,11 @@ Dashboard rows should:
   at a glance.
 
 Account details should be available on demand rather than permanently occupying
-the dashboard. Use an explicit Info button to open the matching technical
-popover with source, confidence, warnings, precise refresh timestamps, exact
-reset details, and secondary per-account actions. Hover may be added as a
-convenience, but it must not be the only way to access details.
+the dashboard. Use an explicit Info button to open a single matching technical
+inspector with aligned source, confidence, warnings, precise refresh timestamps,
+exact reset details, and secondary per-account actions. Diagnostics appear in
+its one nested `NOTE` block. Hover may be added as a convenience, but it must
+not be the only way to access details.
 
 The settings UI should support:
 
@@ -583,8 +602,8 @@ The settings UI should support:
 - A compact native segmented navigation control for General, Accounts, and
   Provider Setup instead of a permanent top tile bar or navigation sidebar.
 - A General section for app-wide preferences: durable language, refresh,
-  threshold, and appearance choices. Refresh is not a separate top-level
-  Settings section.
+  dashboard height, threshold, and appearance choices. Refresh is not a
+  separate top-level Settings section.
 - An Accounts master-detail layout with an account-name-first list, provider as
   secondary text, footer add/delete controls, and selected-account detail pane.
 - Enabling/disabling providers.
