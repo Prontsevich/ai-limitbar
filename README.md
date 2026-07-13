@@ -56,8 +56,8 @@ swift test                 # Test
 
 AI Limitbar is a modern-only macOS app targeting macOS 26 Tahoe or later.
 
-- Standard SwiftUI controls and system structures are the default — Liquid Glass is the design baseline
-- Terminal-fieldset dashboard is an intentional exception (see [`docs/dashboard-design.md`](docs/dashboard-design.md))
+- Standard SwiftUI controls and system structures are the default
+- Terminal-fieldset dashboard is the product-specific composition (see [`docs/dashboard-design.md`](docs/dashboard-design.md))
 - Settings follow a terminal-adjacent style (see [`docs/settings-design.md`](docs/settings-design.md))
 
 ## 📖 Documentation

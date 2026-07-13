@@ -64,7 +64,7 @@ AILimitBarClaudeStatusLine (helper)
 - **AppKit** is limited to narrow application lifecycle boundaries
   (activation, termination). It does not own windows or feature state.
 - **Terminal-fieldset dashboard** — the menu bar panel and account details
-  use a compact terminal-fieldset composition, not Liquid Glass cards. See
+  use a compact terminal-fieldset composition, not glass cards. See
   `docs/dashboard-design.md`.
 
 ## Commit Conventions
@@ -86,8 +86,8 @@ Common scopes: `storage`, `codex`, `dashboard`, `ollama`, `claude`, `settings`,
 ## Constraints
 
 - **macOS 26+ only.** Do not add compatibility fallbacks for older macOS.
-- **SwiftUI-first.** Use system controls before custom components. Liquid Glass
-  is the design baseline.
+- **SwiftUI-first.** Use system controls before custom components. The
+  terminal-fieldset visual system is the product-specific composition.
 - **Privacy-first.** No credentials, cookies, tokens, or raw provider responses
   in storage, logs, or diagnostics.
 - **Menu-bar-only.** The app uses `LSUIElement` — no Dock icon, no main window.
