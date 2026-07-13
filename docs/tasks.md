@@ -589,7 +589,61 @@ Acceptance:
 - A Codex CLI update or unavailable experimental interface leaves the account
   in a clear recoverable state and preserves the manual usage-page workflow.
 
-## Milestone 16: Provider And Account Readiness
+## Milestone 16: Local Database Migration
+
+Goal: replace the app's JSON persistence and Claude Code snapshot file with one
+app-owned SQLite database accessed through GRDB, without losing existing local
+state or weakening the current privacy boundary.
+
+- [ ] Add GRDB through Swift Package Manager and make it available to both
+  `AILimitBar` and `AILimitBarClaudeStatusLine` through `AILimitBarCore`.
+- [ ] Create one non-user-configurable database at
+  `~/Library/Application Support/AI Limitbar/AI Limitbar.sqlite` and enable
+  WAL mode, foreign-key enforcement, and a bounded busy timeout.
+- [ ] Define versioned GRDB migrations for provider accounts, current
+  normalized snapshots, refresh settings, and persisted source diagnostics.
+  Preserve the current app behavior; history/chart retention is a separate
+  feature, not an implicit migration requirement.
+- [ ] Replace `JSONSnapshotStore`, `ProviderConfigurationStore`, and
+  `RefreshSettingsStore` behind focused store protocols so `AppModel` keeps its
+  existing account and refresh behavior.
+- [ ] Replace Claude Code's generic `local-snapshot` path with an
+  AI Limitbar-managed `statusLine` database source. The helper must validate
+  and write only the normalized snapshot in a short transaction, even when the
+  app is not running.
+- [ ] Remove the user-editable local snapshot path from Settings after the
+  managed source is available. Existing custom paths must not be silently
+  followed forever: import the last valid value once, retain a clear migration
+  warning, and guide the user to configure the bundled helper.
+- [ ] On first launch, import valid legacy `providers.json`, `snapshots.json`,
+  refresh settings, and the managed Claude `statusline.json` into one atomic
+  database migration. Preserve the original files as backups and make the
+  migration idempotent.
+- [ ] Keep malformed, unsupported, or partially importable legacy data from
+  replacing valid database rows; surface actionable diagnostics instead.
+- [ ] Keep credentials, cookies, WebKit browser data, raw provider responses,
+  and opaque account/authentication fields out of the database.
+- [ ] Add tests for schema creation/upgrades, concurrent app/helper writes,
+  legacy import, idempotency, rollback on failed migration, custom-path
+  migration warnings, and preservation of the last valid snapshot.
+- [ ] Document the database location, backup/recovery behavior, migration
+  result, and the new Claude Code setup flow.
+
+Acceptance:
+
+- A fresh install runs entirely from the GRDB-managed SQLite database and
+  requires no user-provided snapshot path.
+- Updating Claude Code through the bundled `statusLine` helper remains safe
+  while AI Limitbar is closed or reading the same database.
+- Existing supported JSON-based installations retain their accounts, refresh
+  settings, and latest valid snapshots after one restart; their legacy files
+  remain available as backups.
+- A failed or malformed legacy import leaves the database usable and never
+  destroys a prior valid state.
+- The database contains normalized product data only, never credentials or raw
+  provider/session material.
+
+## Milestone 17: Provider And Account Readiness
 
 Goal: prepare the app for more providers and account-level credentials while
 keeping provider implementations conservative.
@@ -609,7 +663,7 @@ Acceptance:
 - Credentials have a clear account-level home without touching JSON storage.
 - Provider adapters can advertise supported source modes.
 
-## Milestone 17: Daily Use Polish
+## Milestone 18: Daily Use Polish
 
 Goal: make the menu bar app useful as a daily status tool before starting the
 WidgetKit extension.

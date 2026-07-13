@@ -446,35 +446,68 @@ should show an unavailable/manual state instead of inventing progress bars.
 
 ## Storage
 
-The initial snapshot store can be a JSON file stored in application support.
-Later, when WidgetKit is added, snapshots should move to an App Group container
-so the widget extension can read them.
+### Current JSON storage
 
-Snapshot storage location is represented by `SnapshotStorageContainer`. The
-current `LocalSnapshotStorageContainer` points at Application Support, while a
-future App Group container can replace it without changing provider adapters or
-the JSON snapshot store format.
+The current MVP persists provider accounts, refresh settings, normalized
+snapshots, and the AI Limitbar-managed Claude Code `statusLine` payload as
+versioned JSON documents in Application Support. This is legacy storage for the
+planned database migration, not the long-term persistence architecture.
+
+Raw legacy arrays and documents with another format version are not decoded as
+current snapshots. Before replacing an unsupported or malformed document, the
+store preserves the original file as a local backup.
+
+### Target local database
+
+AI Limitbar will use GRDB over SQLite as its single app-owned persistence
+engine. The database location is fixed at
+`~/Library/Application Support/AI Limitbar/AI Limitbar.sqlite`; users do not
+select database or snapshot paths.
+
+GRDB is shared through `AILimitBarCore` by the menu bar app and the bundled
+`AILimitBarClaudeStatusLine` executable. SQLite WAL mode, foreign-key
+enforcement, transactions, and a bounded busy timeout provide predictable
+cross-process behavior. SQLite still permits one writer at a time; each writer
+must make a short, validated transaction rather than holding a write lock while
+performing provider or UI work.
+
+The database schema is versioned through explicit GRDB migrations. It persists
+only provider accounts, refresh settings, current normalized snapshots, and
+source diagnostics. Snapshot history, charts, and retention policies are
+separate product features and must not be introduced incidentally by the
+migration.
+
+The Claude Code source becomes an AI Limitbar-managed database source. The
+helper validates its documented `statusLine` input and writes the normalized
+local-estimate snapshot directly to the database, including when AI Limitbar is
+not running. The Settings UI does not expose a generic local JSON path.
+
+On the first database launch, the app imports valid legacy `providers.json`,
+`snapshots.json`, refresh settings, and the managed Claude `statusline.json`
+inside an idempotent migration. Original files remain as backups. A configured
+custom local-snapshot path is imported once when valid, then shown as a
+migration warning so the user can switch to the bundled helper; the app does
+not silently keep following arbitrary external files indefinitely. Malformed or
+unsupported legacy data must not replace a valid database row.
+
+Credentials, API keys, cookies, raw provider responses, opaque account/auth
+fields, and WebKit browser data never enter the database. Credentials remain in
+Keychain and Ollama browser sessions remain in their per-account
+`WKWebsiteDataStore`.
+
+### Future WidgetKit sharing
 
 Provisional App Group identifier: `group.com.lestroy.ai-limitbar`. This must be
 verified against the final Apple Developer Team and bundle identifiers before
 signing a WidgetKit build.
 
-Shared snapshot format version: `2`. `snapshots.json` is a JSON document with
-`formatVersion` and `snapshots` fields. Version 2 stores account-scoped normalized
-`UsageSnapshot` values and provider-defined limit windows.
-
-Raw legacy arrays and documents with another format version are not decoded as
-current snapshots. Before replacing an unsupported or malformed document, the
-store preserves the original file as a local backup. A future App Group move
-must use the same version-aware store behavior instead of a separate legacy
-migrator.
-
 Widget constraints:
 
-- The widget is passive: it reads versioned normalized snapshots from the App
-  Group container and renders them.
+- The widget is passive: it reads a versioned, normalized snapshot projection
+  from App Group storage and renders it. The exact database-sharing mechanism
+  must be validated for WidgetKit before implementation.
 - The widget must not authenticate, call providers, read Keychain credentials,
-  parse local provider files, or write provider configuration.
+  parse legacy provider files, or write provider configuration.
 - Missing, stale, unavailable, or manual-confidence snapshots must be displayed
   honestly without invented usage values.
 - Timeline reloads should follow stored snapshot freshness and the app's
@@ -485,7 +518,7 @@ session data.
 
 Snapshots are considered stale after 24 hours in manual-only mode or after two
 missed configured refresh intervals in scheduled mode. Staleness is runtime UI
-state derived from `lastUpdatedAt`; it is not persisted into the snapshot file.
+state derived from `lastUpdatedAt`; it is not persisted as a snapshot field.
 
 Provider refreshes retry transient `ProviderAdapterError` failures with a small
 exponential backoff. Configuration, schema, and validation errors are permanent
