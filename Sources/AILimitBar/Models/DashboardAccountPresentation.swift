@@ -98,7 +98,8 @@ struct DashboardAccountPresentation: Equatable {
         if row.refreshIssue != nil || row.snapshot?.status == .error {
             return .failed
         }
-        if row.account.sourceMode == .manual || row.snapshot?.confidence == .manual {
+        if (row.account.sourceMode == .manual && row.account.providerID != "mock") ||
+            row.snapshot?.confidence == .manual {
             return .manual
         }
         if row.snapshot?.status == .unavailable {

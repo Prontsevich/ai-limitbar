@@ -65,6 +65,44 @@ final class DashboardAccountPresentationTests: XCTestCase {
         XCTAssertEqual(unavailable.bodyMessage, "Open provider usage page")
     }
 
+    func testMockAccountDisplaysGeneratedUsageDespiteCompatibilityManualSource() {
+        let snapshot = UsageSnapshot(
+            providerID: "mock",
+            accountID: "work",
+            accountDisplayName: "Work",
+            displayName: "Mock Provider",
+            status: .ok,
+            limitWindows: [
+                UsageLimitWindow(id: "weekly", displayName: "Weekly", usedPercent: 42)
+            ],
+            lastUpdatedAt: Date(timeIntervalSince1970: 1_000_000),
+            confidence: .localEstimate,
+            source: "Generated mock data"
+        )
+        let account = ProviderAccount(
+            providerID: "mock",
+            accountID: "work",
+            displayName: "Work",
+            isEnabled: true,
+            sourceMode: .manual
+        )
+        let presentation = DashboardAccountPresentation(
+            row: AccountSnapshotRow(
+                account: account,
+                providerDisplayName: "Mock Provider",
+                snapshot: snapshot,
+                refreshStatus: .idle,
+                refreshIssue: nil
+            ),
+            isStale: false,
+            isGlobalRefresh: false
+        )
+
+        XCTAssertEqual(presentation.state, .normal)
+        XCTAssertEqual(presentation.windows.count, 1)
+        XCTAssertNil(presentation.bodyMessage)
+    }
+
     func testFailedAndStaleStatesKeepLastValidUsageVisible() {
         let now = Date(timeIntervalSince1970: 1_000_000)
         let snapshot = makeSnapshot(limitWindows: [
