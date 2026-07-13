@@ -724,7 +724,6 @@ Goal: make the menu bar app useful as a daily status tool before starting the
 WidgetKit extension.
 
 - [ ] Improve menu bar summary title and icon based on worst account state.
-- [ ] Add near-limit state.
 - [ ] Add option to hide manual-only accounts from the main list.
 - [ ] Add export/debug bundle without secrets.
 - [ ] Add smoke verification for app launch, refresh, settings persistence, and
@@ -795,9 +794,72 @@ Acceptance:
 - `dist/AILimitBar.app` contains and loads both localizations after the normal
   build-and-run workflow.
 
+## Milestone 21: Per-Limit Usage Thresholds
+
+Goal: let users define global warning and critical usage thresholds, then
+override the pair for individual provider-defined limit windows without adding
+provider- or account-wide inheritance layers.
+
+- [ ] Add durable global `Warning` and `Critical` integer percentage defaults
+  (`75` and `90` on a fresh install). Validate `1...100` values and require
+  `Warning < Critical` at every write boundary.
+- [ ] Add a versioned storage migration and focused store API for per-window
+  overrides. Key each override by the saved account identifier and a stable
+  provider-owned limit-window identifier; never by a localized label, display
+  order, or a reset timestamp.
+- [ ] Resolve effective thresholds as either the global pair or one complete
+  per-window pair. Do not introduce provider-wide or account-wide defaults.
+  New windows use global values, and overrides survive a temporarily missing
+  snapshot window.
+- [ ] Require adapters to expose a stable identifier before their windows can
+  be individually configured. Keep an existing override visible and clearly
+  marked when its window is not present in the latest snapshot; do not create
+  overrides for unknown windows.
+- [ ] Add a localized Thresholds section to General for global defaults, and a
+  localized Limits section in the selected account's Settings detail. Each
+  known window must show its effective values and a `Use global thresholds`
+  control that creates or removes its override without changing the global
+  settings.
+- [ ] Derive `normal`, `warning`, and `critical` state per window from its
+  effective thresholds and `usedPercent`. Surface the worst enabled-account
+  state in the dashboard and menu-bar summary without fabricating state for
+  manual-only, unavailable, or no-data windows.
+- [ ] Deliver a local notification only on a newly crossed threshold when the
+  user has granted notification permission. Persist enough non-sensitive
+  crossing/reset-cycle state to prevent duplicate alerts across scheduled
+  refreshes and app relaunches; if both levels are crossed together, notify
+  only for `Critical`.
+- [ ] Re-arm notifications only after usage drops below the warning threshold
+  or the provider reports a newer reset cycle. Applying changed threshold
+  settings must refresh the visible severity immediately but must not itself
+  send a notification.
+- [ ] Add tests for validation, global fallback, override creation/removal,
+  stable-key matching, temporary window absence, severity resolution, worst
+  account state, one-time crossing delivery, re-arming, relaunch deduplication,
+  simultaneous warning/critical crossing, and notification-permission denial.
+- [ ] Manually verify English and Russian Settings flows, per-window dashboard
+  severity, and the resulting menu-bar/notification behavior with multiple
+  accounts and limit windows.
+
+Acceptance:
+
+- A user can set one global warning/critical pair and selectively replace it
+  for any reported limit window with a stable provider identifier.
+- Changing global values immediately updates every non-overridden window;
+  changing an override affects only that account-window.
+- An overridden window retains its configuration across refreshes, relaunches,
+  and transient provider responses that omit it.
+- The dashboard accurately shows normal/warning/critical severity from the
+  resolved thresholds, and its summary reflects the worst enabled account
+  without changing the reported usage percentage.
+- A sustained value above a threshold cannot spam notifications during refresh
+  or after relaunch, while a genuine new usage/reset cycle can notify again.
+- All new app-owned strings are localized in English and Russian; provider
+  labels and identifiers remain provider data rather than translated storage
+  keys.
+
 ## Later
 
-- [ ] Add notifications for near-limit state.
 - [ ] Add Linear backlog if the project grows beyond local docs.
 
 ## Final: WidgetKit Extension

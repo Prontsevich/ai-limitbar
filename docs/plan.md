@@ -617,6 +617,44 @@ AppKit window lifecycle work is no longer the desired direction. Settings
 behavior across macOS Spaces is explicitly deferred and is not part of the
 current quality gate.
 
+## Usage Thresholds
+
+AI Limitbar evaluates usage thresholds per provider-defined limit window, not
+per provider or per account as a whole. The initial policy has two integer
+percentage levels: `Warning` and `Critical`. Fresh installs use `75%` and
+`90%`, respectively. Every configured value must be in `1...100`, and
+`Warning` must be strictly lower than `Critical`.
+
+General owns the durable global defaults. Each known limit window in an
+account's settings has a `Use global thresholds` control. Turning it off
+stores a complete `Warning`/`Critical` pair for that account-window; turning it
+back on removes the override and immediately restores the effective global
+pair. There is intentionally no third inheritance layer for a provider or an
+entire account. A newly discovered window uses the global defaults until the
+user explicitly creates its override.
+
+Overrides are keyed by the account identifier and the provider-owned stable
+limit-window identifier, never by a localized display label or by a window's
+position in a snapshot. They remain intact while that window is temporarily
+absent from a snapshot, so a transient provider response cannot erase user
+configuration. A provider that cannot supply a stable window identifier must
+not expose a per-window override until its adapter defines one.
+
+When a window has `usedPercent`, its resolved thresholds determine its
+`normal`, `warning`, or `critical` state. The dashboard and menu-bar summary
+use the worst state across enabled accounts while retaining the exact usage
+percentage and the provider's reset information. No state is invented for
+manual-only, unavailable, or no-data windows.
+
+Threshold crossings can deliver local notifications only when notification
+permission is available. A window notifies at most once per level during a
+usage/reset cycle: periodic refreshes and app relaunches must not repeat the
+same alert. Crossing both levels in one update produces only the highest newly
+crossed level. A window becomes eligible again after its usage falls below the
+warning threshold or the provider reports a newer reset cycle. Editing
+threshold values updates the visible state immediately but does not itself
+send a notification.
+
 The app is intentionally menu-bar-only. Local development, debugging, logging,
 telemetry, and verification should all run the same staged `LSUIElement` app
 bundle so lifecycle behavior does not change between development modes. AppKit
