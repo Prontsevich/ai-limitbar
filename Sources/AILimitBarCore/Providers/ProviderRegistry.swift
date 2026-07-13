@@ -14,12 +14,14 @@ public struct ProviderRegistry: Sendable {
     public init(
         ollamaWebPageClient: any OllamaWebPageClient,
         codexAppServerClient: any CodexAppServerClient = ProcessCodexAppServerClient(),
+        claudeUsageCLIClient: any ClaudeUsageCLIClient = ProcessClaudeUsageCLIClient(),
         claudeSnapshotStore: (any CurrentSnapshotStore)? = nil
     ) {
         self.init(
             adapters: Self.adapters(
                 ollamaWebPageClient: ollamaWebPageClient,
                 codexAppServerClient: codexAppServerClient,
+                claudeUsageCLIClient: claudeUsageCLIClient,
                 claudeSnapshotStore: claudeSnapshotStore
             )
         )
@@ -29,18 +31,23 @@ public struct ProviderRegistry: Sendable {
         adapters(
             ollamaWebPageClient: UnavailableOllamaWebPageClient(),
             codexAppServerClient: ProcessCodexAppServerClient(),
+            claudeUsageCLIClient: ProcessClaudeUsageCLIClient(),
             claudeSnapshotStore: nil
         )
 
     private static func adapters(
         ollamaWebPageClient: any OllamaWebPageClient,
         codexAppServerClient: any CodexAppServerClient,
+        claudeUsageCLIClient: any ClaudeUsageCLIClient,
         claudeSnapshotStore: (any CurrentSnapshotStore)?
     ) -> [any ProviderAdapter] {
         [
             MockProviderAdapter(),
             CodexAppServerProviderAdapter(client: codexAppServerClient),
-            ClaudeCodeProviderAdapter(snapshotStore: claudeSnapshotStore),
+            ClaudeCodeProviderAdapter(
+                snapshotStore: claudeSnapshotStore,
+                usageCLIClient: claudeUsageCLIClient
+            ),
             OllamaCloudProviderAdapter(client: ollamaWebPageClient)
         ]
     }

@@ -131,6 +131,118 @@ final class ClaudeCodeProviderAdapterTests: XCTestCase {
         }
     }
 
+    func testUsageCLIAdapterBuildsLiveExperimentalSnapshot() async throws {
+        let adapter = ClaudeCodeProviderAdapter(
+            usageCLIClient: FixtureClaudeUsageClient(result: .success(
+                ClaudeUsageCLIEnvelope(result: """
+                Current session: 24% used
+                Current week (all models): 48% used · resets Jul 20 at 4pm (UTC)
+                Current week (Fable): 12% used · resets Jul 21 at 4pm (UTC)
+                """)
+            ))
+        )
+        let account = ProviderAccount(
+            providerID: "claude-code",
+            accountID: "work",
+            displayName: "Work",
+            isEnabled: true,
+            sourceMode: .claudeUsageCLI,
+            executablePath: "~/.local/bin/claude"
+        )
+
+        let snapshot = try await adapter.fetchSnapshot(account: account)
+
+        XCTAssertEqual(snapshot.confidence, .live)
+        XCTAssertEqual(snapshot.status, .ok)
+        XCTAssertEqual(snapshot.source, ClaudeCodeSnapshotSource.usageCLI)
+        XCTAssertEqual(snapshot.limitWindows.map(\.id), ["session", "weekly-all", "weekly-fable"])
+        XCTAssertEqual(snapshot.warnings, [ClaudeCodeSnapshotSource.usageCLICompatibilityNotice])
+    }
+
+    func testUsageCLIAdapterUsesExistingWarningThreshold() async throws {
+        let adapter = ClaudeCodeProviderAdapter(
+            usageCLIClient: FixtureClaudeUsageClient(result: .success(
+                ClaudeUsageCLIEnvelope(result: """
+                Current session: 12% used
+                Current week (all models): 85% used · resets Jul 20 at 4pm (UTC)
+                """)
+            ))
+        )
+        let account = ProviderAccount(
+            providerID: "claude-code",
+            isEnabled: true,
+            sourceMode: .claudeUsageCLI
+        )
+
+        let snapshot = try await adapter.fetchSnapshot(account: account)
+
+        XCTAssertEqual(snapshot.status, .warning)
+    }
+
+    func testManualClaudeSourceUsesManualSnapshotSemantics() async throws {
+        let adapter = ClaudeCodeProviderAdapter()
+        let account = ProviderAccount(
+            providerID: "claude-code",
+            isEnabled: true,
+            sourceMode: .manual
+        )
+
+        let snapshot = try await adapter.fetchSnapshot(account: account)
+
+        XCTAssertEqual(snapshot.status, .unavailable)
+        XCTAssertEqual(snapshot.confidence, .manual)
+    }
+
+    func testManagedStatusLineRejectsSnapshotFromUsageCLISource() async throws {
+        let directory = try temporaryDirectory()
+        let database = try AppDatabase(directory: directory)
+        let account = claudeAccount()
+        try DatabaseProviderConfigurationStore(database: database).save([account])
+        try DatabaseSnapshotStore(database: database).save([
+            UsageSnapshot(
+                providerID: account.providerID,
+                accountID: account.accountID,
+                accountDisplayName: account.displayName,
+                displayName: "Claude Code",
+                status: .ok,
+                limitWindows: [],
+                lastUpdatedAt: Date(),
+                confidence: .live,
+                source: ClaudeCodeSnapshotSource.usageCLI
+            )
+        ])
+        let adapter = ClaudeCodeProviderAdapter(snapshotStore: DatabaseSnapshotStore(database: database))
+
+        do {
+            _ = try await adapter.fetchSnapshot(account: account)
+            XCTFail("Expected source mismatch failure.")
+        } catch let error as ProviderAdapterError {
+            XCTAssertEqual(
+                error.message,
+                "Claude Code has not written a managed statusLine snapshot for this source yet."
+            )
+        }
+    }
+
+    func testUsageCLITimeoutMapsToSanitizedTransientAdapterError() async throws {
+        let adapter = ClaudeCodeProviderAdapter(
+            usageCLIClient: FixtureClaudeUsageClient(result: .failure(.timedOut))
+        )
+        let account = ProviderAccount(
+            providerID: "claude-code",
+            isEnabled: true,
+            sourceMode: .claudeUsageCLI
+        )
+
+        do {
+            _ = try await adapter.fetchSnapshot(account: account)
+            XCTFail("Expected timeout failure.")
+        } catch let error as ProviderAdapterError {
+            XCTAssertEqual(error.message, "Claude Code CLI timed out while reading usage limits.")
+            XCTAssertTrue(error.isTransient)
+        }
+    }
+
     private func claudeAccount() -> ProviderAccount {
         ProviderAccount(
             providerID: "claude-code",
@@ -146,5 +258,13 @@ final class ClaudeCodeProviderAdapterTests: XCTestCase {
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         return directory
+    }
+}
+
+private struct FixtureClaudeUsageClient: ClaudeUsageCLIClient {
+    let result: Result<ClaudeUsageCLIEnvelope, ClaudeUsageCLIClientError>
+
+    func fetchUsage(executablePath: String?) async throws -> ClaudeUsageCLIEnvelope {
+        try result.get()
     }
 }

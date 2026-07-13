@@ -27,6 +27,29 @@ final class ProviderConfigurationTests: XCTestCase {
         )
     }
 
+    func testClaudeCodeAllowsExplicitSourceSelectionWithoutChangingDefault() {
+        XCTAssertEqual(
+            ProviderAccount(providerID: "claude-code", isEnabled: true).sourceMode,
+            .claudeStatusLine
+        )
+        XCTAssertEqual(
+            ProviderAccount(
+                providerID: "claude-code",
+                isEnabled: true,
+                sourceMode: .manual
+            ).sourceMode,
+            .manual
+        )
+        XCTAssertEqual(
+            ProviderAccount(
+                providerID: "claude-code",
+                isEnabled: true,
+                sourceMode: .claudeUsageCLI
+            ).sourceMode,
+            .claudeUsageCLI
+        )
+    }
+
     func testProviderAccountDecodesLegacyLocalSnapshotAsManagedStatusLine() throws {
         let account = try JSONDecoder().decode(
             ProviderAccount.self,
@@ -46,6 +69,59 @@ final class ProviderConfigurationTests: XCTestCase {
 
         XCTAssertEqual(account.sourceMode, .claudeStatusLine)
         XCTAssertEqual(account.localSnapshotPath, "/tmp/legacy.json")
+    }
+
+    func testProviderAccountDecodesLegacyCodexExecutablePathAndEncodesNeutralKey() throws {
+        let account = try JSONDecoder().decode(
+            ProviderAccount.self,
+            from: Data(
+                """
+                {
+                  "providerID": "openai-codex",
+                  "accountID": "work",
+                  "displayName": "Work",
+                  "isEnabled": true,
+                  "sourceMode": "app-server",
+                  "codexExecutablePath": "~/.local/bin/codex"
+                }
+                """.utf8
+            )
+        )
+
+        XCTAssertEqual(account.executablePath, "~/.local/bin/codex")
+        let encoded = try JSONEncoder().encode(account)
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+        XCTAssertEqual(object["executablePath"] as? String, "~/.local/bin/codex")
+        XCTAssertNil(object["codexExecutablePath"])
+    }
+
+    func testDatabaseMigrationCopiesLegacyCodexExecutablePath() throws {
+        let directory = temporaryDirectory()
+        var database: AppDatabase? = try AppDatabase(directory: directory)
+        try database?.pool.write { db in
+            try db.execute(sql: """
+                INSERT INTO provider_accounts (
+                    provider_id, account_id, display_name, display_name_key,
+                    is_enabled, source_mode, web_data_store_id,
+                    codex_executable_path, executable_path, sort_index
+                ) VALUES (?, ?, ?, ?, ?, ?, NULL, ?, NULL, ?)
+                """, arguments: [
+                    "openai-codex", "work", "Work", "work", true,
+                    "app-server", "~/.local/bin/codex", 0
+                ])
+            try db.execute(
+                sql: "DELETE FROM grdb_migrations WHERE identifier = ?",
+                arguments: ["v2-provider-neutral-executable-path"]
+            )
+        }
+        database = nil
+
+        let migratedDatabase = try AppDatabase(directory: directory)
+        let result = DatabaseProviderConfigurationStore(database: migratedDatabase).load(
+            knownProviderIDs: ["openai-codex"]
+        )
+
+        XCTAssertEqual(result.accounts.first?.executablePath, "~/.local/bin/codex")
     }
 
     func testDatabaseStoreRoundTripsAccountsAndOrdering() throws {

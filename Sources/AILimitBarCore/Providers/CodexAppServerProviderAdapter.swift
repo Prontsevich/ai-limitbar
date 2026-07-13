@@ -21,7 +21,7 @@ public struct CodexAppServerProviderAdapter: ProviderAdapter {
         }
 
         do {
-            let payload = try await client.fetchRateLimits(executablePath: account.codexExecutablePath)
+            let payload = try await client.fetchRateLimits(executablePath: account.executablePath)
             return try makeSnapshot(account: account, payload: payload)
         } catch let error as ProviderAdapterError {
             throw error

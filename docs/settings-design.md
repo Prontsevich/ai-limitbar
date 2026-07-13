@@ -139,10 +139,10 @@ does not show a disabled Credentials placeholder; credential UI appears only
 when a verified provider integration has an actionable requirement.
 
 Accounts without a configurable source, such as the built-in Mock provider, do
-not show a redundant source fieldset. Real provider accounts always use their
-single current source: managed `statusLine`, experimental web page, or
-experimental app-server. `Manual` is not available in Create or Edit and is
-reserved for the built-in Mock provider.
+not show a redundant source fieldset. Ollama Cloud and OpenAI Codex keep their
+single current sources. Claude Code exposes a compact terminal selector for
+Manual, managed `statusLine`, and experimental `/usage` CLI; source-specific
+controls appear below it without changing the surrounding fieldset layout.
 
 ## Interaction And Accessibility
 

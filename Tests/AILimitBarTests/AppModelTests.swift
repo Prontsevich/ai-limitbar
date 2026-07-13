@@ -262,7 +262,7 @@ final class AppModelTests: XCTestCase {
             providerID: adapter.id,
             displayName: "Personal",
             sourceMode: .appServer,
-            codexExecutablePath: "  ~/.local/bin/codex  "
+            executablePath: "  ~/.local/bin/codex  "
         ))
         XCTAssertNil(model.addAccount(
             providerID: adapter.id,
@@ -285,7 +285,49 @@ final class AppModelTests: XCTestCase {
             accountID: firstAccount.accountID
         ))
         XCTAssertEqual(persisted.sourceMode, .appServer)
-        XCTAssertEqual(persisted.codexExecutablePath, "~/.local/bin/codex")
+        XCTAssertEqual(persisted.executablePath, "~/.local/bin/codex")
+    }
+
+    @MainActor
+    func testClaudeUsageCLIConfigurationAllowsOnlyOneSavedAccountIncludingDisabledAccounts() throws {
+        let directory = try temporaryDirectory()
+        let adapter = ImmediateProviderAdapter(id: "claude-code")
+        let model = AppModel(
+            registry: ProviderRegistry(adapters: [adapter]),
+            storageDirectory: directory
+        )
+        let first = try XCTUnwrap(model.addAccount(providerID: adapter.id, displayName: "Personal"))
+        let second = try XCTUnwrap(model.addAccount(providerID: adapter.id, displayName: "Work"))
+
+        XCTAssertTrue(model.updateAccount(
+            providerID: first.providerID,
+            accountID: first.accountID,
+            displayName: first.displayName,
+            sourceMode: .claudeUsageCLI,
+            executablePath: "  ~/.local/bin/claude  "
+        ))
+        model.setAccount(first.providerID, accountID: first.accountID, enabled: false)
+
+        XCTAssertFalse(model.updateAccount(
+            providerID: second.providerID,
+            accountID: second.accountID,
+            displayName: second.displayName,
+            sourceMode: .claudeUsageCLI
+        ))
+        XCTAssertTrue(model.hasClaudeUsageCLIConflict(
+            providerID: second.providerID,
+            accountID: second.accountID,
+            sourceMode: .claudeUsageCLI
+        ))
+
+        let reloaded = AppModel(
+            registry: ProviderRegistry(adapters: [adapter]),
+            storageDirectory: directory
+        )
+        XCTAssertEqual(
+            reloaded.account(providerID: first.providerID, accountID: first.accountID)?.executablePath,
+            "~/.local/bin/claude"
+        )
     }
 
     @MainActor
@@ -522,6 +564,53 @@ final class AppModelTests: XCTestCase {
         }
     }
 
+    @MainActor
+    func testClaudeUsageCLIFailurePreservesPreviousUsageData() async throws {
+        let directory = try temporaryDirectory()
+        let adapter = ClaudeCodeProviderAdapter(usageCLIClient: FailingClaudeUsageCLIClient())
+        let model = AppModel(
+            registry: ProviderRegistry(adapters: [adapter]),
+            storageDirectory: directory,
+            refreshCoordinator: ProviderRefreshCoordinator(
+                retryPolicy: ProviderRetryPolicy(maxAttempts: 1, initialDelay: 0)
+            )
+        )
+        model.addAccount(
+            providerID: adapter.id,
+            displayName: "Claude Work",
+            sourceMode: .claudeUsageCLI
+        )
+        let account = try XCTUnwrap(model.providerAccounts.first)
+        let previousSnapshot = UsageSnapshot(
+            providerID: account.providerID,
+            accountID: account.accountID,
+            accountDisplayName: account.displayName,
+            displayName: adapter.displayName,
+            status: .ok,
+            limitWindows: [
+                UsageLimitWindow(id: "weekly-all", displayName: "Current week (all models)", usedPercent: 24)
+            ],
+            lastUpdatedAt: Date(timeIntervalSince1970: 1_700_000_000),
+            confidence: .live,
+            source: ClaudeCodeSnapshotSource.usageCLI,
+            warnings: [ClaudeCodeSnapshotSource.usageCLICompatibilityNotice]
+        )
+        model.snapshots = [previousSnapshot]
+
+        model.refreshAccount(providerID: account.providerID, accountID: account.accountID)
+        while model.refreshStatus(for: account) == .refreshing {
+            await Task.yield()
+        }
+
+        XCTAssertEqual(model.snapshot(for: account), previousSnapshot)
+        XCTAssertNotNil(model.accountRefreshIssues[account.id])
+        if case .failed = model.refreshStatus(for: account) {
+            // Expected.
+        } else {
+            XCTFail("Expected the Claude /usage refresh to be marked as failed.")
+        }
+    }
+
     private func temporaryDirectory() throws -> URL {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
@@ -621,5 +710,11 @@ private struct FailingOllamaClient: OllamaWebPageClient {
             recoverySuggestion: "Reconnect Ollama.",
             isTransient: false
         )
+    }
+}
+
+private struct FailingClaudeUsageCLIClient: ClaudeUsageCLIClient {
+    func fetchUsage(executablePath: String?) async throws -> ClaudeUsageCLIEnvelope {
+        throw ClaudeUsageCLIClientError.timedOut
     }
 }

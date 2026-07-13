@@ -1,21 +1,44 @@
 import Foundation
 
+public enum ClaudeCodeSnapshotSource {
+    public static let managedStatusLine = "Claude Code managed statusLine"
+    public static let usageCLI = "Claude Code /usage (Experimental)"
+    public static let usageCLICompatibilityNotice =
+        "Experimental /usage source; Claude Code text compatibility may change between versions."
+}
+
 public struct ClaudeCodeProviderAdapter: ProviderAdapter {
     public let id = "claude-code"
     public let displayName = "Claude Code"
     public let usageURL: URL? = URL(string: "https://claude.ai/settings/usage")
 
     private let snapshotStore: (any CurrentSnapshotStore)?
+    private let usageCLIClient: any ClaudeUsageCLIClient
+    private let manualAdapter: ManualProviderAdapter
 
-    public init(snapshotStore: (any CurrentSnapshotStore)? = nil) {
+    public init(
+        snapshotStore: (any CurrentSnapshotStore)? = nil,
+        usageCLIClient: any ClaudeUsageCLIClient = ProcessClaudeUsageCLIClient()
+    ) {
         self.snapshotStore = snapshotStore
+        self.usageCLIClient = usageCLIClient
+        self.manualAdapter = ManualProviderAdapter(
+            id: id,
+            displayName: displayName,
+            usageURL: usageURL,
+            sourceDescription: "Claude Code manual usage"
+        )
     }
 
     public func fetchSnapshot(account: ProviderAccount) async throws -> UsageSnapshot {
         switch account.sourceMode {
+        case .manual:
+            return try await manualAdapter.fetchSnapshot(account: account)
         case .claudeStatusLine:
             return try managedStatusLineSnapshot(account: account)
-        case .manual, .ollamaWebPage, .appServer:
+        case .claudeUsageCLI:
+            return try await usageCLISnapshot(account: account)
+        case .ollamaWebPage, .appServer:
             throw ProviderAdapterError(
                 providerID: id,
                 message: "Claude Code account has an unsupported source configuration.",
@@ -39,7 +62,59 @@ public struct ClaudeCodeProviderAdapter: ProviderAdapter {
                 recoverySuggestion: "Install the bundled statusLine helper and use Claude Code once."
             )
         }
+        guard snapshot.source == ClaudeCodeSnapshotSource.managedStatusLine else {
+            throw ProviderAdapterError(
+                providerID: id,
+                message: "Claude Code has not written a managed statusLine snapshot for this source yet.",
+                recoverySuggestion: "Install the bundled statusLine helper and use Claude Code once."
+            )
+        }
         return snapshot
+    }
+
+    private func usageCLISnapshot(account: ProviderAccount) async throws -> UsageSnapshot {
+        do {
+            let envelope = try await usageCLIClient.fetchUsage(executablePath: account.executablePath)
+            let windows = try ClaudeUsageCLIParser.parse(envelope.result)
+            let highestUsage = windows.compactMap(\.usedPercent).max() ?? 0
+
+            return UsageSnapshot(
+                providerID: id,
+                accountID: account.accountID,
+                accountDisplayName: account.displayName,
+                displayName: displayName,
+                status: highestUsage >= 85 ? .warning : .ok,
+                limitWindows: windows,
+                lastUpdatedAt: Date(),
+                confidence: .live,
+                source: ClaudeCodeSnapshotSource.usageCLI,
+                warnings: [ClaudeCodeSnapshotSource.usageCLICompatibilityNotice]
+            )
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch let error as ProviderAdapterError {
+            throw error
+        } catch let error as ClaudeUsageCLIClientError {
+            throw ProviderAdapterError(
+                providerID: id,
+                message: error.localizedDescription,
+                recoverySuggestion: error.recoverySuggestion,
+                isTransient: error.isTransient
+            )
+        } catch let error as ClaudeUsageCLIParserError {
+            throw ProviderAdapterError(
+                providerID: id,
+                message: error.localizedDescription,
+                recoverySuggestion: error.recoverySuggestion
+            )
+        } catch {
+            throw ProviderAdapterError(
+                providerID: id,
+                message: "Claude Code usage limits could not be read.",
+                recoverySuggestion: "Try refreshing again or switch this account to Manual or managed statusLine.",
+                isTransient: true
+            )
+        }
     }
 }
 

@@ -128,7 +128,7 @@ public enum ClaudeCodeSnapshotFactory {
             limitWindows: payload.limitWindows,
             lastUpdatedAt: payload.lastUpdatedAt,
             confidence: .localEstimate,
-            source: "Claude Code managed statusLine",
+            source: ClaudeCodeSnapshotSource.managedStatusLine,
             warnings: ["Local estimate only; usage from other machines or Claude surfaces may be missing."]
         )
     }
@@ -178,7 +178,7 @@ public struct ClaudeCodeStatusLineDatabaseWriter: Sendable {
             guard let row = try Row.fetchOne(
                 db,
                 sql: """
-                    SELECT display_name, is_enabled, source_mode, web_data_store_id, codex_executable_path
+                    SELECT display_name, is_enabled, source_mode, web_data_store_id, executable_path
                     FROM provider_accounts
                     WHERE provider_id = 'claude-code' AND account_id = ?
                     """,
@@ -196,7 +196,7 @@ public struct ClaudeCodeStatusLineDatabaseWriter: Sendable {
                 isEnabled: row["is_enabled"],
                 sourceMode: .claudeStatusLine,
                 webDataStoreID: (row["web_data_store_id"] as String?).flatMap(UUID.init(uuidString:)),
-                codexExecutablePath: row["codex_executable_path"]
+                executablePath: row["executable_path"]
             )
             let snapshot = try ClaudeCodeSnapshotFactory.makeUsageSnapshot(from: payload, account: account)
             try DatabaseSnapshotStore.upsert(snapshot, in: db)

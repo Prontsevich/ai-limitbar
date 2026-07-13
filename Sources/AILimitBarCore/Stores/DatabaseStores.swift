@@ -57,7 +57,7 @@ public final class DatabaseProviderConfigurationStore: ProviderAccountStore, @un
             let accounts = try database.pool.read { db in
                 try Row.fetchAll(db, sql: """
                     SELECT provider_id, account_id, display_name, is_enabled, source_mode,
-                           web_data_store_id, codex_executable_path
+                           web_data_store_id, executable_path
                     FROM provider_accounts
                     ORDER BY sort_index ASC
                     """).compactMap { row -> ProviderAccount? in
@@ -73,7 +73,7 @@ public final class DatabaseProviderConfigurationStore: ProviderAccountStore, @un
                         isEnabled: row["is_enabled"],
                         sourceMode: sourceMode,
                         webDataStoreID: webDataStoreID,
-                        codexExecutablePath: row["codex_executable_path"]
+                        executablePath: row["executable_path"]
                     )
                 }
             }
@@ -118,7 +118,7 @@ public final class DatabaseProviderConfigurationStore: ProviderAccountStore, @un
                     INSERT INTO provider_accounts (
                         provider_id, account_id, display_name, display_name_key,
                         is_enabled, source_mode, web_data_store_id,
-                        codex_executable_path, sort_index
+                        executable_path, sort_index
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ON CONFLICT(provider_id, account_id) DO UPDATE SET
                         display_name = excluded.display_name,
@@ -126,7 +126,7 @@ public final class DatabaseProviderConfigurationStore: ProviderAccountStore, @un
                         is_enabled = excluded.is_enabled,
                         source_mode = excluded.source_mode,
                         web_data_store_id = excluded.web_data_store_id,
-                        codex_executable_path = excluded.codex_executable_path,
+                        executable_path = excluded.executable_path,
                         sort_index = excluded.sort_index
                     """,
                 arguments: [
@@ -137,7 +137,7 @@ public final class DatabaseProviderConfigurationStore: ProviderAccountStore, @un
                     account.isEnabled,
                     account.sourceMode.rawValue,
                     account.webDataStoreID?.uuidString,
-                    account.codexExecutablePath,
+                    account.executablePath,
                     index
                 ]
             )

@@ -26,7 +26,7 @@ credentials are required to start.
 | Provider | Default | Experimental Source | Snapshot Type |
 | --- | --- | --- | --- |
 | **OpenAI Codex** | Manual | App-server (`codex app-server`) | 🟢 Live rate-limit windows |
-| **Claude Code** | Manual | `statusLine` helper → SQLite | 🟡 Local estimate |
+| **Claude Code** | `statusLine` helper → SQLite | `/usage` CLI | 🟡 Local estimate / 🟢 Live plan limits |
 | **Ollama Cloud** | Manual | Web page (isolated WebKit) | 🟢 Live session/weekly |
 | **Mock** | — | — | 🟡 Local estimate |
 
@@ -73,9 +73,9 @@ AI Limitbar is a modern-only macOS app targeting macOS 26 Tahoe or later.
 
 ## 🗺️ Roadmap
 
-**Done ✅** — Milestones 0–17: app skeleton, persistence, provider research, Claude Code, refresh coordination, account model, dashboard redesign, settings master-detail, modern macOS baseline, Ollama web source, Codex app-server, SQLite migration, terminal dashboard.
+**Done ✅** — Milestones 0–18: app skeleton, persistence, provider research, Claude Code, refresh coordination, account model, dashboard redesign, settings master-detail, modern macOS baseline, Ollama web source, Codex app-server, SQLite migration, terminal dashboard, and Settings lifecycle/redesign.
 
-**Backlog 📋** — Milestones 18–24: settings window lifecycle, provider/account readiness, daily-use polish, localization (EN+RU), per-limit thresholds, usage notifications, dashboard themes, WidgetKit widget.
+**Backlog 📋** — Milestones 19–25: Claude `/usage` CLI, provider/account readiness, daily-use polish, localization (EN+RU), per-limit thresholds, usage notifications, dashboard themes, and WidgetKit.
 
 ## 📄 License
 

@@ -5,6 +5,10 @@ documented `statusLine` JSON from stdin and writes a normalized AI Limitbar
 snapshot to the app-owned SQLite database. This is a local estimate, not
 authoritative account-level quota.
 
+Claude Code accounts can alternatively use [the experimental `/usage` CLI
+source](claude-usage-cli.md) for account-wide plan bars. Managed `statusLine`
+remains the default and supports multiple explicitly configured accounts.
+
 In Settings, create or edit a Claude Code account, save it, and then use
 `Install or Repair Helper`. Add the displayed `statusLine` object to
 `~/.claude/settings.json` explicitly. AI Limitbar does not edit Claude Code

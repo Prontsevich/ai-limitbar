@@ -70,7 +70,7 @@ private struct ProviderSetupRow: View {
     private var sourceSummary: String {
         switch providerID {
         case "mock": "Built-in local fixture"
-        case "claude-code": "Managed statusLine · local database"
+        case "claude-code": "Manual · managed statusLine · experimental /usage CLI"
         case "openai-codex": "Experimental app-server"
         case "ollama-cloud": "Experimental web page"
         default: "No configured source"

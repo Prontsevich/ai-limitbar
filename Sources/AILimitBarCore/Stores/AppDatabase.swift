@@ -122,6 +122,21 @@ public final class AppDatabase: @unchecked Sendable {
                 )
                 """)
         }
+
+        migrator.registerMigration("v2-provider-neutral-executable-path") { db in
+            let hasExecutablePath = try db.columns(in: "provider_accounts").contains {
+                $0.name == "executable_path"
+            }
+            if !hasExecutablePath {
+                try db.execute(sql: "ALTER TABLE provider_accounts ADD COLUMN executable_path TEXT")
+            }
+            try db.execute(sql: """
+                UPDATE provider_accounts
+                SET executable_path = codex_executable_path
+                WHERE executable_path IS NULL
+                  AND codex_executable_path IS NOT NULL
+                """)
+        }
         return migrator
     }
 }

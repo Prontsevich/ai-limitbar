@@ -227,7 +227,7 @@ usage if both become available.
 MVP status: opt-in `local-estimate` source backed by an AI Limitbar-owned
 snapshot written by the Claude Code `statusLine` helper. The implemented source
 does not parse Claude interactive screens, private local files, or browser
-pages. Milestone 19 plans a separate opt-in experimental source that invokes
+pages. Milestone 19 adds a separate opt-in experimental source that invokes
 the supported non-interactive `/usage` slash command and parses only its plan
 limit text from the CLI JSON result envelope.
 
@@ -248,7 +248,7 @@ Supported source strategy:
 
 | Source | Output shape | Fit for AI Limitbar |
 | --- | --- | --- |
-| Claude Code `/usage`, `/cost`, and `/stats` commands | `/usage` is a built-in slash command that can be dispatched in non-interactive mode on supported CLI versions. `--output-format json` returns a result envelope, while the plan limits inside `result` remain human-readable text. On Claude Code `2.1.207`, the verified text included current session, all-model weekly, and Fable weekly percentages with reset times, and the envelope reported zero model turns, cost, and token usage. The same screen also includes approximate machine-local activity attribution. | Planned opt-in `claude-usage-cli` experimental source in Milestone 19. Parse only recognized plan-limit lines in memory and ignore the local activity breakdown. The JSON envelope and non-interactive dispatch make this safer than PTY scraping, but the inner text is not a stable machine-readable quota schema and must fail closed on drift. |
+| Claude Code `/usage`, `/cost`, and `/stats` commands | `/usage` is a built-in slash command that can be dispatched in non-interactive mode on supported CLI versions. `--output-format json` returns a result envelope, while the plan limits inside `result` remain human-readable text. On Claude Code `2.1.207`, the verified text included current session, all-model weekly, and Fable weekly percentages; weekly values included UTC reset times while the session value did not. The envelope reported zero model turns, cost, and token usage. The same screen also includes approximate machine-local activity attribution. | Implemented as the opt-in `claude-usage-cli` experimental source in Milestone 19. It parses only recognized plan-limit lines in memory and ignores the local activity breakdown. The JSON envelope and non-interactive dispatch make this safer than PTY scraping, but the inner text is not a stable machine-readable quota schema and fails closed on drift. |
 | Claude Code status line | User-configured command receives JSON session data on stdin, including `rate_limits.five_hour` and `rate_limits.seven_day` with consumed percentages and reset timestamps when available. | Selected opt-in source. AI Limitbar's helper validates the input and writes a normalized `local-estimate` snapshot to the app-owned database. It remains machine/session-local, not authoritative account-wide usage. |
 | OpenTelemetry export | Metrics and logs/events for organization usage, cost, token counters, active time, tool activity, and API request events when telemetry is enabled. | Future team/admin mode can ingest telemetry with `local-estimate` or organization-reporting confidence. It requires explicit telemetry configuration and is not a default personal account source. |
 | Claude Code analytics dashboard | Team/Enterprise usage and contribution dashboards, with CSV export; API customers have Console team insights. | Future admin/reporting mode only. Not a live personal remaining-limit source. |
@@ -264,7 +264,7 @@ user must explicitly add the generated `--account-id` command to
 `~/.claude/settings.json`; AI Limitbar does not edit Claude Code settings
 automatically.
 
-Planned post-MVP experimental source: AI Limitbar locates an explicitly selected
+Implemented post-MVP experimental source: AI Limitbar locates an explicitly selected
 local Claude executable and runs the equivalent of:
 
 ```zsh
@@ -280,6 +280,12 @@ only `Current session`, `Current week (all models)`, and generic
 machine-local activity breakdown. The source writes only normalized snapshot
 values to SQLite, never raw command output, stderr, credentials, session data,
 or activity attribution.
+
+The verified Claude Code `2.1.207` result uses one-line entries such as
+`Current week (all models): N% used · resets Jul 17 at 2pm (UTC)`. The session
+entry currently has no reset value and is stored with `resetAt == nil`; weekly
+entries require a valid UTC reset. Reset parsing accepts values with and without
+minutes and resolves a missing year to the next future UTC occurrence.
 
 The `/usage` CLI source represents the one identity currently authenticated in
 the selected CLI environment, so only one saved Claude Code account may use it
@@ -298,16 +304,16 @@ estimate, not authoritative account-level quota.
 Configuration requirements:
 
 - Provider settings persist a source mode for each provider.
-- Claude Code currently supports `manual` and `claude-status-line`; Milestone 19
-  adds the opt-in experimental `claude-usage-cli` source mode.
+- Claude Code supports `manual`, `claude-status-line`, and the opt-in experimental
+  `claude-usage-cli` source mode. Managed `statusLine` remains the default.
 - Claude Code statusLine setup never persists a user-controlled JSON path.
 - Each managed helper command carries a saved account ID, so multiple accounts
   can have independent statusLine snippets.
 - Only one account may use `claude-usage-cli` because it represents the active
   identity of the selected local executable. Its optional executable override
   uses a provider-neutral persisted field shared with other CLI-backed sources.
-- Existing provider settings without source fields must continue to load as
-  `manual` mode.
+- Existing provider settings without source fields continue to load with the
+  current provider default; for Claude Code this is managed `statusLine`.
 
 Legacy JSON snapshot schema version 1 is supported only for one-time migration:
 
@@ -551,6 +557,12 @@ only provider accounts, refresh settings, current normalized snapshots, and
 source diagnostics. Snapshot history, charts, and retention policies are
 separate product features and must not be introduced incidentally by the
 migration.
+
+Migration v2 adds the provider-neutral `provider_accounts.executable_path`
+column and copies any existing Codex value from the legacy
+`codex_executable_path` column. The legacy column remains unused rather than
+being destructively removed. Codex app-server and Claude `/usage` CLI share the
+new account field while keeping provider-specific discovery and process clients.
 
 Account display names are globally unique across all saved accounts, including
 disabled accounts, because the menu-bar dashboard uses the account name as its

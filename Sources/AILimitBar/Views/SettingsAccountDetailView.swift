@@ -47,11 +47,12 @@ struct AccountDetailView: View {
                             label: "Provider",
                             value: appModel.providerDisplayName(for: currentAccount.providerID)
                         )
-                        if let codexExecutablePath = currentAccount.codexExecutablePath,
-                           !codexExecutablePath.isEmpty {
+                        if let executableLabel,
+                           let executablePath = currentAccount.executablePath,
+                           !executablePath.isEmpty {
                             SettingsDetailValueRow(
-                                label: "Codex executable",
-                                value: codexExecutablePath,
+                                label: executableLabel,
+                                value: executablePath,
                                 isTechnical: true
                             )
                         }
@@ -175,6 +176,17 @@ struct AccountDetailView: View {
         appModel.usageURL(providerID: currentAccount.providerID, accountID: currentAccount.accountID)
     }
 
+    private var executableLabel: String? {
+        switch (currentAccount.providerID, currentAccount.sourceMode) {
+        case ("openai-codex", .appServer):
+            "Codex executable"
+        case ("claude-code", .claudeUsageCLI):
+            "Claude executable"
+        default:
+            nil
+        }
+    }
+
     private var lastUpdatedText: String {
         guard let snapshot = appModel.snapshot(for: currentAccount) else {
             return "No usage data"
@@ -265,20 +277,20 @@ struct AccountEditorDraft: Equatable {
     var displayName: String
     var isEnabled: Bool
     var sourceMode: ProviderSourceMode
-    var codexExecutablePath: String
+    var executablePath: String
 
     init(
         providerID: String,
         displayName: String = "",
         isEnabled: Bool = true,
         sourceMode: ProviderSourceMode? = nil,
-        codexExecutablePath: String = ""
+        executablePath: String = ""
     ) {
         self.providerID = providerID
         self.displayName = displayName
         self.isEnabled = isEnabled
         self.sourceMode = ProviderSourceMode.resolvedMode(sourceMode, for: providerID)
-        self.codexExecutablePath = codexExecutablePath
+        self.executablePath = executablePath
     }
 
     init(account: ProviderAccount?, defaultProviderID: String) {
@@ -288,7 +300,7 @@ struct AccountEditorDraft: Equatable {
             displayName: account?.displayName ?? "",
             isEnabled: account?.isEnabled ?? true,
             sourceMode: account?.sourceMode,
-            codexExecutablePath: account?.codexExecutablePath ?? ""
+            executablePath: account?.executablePath ?? ""
         )
     }
 
@@ -297,8 +309,8 @@ struct AccountEditorDraft: Equatable {
         return trimmed.isEmpty ? ProviderAccount.defaultDisplayName : trimmed
     }
 
-    var normalizedCodexExecutablePath: String? {
-        let trimmed = codexExecutablePath.trimmingCharacters(in: .whitespacesAndNewlines)
+    var normalizedExecutablePath: String? {
+        let trimmed = executablePath.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
     }
 
@@ -307,7 +319,7 @@ struct AccountEditorDraft: Equatable {
             normalizedDisplayName != original.normalizedDisplayName ||
             isEnabled != original.isEnabled ||
             sourceMode != original.sourceMode ||
-            normalizedCodexExecutablePath != original.normalizedCodexExecutablePath
+            normalizedExecutablePath != original.normalizedExecutablePath
     }
 }
 
@@ -323,7 +335,7 @@ struct AccountEditorView: View {
     @State private var draft: AccountEditorDraft
     @State private var helperSetupMessage: String?
     @State private var helperSetupError: String?
-    @State private var isSelectingCodexExecutable = false
+    @State private var isSelectingExecutable = false
 
     init(
         appModel: AppModel,
@@ -382,7 +394,8 @@ struct AccountEditorView: View {
                         draft.providerID.isEmpty ||
                         (account != nil && !isDirty) ||
                             displayNameConflict != nil ||
-                            codexAppServerConflict != nil
+                            codexAppServerConflict != nil ||
+                            claudeUsageCLIConflict != nil
                     )
             }
             .padding(.horizontal, 20)
@@ -397,13 +410,19 @@ struct AccountEditorView: View {
                 guard account == nil, previousProviderID != providerID else { return }
                 draft.sourceMode = ProviderSourceMode.defaultMode(for: providerID)
             }
+            .onChange(of: draft.sourceMode) { _, sourceMode in
+                if sourceMode != .claudeStatusLine {
+                    helperSetupMessage = nil
+                    helperSetupError = nil
+                }
+            }
             .fileImporter(
-                isPresented: $isSelectingCodexExecutable,
+                isPresented: $isSelectingExecutable,
                 allowedContentTypes: [.executable],
                 allowsMultipleSelection: false
             ) { result in
                 if case let .success(urls) = result, let url = urls.first {
-                    draft.codexExecutablePath = url.path
+                    draft.executablePath = url.path
                 }
             }
         }
@@ -484,7 +503,20 @@ struct AccountEditorView: View {
 
     @ViewBuilder
     private var sourceSelector: some View {
-        if let sourceMode = configuredSourceMode {
+        if draft.providerID == "claude-code" {
+            SettingsEditorValueRow("Mode") {
+                TerminalSegmentedControl(
+                    "Claude Code source",
+                    selection: $draft.sourceMode,
+                    options: [
+                        TerminalSegmentedOption(value: .manual, title: "Manual"),
+                        TerminalSegmentedOption(value: .claudeStatusLine, title: "statusLine"),
+                        TerminalSegmentedOption(value: .claudeUsageCLI, title: "/usage CLI")
+                    ]
+                )
+                .labelsHidden()
+            }
+        } else if let sourceMode = configuredSourceMode {
             SettingsEditorValueRow("Mode") {
                 Text(sourceMode.displayName)
                     .font(TerminalTheme.detailValueFont)
@@ -496,41 +528,82 @@ struct AccountEditorView: View {
     @ViewBuilder
     private var sourceDetails: some View {
         if draft.providerID == "claude-code" {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Claude Code statusLine helper")
-                    .font(TerminalTheme.emphasizedBodyFont)
-                    .foregroundStyle(TerminalTheme.primary)
-
-                Text("The helper reads Claude Code's official statusLine JSON and writes local-estimate rate-limit data to AI Limitbar's managed database. No JSON path is configured or retained.")
+            switch draft.sourceMode {
+            case .manual:
+                Text("Manual source: open the Claude usage page when you need to check plan limits. AI Limitbar does not start Claude Code or retain provider output in this mode.")
                     .font(TerminalTheme.captionFont)
                     .foregroundStyle(TerminalTheme.secondary)
                     .fixedSize(horizontal: false, vertical: true)
+                    .padding(.top, 4)
+            case .claudeStatusLine:
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Claude Code statusLine helper")
+                        .font(TerminalTheme.emphasizedBodyFont)
+                        .foregroundStyle(TerminalTheme.primary)
 
-                Button("Install or Repair Helper", action: installHelper)
-                    .buttonStyle(TerminalActionButtonStyle())
-                    .disabled(account == nil)
-
-                if account == nil {
-                    Text("Save this account first, then install its helper configuration.")
+                    Text("The helper reads Claude Code's official statusLine JSON and writes local-estimate rate-limit data to AI Limitbar's managed database. No JSON path is configured or retained.")
                         .font(TerminalTheme.captionFont)
                         .foregroundStyle(TerminalTheme.secondary)
-                }
-
-                if let helperSetupMessage {
-                    Text(helperSetupMessage)
-                        .font(TerminalTheme.captionFont)
-                        .foregroundStyle(TerminalTheme.secondary)
-                        .textSelection(.enabled)
-                }
-
-                if let helperSetupError {
-                    Text(helperSetupError)
-                        .font(TerminalTheme.captionFont)
-                        .foregroundStyle(TerminalTheme.error)
                         .fixedSize(horizontal: false, vertical: true)
+
+                    Button("Install or Repair Helper", action: installHelper)
+                        .buttonStyle(TerminalActionButtonStyle())
+                        .disabled(account == nil)
+
+                    if account == nil {
+                        Text("Save this account first, then install its helper configuration.")
+                            .font(TerminalTheme.captionFont)
+                            .foregroundStyle(TerminalTheme.secondary)
+                    }
+
+                    if let helperSetupMessage {
+                        Text(helperSetupMessage)
+                            .font(TerminalTheme.captionFont)
+                            .foregroundStyle(TerminalTheme.secondary)
+                            .textSelection(.enabled)
+                    }
+
+                    if let helperSetupError {
+                        Text(helperSetupError)
+                            .font(TerminalTheme.captionFont)
+                            .foregroundStyle(TerminalTheme.error)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
+                .padding(.top, 4)
+            case .claudeUsageCLI:
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Experimental source: AI Limitbar runs the authenticated local Claude Code CLI in safe non-interactive mode and retains only normalized plan-limit windows. Raw output, activity attribution, stderr, and session metadata are discarded.")
+                        .font(TerminalTheme.captionFont)
+                        .foregroundStyle(TerminalTheme.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    SettingsEditorValueRow("Claude Path") {
+                        TerminalTextField("Claude executable path", text: $draft.executablePath)
+                    }
+
+                    HStack {
+                        Text("Leave blank to locate Claude automatically.")
+                            .font(TerminalTheme.captionFont)
+                            .foregroundStyle(TerminalTheme.secondary)
+                        Spacer()
+                        Button("Browse…") {
+                            isSelectingExecutable = true
+                        }
+                        .buttonStyle(TerminalActionButtonStyle())
+                    }
+
+                    if let claudeUsageCLIConflict {
+                        Text(claudeUsageCLIConflict)
+                            .font(TerminalTheme.captionFont)
+                            .foregroundStyle(TerminalTheme.warning)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .padding(.top, 4)
+            case .ollamaWebPage, .appServer:
+                EmptyView()
             }
-            .padding(.top, 4)
         } else if draft.providerID == "ollama-cloud" {
             Text("Experimental source: AI Limitbar opens an isolated WebKit session for https://ollama.com/settings. The session is never copied from another browser, and raw page content is not stored.")
                 .font(TerminalTheme.captionFont)
@@ -545,7 +618,7 @@ struct AccountEditorView: View {
                     .fixedSize(horizontal: false, vertical: true)
 
                 SettingsEditorValueRow("Codex Path") {
-                    TerminalTextField("Codex executable path", text: $draft.codexExecutablePath)
+                    TerminalTextField("Codex executable path", text: $draft.executablePath)
                 }
 
                 HStack {
@@ -554,7 +627,7 @@ struct AccountEditorView: View {
                         .foregroundStyle(TerminalTheme.secondary)
                     Spacer()
                     Button("Browse…") {
-                        isSelectingCodexExecutable = true
+                        isSelectingExecutable = true
                     }
                     .buttonStyle(TerminalActionButtonStyle())
                 }
@@ -577,7 +650,7 @@ struct AccountEditorView: View {
                 accountID: account.accountID,
                 displayName: draft.normalizedDisplayName,
                 sourceMode: persistedSourceMode,
-                codexExecutablePath: persistedCodexExecutablePath
+                executablePath: persistedExecutablePath
             ) else { return }
             onSave()
             return
@@ -588,7 +661,7 @@ struct AccountEditorView: View {
             displayName: draft.normalizedDisplayName,
             isEnabled: draft.isEnabled,
             sourceMode: persistedSourceMode,
-            codexExecutablePath: persistedCodexExecutablePath
+            executablePath: persistedExecutablePath
         ) else { return }
         onCreate(createdAccount.id)
     }
@@ -598,7 +671,7 @@ struct AccountEditorView: View {
     }
 
     private var persistedSourceMode: ProviderSourceMode {
-        ProviderSourceMode.defaultMode(for: draft.providerID)
+        ProviderSourceMode.resolvedMode(draft.sourceMode, for: draft.providerID)
     }
 
     private var availableProviderIDs: [String] {
@@ -618,8 +691,13 @@ struct AccountEditorView: View {
         }
     }
 
-    private var persistedCodexExecutablePath: String? {
-        draft.providerID == "openai-codex" ? draft.normalizedCodexExecutablePath : nil
+    private var persistedExecutablePath: String? {
+        switch draft.providerID {
+        case "openai-codex", "claude-code":
+            draft.normalizedExecutablePath
+        default:
+            nil
+        }
     }
 
     private var codexAppServerConflict: String? {
@@ -633,6 +711,19 @@ struct AccountEditorView: View {
         else { return nil }
 
         return "Only one OpenAI Codex account can use the local app-server source because it reads the active local Codex CLI session."
+    }
+
+    private var claudeUsageCLIConflict: String? {
+        guard draft.providerID == "claude-code",
+              persistedSourceMode == .claudeUsageCLI,
+              appModel.hasClaudeUsageCLIConflict(
+                  providerID: draft.providerID,
+                  accountID: account?.accountID,
+                  sourceMode: persistedSourceMode
+              )
+        else { return nil }
+
+        return "Only one Claude Code account can use /usage CLI because it reads the active local Claude CLI identity, including when the other account is disabled."
     }
 
     private var displayNameConflict: String? {

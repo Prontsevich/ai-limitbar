@@ -4,7 +4,7 @@ import Foundation
 extension AppModel {
     func canAddAccount(providerID: String) -> Bool {
         guard adapter(for: providerID) != nil else { return false }
-        return !hasCodexAppServerConflict(
+        return !hasExclusiveLocalSourceConflict(
             providerID: providerID,
             accountID: nil,
             sourceMode: ProviderSourceMode.defaultMode(for: providerID)
@@ -59,7 +59,7 @@ extension AppModel {
         accountID: String,
         displayName: String,
         sourceMode: ProviderSourceMode,
-        codexExecutablePath: String? = nil
+        executablePath: String? = nil
     ) -> Bool {
         let previousAccounts = providerAccounts
         let previousSnapshots = snapshots
@@ -68,7 +68,7 @@ extension AppModel {
         }) else { return false }
 
         let trimmedDisplayName = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
-        let trimmedCodexExecutablePath = codexExecutablePath?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let trimmedExecutablePath = executablePath?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let resolvedDisplayName = trimmedDisplayName.isEmpty ? ProviderAccount.defaultDisplayName : trimmedDisplayName
         let resolvedSourceMode = ProviderSourceMode.resolvedMode(sourceMode, for: providerID)
 
@@ -77,7 +77,7 @@ extension AppModel {
             displayName: resolvedDisplayName
         ) else { return false }
 
-        guard !hasCodexAppServerConflict(
+        guard !hasExclusiveLocalSourceConflict(
             providerID: providerID,
             accountID: accountID,
             sourceMode: resolvedSourceMode
@@ -85,7 +85,7 @@ extension AppModel {
 
         providerAccounts[index].displayName = resolvedDisplayName
         providerAccounts[index].sourceMode = resolvedSourceMode
-        providerAccounts[index].codexExecutablePath = trimmedCodexExecutablePath.isEmpty ? nil : trimmedCodexExecutablePath
+        providerAccounts[index].executablePath = trimmedExecutablePath.isEmpty ? nil : trimmedExecutablePath
         updateSnapshotAccountDisplayName(
             providerID: providerID,
             accountID: accountID,
@@ -125,7 +125,7 @@ extension AppModel {
         let resolvedSourceMode = ProviderSourceMode.resolvedMode(sourceMode, for: providerID)
         guard let index = providerAccounts.firstIndex(where: {
             $0.providerID == providerID && $0.accountID == accountID
-        }), !hasCodexAppServerConflict(
+        }), !hasExclusiveLocalSourceConflict(
             providerID: providerID,
             accountID: accountID,
             sourceMode: resolvedSourceMode
@@ -186,14 +186,14 @@ extension AppModel {
         displayName: String? = nil,
         isEnabled: Bool = true,
         sourceMode: ProviderSourceMode? = nil,
-        codexExecutablePath: String? = nil
+        executablePath: String? = nil
     ) -> ProviderAccount? {
         guard adapter(for: providerID) != nil else { return nil }
         let previousAccounts = providerAccounts
         let trimmedDisplayName = displayName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let trimmedCodexExecutablePath = codexExecutablePath?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let trimmedExecutablePath = executablePath?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let resolvedSourceMode = ProviderSourceMode.resolvedMode(sourceMode, for: providerID)
-        guard !hasCodexAppServerConflict(
+        guard !hasExclusiveLocalSourceConflict(
             providerID: providerID,
             accountID: nil,
             sourceMode: resolvedSourceMode
@@ -204,7 +204,7 @@ extension AppModel {
             displayName: trimmedDisplayName.isEmpty ? nextAccountDisplayName(for: providerID) : trimmedDisplayName,
             isEnabled: isEnabled,
             sourceMode: resolvedSourceMode,
-            codexExecutablePath: trimmedCodexExecutablePath.isEmpty ? nil : trimmedCodexExecutablePath
+            executablePath: trimmedExecutablePath.isEmpty ? nil : trimmedExecutablePath
         )
         guard !hasDisplayNameConflict(
             accountID: nil,
@@ -308,6 +308,35 @@ extension AppModel {
                 $0.sourceMode == .appServer &&
                 $0.accountID != accountID
         }
+    }
+
+    func hasClaudeUsageCLIConflict(
+        providerID: String,
+        accountID: String?,
+        sourceMode: ProviderSourceMode
+    ) -> Bool {
+        guard providerID == "claude-code", sourceMode == .claudeUsageCLI else { return false }
+        return providerAccounts.contains {
+            $0.providerID == "claude-code" &&
+                $0.sourceMode == .claudeUsageCLI &&
+                $0.accountID != accountID
+        }
+    }
+
+    private func hasExclusiveLocalSourceConflict(
+        providerID: String,
+        accountID: String?,
+        sourceMode: ProviderSourceMode
+    ) -> Bool {
+        hasCodexAppServerConflict(
+            providerID: providerID,
+            accountID: accountID,
+            sourceMode: sourceMode
+        ) || hasClaudeUsageCLIConflict(
+            providerID: providerID,
+            accountID: accountID,
+            sourceMode: sourceMode
+        )
     }
 
     private func moveAccount(providerID: String, accountID: String, offset: Int) {

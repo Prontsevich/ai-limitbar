@@ -1,0 +1,6 @@
+Current session: 12% used
+Current week (all models): 34% used · resets Jul 17 at 2pm (UTC)
+Current week (Fable): 56% used · resets Jul 18 at 2:30pm (UTC)
+
+Activity by model
+This synthetic fixture intentionally excludes local activity values.

@@ -810,71 +810,72 @@ reads current subscription plan limits through the local non-interactive CLI,
 including model-specific weekly limits such as Fable, without driving a PTY,
 running a model turn, or replacing the existing managed `statusLine` source.
 
-- [ ] Add a `claude-usage-cli` provider source mode for Claude Code. Keep
+- [x] Add a `claude-usage-cli` provider source mode for Claude Code. Keep
   `manual` and `claude-status-line` available, preserve the current default,
   and label `/usage` CLI as informational `Experimental` rather than a warning
   after a successful read.
-- [ ] Allow only one saved Claude Code account to use `/usage` CLI at a time,
+- [x] Allow only one saved Claude Code account to use `/usage` CLI at a time,
   because the launched process reads the identity currently authenticated in
   that CLI environment. Keep managed `statusLine` available for explicitly
   configured multi-account snapshots.
-- [ ] Add automatic Claude executable discovery plus an optional saved
+- [x] Add automatic Claude executable discovery plus an optional saved
   executable override. Reuse a provider-neutral executable-path model instead
   of placing Claude paths in the existing Codex-specific field; migrate the
   current Codex value without changing Codex behavior.
-- [ ] Add a bounded, cancellable process client that launches the selected
+- [x] Add a bounded, cancellable process client that launches the selected
   executable with `--safe-mode`, `-p "/usage"`, `--output-format json`,
   `--tools ""`, and `--no-session-persistence`, while forcing UTC and an English
   POSIX-compatible locale. Apply a short timeout and stdout size limit,
   terminate the child on cancellation, and do not expose stderr or raw command
   output through logs or diagnostics.
-- [ ] Decode the CLI JSON result envelope before parsing usage text. Accept
+- [x] Decode the CLI JSON result envelope before parsing usage text. Accept
   only a successful built-in command response with zero model turns, zero
   model-token usage, and zero reported model cost; reject unsupported versions,
   authentication failures, inference activity, malformed envelopes, and
   oversized responses.
-- [ ] Parse only recognized plan-limit lines from the in-memory `result` text:
+- [x] Parse only recognized plan-limit lines from the in-memory `result` text:
   `Current session`, `Current week (all models)`, and generic
   `Current week (<model>)` entries. Ignore session-cost details, activity
   attribution, skills, subagents, MCP servers, request counts, and every other
   local-history breakdown.
-- [ ] Normalize the recognized values into stable `UsageLimitWindow` entries:
+- [x] Normalize the recognized values into stable `UsageLimitWindow` entries:
   `session`, `weekly-all`, and provider-derived model IDs such as
   `weekly-fable`. Preserve provider display labels while keeping stored IDs
   locale-independent and collision-safe.
-- [ ] Parse UTC reset timestamps with and without minutes and across year
-  boundaries. Reject percentages outside `0...100`, unparseable reset values,
-  duplicate required windows, and responses with no usable plan limits instead
-  of fabricating quota data.
-- [ ] Produce a normalized live snapshot with the experimental Claude Code
+- [x] Parse UTC weekly reset timestamps with and without minutes and across year
+  boundaries. Preserve the verified `Current session` value with no fabricated
+  reset when Claude Code omits it. Reject percentages outside `0...100`,
+  unparseable supplied reset values, duplicate required windows, and responses
+  with no usable plan limits.
+- [x] Produce a normalized live snapshot with the experimental Claude Code
   `/usage` source label. A successful read remains `OK` unless normal usage
   thresholds require another status; parser compatibility is represented by
   the source-mode label and diagnostics, not by forcing every valid snapshot
   into Warning.
-- [ ] Preserve the last valid snapshot when the executable is missing, the CLI
+- [x] Preserve the last valid snapshot when the executable is missing, the CLI
   is unauthenticated, `/usage` is unavailable, the text format changes, reset
   parsing fails, the process times out, or cancellation occurs. Surface a
   sanitized actionable recovery message and keep Manual and managed
   `statusLine` as selectable fallbacks.
-- [ ] Add compact Settings support for the new source: optional Claude
+- [x] Add compact Settings support for the new source: optional Claude
   executable path, automatic-location help, Browse, source conflict feedback,
   and connection testing. Do not show the statusLine helper installer when
   `/usage` CLI is selected.
-- [ ] Add fixture-based parser and process-client tests for the verified Claude
+- [x] Add fixture-based parser and process-client tests for the verified Claude
   Code `2.1.207` result, no-minute reset times, year rollover, generic
   model-specific windows, absent Fable, API-key/session-only output, malformed
   JSON, non-zero inference metadata, unsupported CLI output, timeout,
   cancellation, response limits, executable discovery, account conflicts, and
   last-valid-snapshot preservation.
-- [ ] Document setup, the authenticated-CLI identity boundary, the distinction
+- [x] Document setup, the authenticated-CLI identity boundary, the distinction
   between account-wide plan bars and machine-local activity attribution, the
   experimental text-compatibility boundary, privacy rules, diagnostics, and
   fallback behavior in `docs/plan.md`, the provider docs, and README.
 - [ ] Manually verify the staged app against an authenticated Claude Code CLI:
   confirm session, all-model weekly, and Fable weekly windows; confirm reset
-  times, refresh scheduling, connection testing, relaunch persistence, format
-  failure recovery, zero model turns/cost/tokens, and no raw payloads in SQLite
-  or logs.
+  times where supplied, the verified session-without-reset behavior, refresh
+  scheduling, connection testing, relaunch persistence, format failure recovery,
+  zero model turns/cost/tokens, and no raw payloads in SQLite or logs.
 
 Acceptance:
 
