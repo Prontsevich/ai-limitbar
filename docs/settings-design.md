@@ -24,7 +24,7 @@ changes that belong to later milestones.
 
 The current Refresh pane includes the refresh schedule and a device-local
 Dashboard height picker with `Compact` (320 pt), `Standard` (440 pt), and `Tall`
-(640 pt) viewport presets. Milestone 22 moves both controls into
+(640 pt) viewport presets. Milestone 23 moves both controls into
 General; Milestone 18 preserves their behavior and stored values.
 
 ## Outcome
@@ -95,7 +95,7 @@ dashboard cards.
 - Remove opaque list/sidebar backgrounds and decorative Liquid Glass treatments
   that compete with the thin fieldset composition.
 - Do not introduce configurable dashboard theme tokens in this milestone.
-  Milestone 25 owns custom palettes and app appearance preferences.
+  Milestone 26 owns custom palettes and app appearance preferences.
 
 ## Layout
 

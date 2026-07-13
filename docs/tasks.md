@@ -750,7 +750,7 @@ Design contract: [`docs/settings-design.md`](settings-design.md).
   transient editor, pending-navigation, alert, and section-selection state.
 - [x] Preserve the current Accounts, Refresh, and Provider Setup information
   architecture for this milestone. Leave the planned General-section
-  reorganization to Milestone 22 so lifecycle and visual work do not absorb
+  reorganization to Milestone 23 so lifecycle and visual work do not absorb
   localization or preference-model changes.
 - [x] Restyle Settings as terminal-adjacent rather than as a literal terminal:
   reuse compact spacing, thin fieldset borders, restrained semantic status color,
@@ -759,7 +759,7 @@ Design contract: [`docs/settings-design.md`](settings-design.md).
   dialogs, menus, and focus behavior remain intact.
 - [x] Remove opaque sidebar/list backgrounds and decorative glass treatments that
   fight the new composition. Keep system-adaptive Light and Dark appearances and
-  do not introduce the custom theme-token model planned for Milestone 25.
+  do not introduce the custom theme-token model planned for Milestone 26.
 - [x] Hide the non-actionable Credentials placeholder from Provider Setup until a
   verified provider integration needs an actual credential workflow.
 - [x] Replace the account create/edit `Form` column layout with top-aligned
@@ -895,7 +895,53 @@ Acceptance:
 - Only one `/usage` CLI account can claim the active local CLI identity; other
   Claude accounts remain configurable through Manual or managed `statusLine`.
 
-## Milestone 20: Provider And Account Readiness
+## Milestone 20: GitHub Release Distribution
+
+Goal: let people download and run a tested AI Limitbar `.app` from GitHub
+Releases without building from source, while keeping the initial ad-hoc-signed,
+non-notarized distribution path honest about macOS Gatekeeper warnings.
+
+- [ ] Add one reproducible release-packaging script that builds the SwiftPM
+  products, stages the complete `AILimitBar.app` bundle (including the bundled
+  Claude Code helper and localized resources), signs the bundle ad-hoc, and
+  creates `AILimitBar-<version>.zip` with `ditto --keepParent`.
+- [ ] Give the staged bundle explicit `CFBundleShortVersionString` and
+  `CFBundleVersion` values derived from the release version, without changing
+  the existing local build-and-run workflow.
+- [ ] Add a GitHub Actions release workflow triggered by a version tag. It must
+  use a macOS/Xcode runner compatible with the project SwiftPM and macOS 26
+  baseline, run `swift test`, create the release ZIP, and verify the app bundle
+  before publication.
+- [ ] Configure the workflow with the minimum required `contents: write`
+  permission to create a GitHub Release and upload the ZIP. Keep the workflow
+  free of Apple-signing credentials, tokens, and other secrets in this first
+  distribution milestone.
+- [ ] Publish the archive as `AILimitBar-<version>.zip` on the matching GitHub
+  Release, with generated or maintained release notes that state the version
+  and macOS 26+ requirement.
+- [ ] Document the tag-to-release procedure and installation path: download the
+  ZIP, unpack it, move `AILimitBar.app` to Applications, and use the standard
+  macOS Gatekeeper recovery action on first launch when required.
+- [ ] State plainly in release documentation that ad-hoc signing is not
+  Developer ID signing or Apple notarization; do not describe this first path
+  as trusted, notarized, or warning-free.
+- [ ] Verify one published release artifact by downloading it outside the build
+  directory, inspecting the archive contents and bundle version, checking the
+  ad-hoc code signature, and manually launching it on macOS 26.
+
+Acceptance:
+
+- Pushing one version tag creates a GitHub Release with exactly one
+  `AILimitBar-<version>.zip` application archive and no source build is needed
+  by the downloader.
+- The archive expands directly to `AILimitBar.app`, whose main executable,
+  bundled helper, resources, and version metadata are present and valid.
+- The workflow fails before publication when tests, staging, archive creation,
+  or code-sign verification fails.
+- The documented first-run Gatekeeper behavior and the absence of notarization
+  are clear to a downloader.
+
+## Milestone 21: Provider And Account Readiness
 
 Goal: prepare the app for more providers, multi-account identity mappings, and
 account-level credentials while keeping provider implementations conservative
@@ -947,7 +993,7 @@ and requiring evidence before adding authenticated web sources.
 - [ ] If a provider passes the gate, create a separate implementation milestone
   with its confirmed URL, authentication boundary, extraction method, typed
   payload, navigation allowlist, reconnect behavior, multi-account contract,
-  fixtures, and manual verification plan. Do not silently expand Milestone 20
+  fixtures, and manual verification plan. Do not silently expand Milestone 21
   from research/readiness into production web scraping.
 
 Acceptance:
@@ -969,7 +1015,7 @@ Acceptance:
 - Research notes and diagnostics contain no credentials, cookies, raw pages,
   private responses, opaque account identifiers, or other browser-session data.
 
-## Milestone 21: Daily Use Polish
+## Milestone 22: Daily Use Polish
 
 Goal: make the menu bar app useful as a daily status tool before starting the
 WidgetKit extension.
@@ -996,7 +1042,7 @@ Acceptance:
 - Ollama-owned pages follow the active appearance without disrupting sign-in,
   navigation, keyboard focus, form controls, or usage parsing.
 
-## Milestone 22: App Localization And General Settings
+## Milestone 23: App Localization And General Settings
 
 Goal: ship an English-first app with Russian localization and a compact
 Settings organization where cross-account preferences live in General.
@@ -1045,7 +1091,7 @@ Acceptance:
 - `dist/AILimitBar.app` contains and loads both localizations after the normal
   build-and-run workflow.
 
-## Milestone 23: Per-Limit Usage Thresholds
+## Milestone 24: Per-Limit Usage Thresholds
 
 Goal: let users define global warning and critical usage thresholds, then
 override the pair for individual provider-defined limit windows without adding
@@ -1096,7 +1142,7 @@ Acceptance:
   labels and identifiers remain provider data rather than translated storage
   keys.
 
-## Milestone 24: Usage Limit Notifications
+## Milestone 25: Usage Limit Notifications
 
 Goal: deliver actionable, user-controlled macOS local notifications for newly
 observed warning and critical threshold crossings without prompting on launch,
@@ -1165,7 +1211,7 @@ Acceptance:
 - All app-owned notification and settings strings are localized in English and
   Russian; provider labels and stable identifiers remain provider data.
 
-## Milestone 25: Dashboard Appearance And Themes
+## Milestone 26: Dashboard Appearance And Themes
 
 Goal: let people choose an app appearance and a reusable dashboard palette
 without weakening the terminal-fieldset visual system or turning severity into
@@ -1197,7 +1243,7 @@ a full-panel tint.
   critical threshold, and `Critical` for consumed usage at or above the
   effective critical threshold.
 - [ ] Keep the `Free` portion constant while deriving only the consumed portion
-  from the per-window severity resolved by Milestone 23. Do not introduce a
+  from the per-window severity resolved by Milestone 24. Do not introduce a
   fifth track color or recolor the dashboard, account panel, or popover
   background when a threshold is crossed.
 - [ ] Use the same `Warning` or `Critical` token for a compact status marker on

@@ -444,9 +444,30 @@ scheme. It must not alter visibility, layout, controls, focus, submission,
 navigation, usage extraction, or bridge payloads. The stylesheet must not be
 injected into WorkOS, Google, GitHub, or other third-party OAuth pages.
 
+### Release Distribution
+
+Milestone 20 establishes a GitHub Release path for people who want the app
+without building from source. A version tag must produce one
+`AILimitBar-<version>.zip` that expands directly to `AILimitBar.app`. The ZIP
+is created with `ditto --keepParent` so Finder preserves the application-bundle
+shape and macOS metadata.
+
+The release workflow runs on a macOS/Xcode runner compatible with the project
+baseline, runs the test suite, stages the app and bundled helper, applies an
+ad-hoc code signature, verifies the resulting bundle, then uploads the ZIP to
+the matching GitHub Release. The version tag supplies both the archive name and
+the app bundle version metadata.
+
+This first distribution path deliberately has no Developer ID certificate,
+notarization credential, or Apple signing secret. It makes downloading simple,
+but it does not remove Gatekeeper's first-run warning for an app obtained from
+the internet. Release notes and installation instructions must say so plainly.
+Developer ID signing, notarization, stapling, and clean-Mac validation are a
+future enhancement to this same pipeline, not an implication of ad-hoc signing.
+
 ### Multi-Account Authenticated Web Research
 
-Milestone 20 includes an evidence-first research gate for possible Claude and
+Milestone 21 includes an evidence-first research gate for possible Claude and
 OpenAI Codex authenticated web sources. The existence of Claude Settings > Usage
 and the Codex Usage Dashboard makes both providers plausible candidates, but it
 does not establish that their sign-in flows work in an embedded `WKWebView`,
@@ -472,7 +493,7 @@ preference order is a documented provider API, a documented structured local
 interface, then narrowly scoped semantic DOM extraction. Reading an undocumented
 internal JSON request is not an automatic fallback; it requires a separate
 architecture and privacy decision. A temporary non-production WebKit probe may
-be used to validate real macOS behavior, but Milestone 20 does not ship a new
+be used to validate real macOS behavior, but Milestone 21 does not ship a new
 source mode or generalize the Ollama controller on speculation.
 
 Research must not retain credentials, tokens, cookies, browser storage, raw
@@ -658,7 +679,7 @@ The dashboard viewport is a device-local preference rather than account or
 provider data. The current Refresh Settings pane offers `Compact` (320 pt),
 `Standard` (440 pt), and `Tall` (640 pt) viewport presets stored in
 `UserDefaults`. A preset sets the visible dashboard viewport height and longer
-account lists scroll within it. Milestone 22 moves this control with the refresh
+account lists scroll within it. Milestone 23 moves this control with the refresh
 schedule into General.
 
 Dashboard rows should:
@@ -691,7 +712,7 @@ The settings UI should support:
   Provider Setup instead of a permanent top tile bar or navigation sidebar.
 - A Refresh section for schedule and dashboard-height preferences. The planned
   General section, language, thresholds, and appearance choices remain in
-  Milestone 22.
+  Milestone 23.
 - An Accounts master-detail layout with an account-name-first list, provider as
   secondary text, footer add/delete controls, and selected-account detail pane.
 - Enabling/disabling providers.
