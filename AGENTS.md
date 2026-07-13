@@ -58,14 +58,33 @@ AILimitBarClaudeStatusLine (helper)
   provider data into a `UsageSnapshot`. Adapters never touch UI state directly.
 - **`AppModel`** is the main view model, split across `+Accounts`, `+Persistence`,
   `+Refresh` extensions.
-- **GRDB/SQLite** is the single persistence engine. WAL mode, foreign keys,
-  bounded busy timeout. No credentials, cookies, or raw provider responses
-  are ever stored.
-- **AppKit** is limited to narrow application lifecycle boundaries
-  (activation, termination). It does not own windows or feature state.
+- **GRDB/SQLite** stores provider accounts, refresh settings, current normalized
+  snapshots, and source diagnostics. It uses WAL mode, foreign keys, and a
+  bounded busy timeout. Device-local UI preferences may use `UserDefaults`;
+  credentials belong only in Keychain, and browser session data stays in its
+  isolated `WKWebsiteDataStore`.
+- **AppKit** stays behind narrow platform-integration boundaries such as app and
+  window lifecycle, native menus, adaptive colors, and SwiftUI/WebKit bridges.
+  Feature state remains in SwiftUI and `AppModel`.
 - **Terminal-fieldset dashboard** — the menu bar panel and account details
   use a compact terminal-fieldset composition, not glass cards. See
   `docs/dashboard-design.md`.
+
+## Working Agreement
+
+- Treat the live code and `Package.swift` as the source of truth for the current
+  implementation, `docs/plan.md` for architecture decisions, and
+  `docs/tasks.md` for milestone scope and completion state.
+- Before implementation, read the relevant milestone checklist and any linked
+  design or provider document.
+- Update documentation alongside implementation when behavior, architecture, or
+  milestone status changes. Do not defer documentation to a later cleanup pass.
+- Verify changes in proportion to their scope. Run `swift build` and `swift test`
+  for code changes; use the staged `.app` bundle for UI, lifecycle, or provider
+  integration checks. Do not mark manual verification complete unless it was
+  actually performed.
+- Preserve unrelated working-tree changes. Create commits only when the user asks,
+  and keep each requested commit scoped to one coherent task.
 
 ## Commit Conventions
 
@@ -88,8 +107,10 @@ Common scopes: `storage`, `codex`, `dashboard`, `ollama`, `claude`, `settings`,
 - **macOS 26+ only.** Do not add compatibility fallbacks for older macOS.
 - **SwiftUI-first.** Use system controls before custom components. The
   terminal-fieldset visual system is the product-specific composition.
-- **Privacy-first.** No credentials, cookies, tokens, or raw provider responses
-  in storage, logs, or diagnostics.
+- **Privacy-first.** Never put credentials, tokens, cookies, browser session
+  data, or raw provider responses in SQLite, `UserDefaults`, logs, or
+  diagnostics. Persist credentials only in Keychain, keep browser data in its
+  isolated per-account `WKWebsiteDataStore`, and do not persist raw responses.
 - **Menu-bar-only.** The app uses `LSUIElement` — no Dock icon, no main window.
 - **Experimental sources are opt-in.** A successful experimental read is `OK`;
   the `Experimental` label is informational, not a warning.
@@ -99,7 +120,7 @@ Common scopes: `storage`, `codex`, `dashboard`, `ollama`, `claude`, `settings`,
 ## Documentation
 
 - `docs/plan.md` — Full product plan, provider research, architecture decisions
-- `docs/tasks.md` — Milestone tracker (24 milestones, 16 done)
+- `docs/tasks.md` — Authoritative milestone tracker and current completion state
 - `docs/dashboard-design.md` — Terminal-fieldset dashboard design contract
 - `docs/settings-design.md` — Settings window lifecycle and visual contract
 - `docs/design-qa.md` — Dashboard visual QA findings and fixes
