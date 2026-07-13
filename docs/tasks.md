@@ -824,22 +824,11 @@ provider- or account-wide inheritance layers.
   effective thresholds and `usedPercent`. Surface the worst enabled-account
   state in the dashboard and menu-bar summary without fabricating state for
   manual-only, unavailable, or no-data windows.
-- [ ] Deliver a local notification only on a newly crossed threshold when the
-  user has granted notification permission. Persist enough non-sensitive
-  crossing/reset-cycle state to prevent duplicate alerts across scheduled
-  refreshes and app relaunches; if both levels are crossed together, notify
-  only for `Critical`.
-- [ ] Re-arm notifications only after usage drops below the warning threshold
-  or the provider reports a newer reset cycle. Applying changed threshold
-  settings must refresh the visible severity immediately but must not itself
-  send a notification.
 - [ ] Add tests for validation, global fallback, override creation/removal,
   stable-key matching, temporary window absence, severity resolution, worst
-  account state, one-time crossing delivery, re-arming, relaunch deduplication,
-  simultaneous warning/critical crossing, and notification-permission denial.
+  account state, and all normal/warning/critical boundaries.
 - [ ] Manually verify English and Russian Settings flows, per-window dashboard
-  severity, and the resulting menu-bar/notification behavior with multiple
-  accounts and limit windows.
+  severity, and menu-bar behavior with multiple accounts and limit windows.
 
 Acceptance:
 
@@ -852,13 +841,80 @@ Acceptance:
 - The dashboard accurately shows normal/warning/critical severity from the
   resolved thresholds, and its summary reflects the worst enabled account
   without changing the reported usage percentage.
-- A sustained value above a threshold cannot spam notifications during refresh
-  or after relaunch, while a genuine new usage/reset cycle can notify again.
 - All new app-owned strings are localized in English and Russian; provider
   labels and identifiers remain provider data rather than translated storage
   keys.
 
-## Milestone 22: Dashboard Appearance And Themes
+## Milestone 22: Usage Limit Notifications
+
+Goal: deliver actionable, user-controlled macOS local notifications for newly
+observed warning and critical threshold crossings without prompting on launch,
+spamming during refreshes, or treating a configuration change as a crossing.
+
+- [ ] Add a localized `Usage notifications` preference in General. It is off
+  on a fresh install; only an explicit attempt to enable it may request macOS
+  notification permission. Show the current authorization state and an `Open
+  Notification Settings` recovery action when permission is denied or
+  restricted. Do not repeatedly request permission or attempt to bypass Focus
+  and system notification policy.
+- [ ] Introduce a testable `UsageNotificationCoordinator` behind a local
+  notification client. It consumes resolved per-window severity only after a
+  successful usable snapshot is available; it must not fetch providers,
+  change provider configuration, or derive usage values itself.
+- [ ] Persist non-sensitive delivery state through GRDB, keyed by the saved
+  account identifier and stable provider-owned limit-window identifier. Store
+  enough information to distinguish a silent baseline, the provider reset
+  cycle when available, the highest level already delivered in that cycle, and
+  the last usable severity. Never persist raw provider payloads, credentials,
+  opaque account identifiers, or notification body text.
+- [ ] Establish a silent baseline for a newly enabled notification preference,
+  a newly discovered window, and a window returning after unavailable or
+  no-data samples. Notify only for an observed `normal → warning` or
+  `normal/warning → critical` transition in the same usable reset cycle. If
+  both levels are crossed in one update, notify only for `Critical`.
+- [ ] Re-arm a window only after its usable usage falls below the effective
+  warning threshold or the provider reports a newer reset cycle. A threshold
+  edit updates visible severity immediately, but neither it nor app launch,
+  permission approval, a stale snapshot, an error, or a missing window sends a
+  notification.
+- [ ] Coalesce all crossings discovered by one refresh into at most one local
+  notification, with `Critical` taking precedence. For one affected window,
+  use localized account, limit-window, level, and percentage text; for several,
+  use a localized severity summary and count. Selecting the notification brings
+  AI Limitbar forward and opens the dashboard focused on the affected account
+  when one account is involved.
+- [ ] Present alerts while AI Limitbar is active according to the user's macOS
+  notification settings. Respect system delivery, preview, sound, Focus, and
+  notification-center retention behavior; the app must not add custom bypasses
+  or urgent interruption levels.
+- [ ] Add tests with a fake notification client for authorization states,
+  no-launch prompt, silent baselines, warning and critical crossings,
+  simultaneous crossings, per-refresh coalescing, re-arming, reset-cycle
+  changes, relaunch deduplication, threshold edits, unavailable/no-data gaps,
+  persistence migration, and notification selection routing.
+- [ ] Manually verify English and Russian flows: enable/deny/re-enable in
+  General, foreground and background delivery, multiple accounts and windows,
+  alert selection, refresh/relaunch deduplication, and a new provider reset
+  cycle.
+
+Acceptance:
+
+- A person is never asked for notification permission at launch or because a
+  refresh happened; the request follows their explicit General-settings action.
+- A newly observed threshold crossing produces one useful local alert when
+  enabled and authorized, while a sustained value cannot spam during later
+  refreshes or after relaunch.
+- One refresh with several crossings creates one highest-severity summary, and
+  notification selection takes the person to the relevant dashboard context.
+- A window can notify again only after it falls below Warning or a newer reset
+  cycle is observed; changing thresholds alone never sends an alert.
+- Denied permission, Focus, stale data, unavailable data, manual-only windows,
+  and notification delivery failures remain recoverable and do not corrupt
+  stored usage or delivery state.
+- All app-owned notification and settings strings are localized in English and
+  Russian; provider labels and stable identifiers remain provider data.
+
+## Milestone 23: Dashboard Appearance And Themes
 
 Goal: let people choose an app appearance and a reusable dashboard palette
 without weakening the terminal-fieldset visual system or turning severity into

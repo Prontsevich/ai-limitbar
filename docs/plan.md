@@ -647,14 +647,39 @@ use the worst state across enabled accounts while retaining the exact usage
 percentage and the provider's reset information. No state is invented for
 manual-only, unavailable, or no-data windows.
 
-Threshold crossings can deliver local notifications only when notification
-permission is available. A window notifies at most once per level during a
-usage/reset cycle: periodic refreshes and app relaunches must not repeat the
-same alert. Crossing both levels in one update produces only the highest newly
-crossed level. A window becomes eligible again after its usage falls below the
-warning threshold or the provider reports a newer reset cycle. Editing
-threshold values updates the visible state immediately but does not itself
-send a notification.
+## Usage Limit Notifications
+
+Local notifications are an opt-in consequence of the per-window threshold
+state, not a provider integration or a second refresh mechanism. General
+offers a durable `Usage notifications` control that is off on a fresh install.
+macOS permission is requested only after the person explicitly enables it, and
+the UI reports denied or restricted permission with an action to open system
+notification settings. AI Limitbar respects macOS delivery, previews, sound,
+Focus, and retention policy rather than attempting to bypass them.
+
+After every successful usable snapshot, a `UsageNotificationCoordinator`
+compares resolved severity with persisted non-sensitive delivery state. State
+is keyed by the saved account identifier and stable provider-owned limit-window
+identifier; it records a silent baseline, the reset cycle when one is known,
+the highest alert delivered in that cycle, and the last usable severity. Raw
+provider payloads, credentials, opaque identifiers, and notification body text
+are never stored as notification state.
+
+A new preference, newly discovered window, or window following unavailable or
+no-data samples establishes its baseline silently. Alerts require an observed
+transition within the same usable reset cycle: `normal → warning` produces a
+Warning alert, while `normal/warning → critical` produces a Critical alert. A
+single update that crosses both produces only Critical. A window becomes armed
+again only after falling below the effective Warning threshold or after the
+provider reports a newer reset cycle. Changing thresholds, granting permission,
+launching the app, stale data, a failed refresh, or a missing window must never
+by itself produce an alert.
+
+Crossings found by one refresh are coalesced into at most one notification;
+Critical takes precedence. A one-window alert names the account, limit window,
+severity, and percentage. A multi-window alert reports the highest severity
+and count. Selecting an alert activates AI Limitbar and opens the dashboard
+focused on the affected account when the event concerns one account.
 
 ## Dashboard Appearance And Themes
 
