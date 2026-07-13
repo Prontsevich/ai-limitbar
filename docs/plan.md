@@ -477,6 +477,15 @@ source diagnostics. Snapshot history, charts, and retention policies are
 separate product features and must not be introduced incidentally by the
 migration.
 
+Account display names are globally unique across all saved accounts, including
+disabled accounts, because the menu-bar dashboard uses the account name as its
+primary identifier. Before persistence, AI Limitbar trims leading/trailing
+whitespace and compares names case-insensitively. The database stores a
+normalized display-name key under a unique constraint; Settings validates the
+same rule before attempting a write. A legacy import that finds a collision
+retains every account with deterministic ` (2)`, ` (3)`, and later suffixes and
+surfaces a migration warning rather than discarding or overwriting data.
+
 The Claude Code source becomes an AI Limitbar-managed database source. The
 helper validates its documented `statusLine` input and writes the normalized
 local-estimate snapshot directly to the database, including when AI Limitbar is
@@ -540,30 +549,34 @@ by default and are surfaced immediately without retry.
 The menu bar UI should behave like a compact dashboard. Opening the panel should
 let the user assess all enabled accounts quickly and then move on.
 
-The visual design should follow current macOS and Liquid Glass conventions. The
-app should not recreate system hover, pressed, focus, toolbar, sidebar, sheet,
-or glass behavior by hand when standard SwiftUI controls can provide it.
-Custom backgrounds, opaque fills, manual selection states, and `.plain` button
-styles should be removed or justified when they suppress native interaction
-feedback.
+The menu-bar dashboard and its account-details popover are an intentional
+product-specific exception to the broader Liquid Glass baseline. They follow the
+approved terminal-fieldset composition in
+[`docs/dashboard-design.md`](dashboard-design.md): thin bordered account panels,
+an account-name border interruption, compact progress bars, and no decorative
+glass, blur, or hover-card effects. Interactive controls must still retain
+native pointer, keyboard, focus, disabled, and accessibility behavior.
 
 Dashboard rows should:
 
 - Show accounts in user-defined order, not grouped by provider by default.
-- Treat the account name as the primary label and provider name as secondary
-  context.
-- Render one compact progress bar per known limit window, such as weekly plus
-  provider-defined 3-hour, 4-hour, 5-hour, or other rolling windows.
+- Use the globally unique account name as the fieldset legend. Keep provider
+  context out of the normal dashboard body.
+- Render one compact progress bar and one `NN% used` value per known limit
+  window, such as weekly plus provider-defined 3-hour, 4-hour, 5-hour, or other
+  rolling windows.
+- Show a relative reset label when available, but keep normal-state refresh
+  timestamps out of the dashboard.
 - Keep unavailable, manual, stale, warning, and error states visible inline
   without hiding other accounts.
 - Avoid scrolling for common small setups; 3-5 accounts should remain readable
   at a glance.
 
 Account details should be available on demand rather than permanently occupying
-the dashboard. Use an explicit `?` or info button to open a popover with source,
-confidence, warnings, last refresh state, reset details, and per-account
-actions. Hover may be added as a convenience, but it must not be the only way to
-access details.
+the dashboard. Use an explicit Info button to open the matching technical
+popover with source, confidence, warnings, precise refresh timestamps, exact
+reset details, and secondary per-account actions. Hover may be added as a
+convenience, but it must not be the only way to access details.
 
 The settings UI should support:
 

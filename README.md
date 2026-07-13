@@ -42,6 +42,11 @@ the default design baseline:
   to recreate standard controls.
 - Prefer SwiftUI scenes and system controls for UI and windowing.
 
+The menu bar dashboard and its account-details popover are the deliberate
+exception: they use a compact terminal-fieldset status composition rather than
+Liquid Glass cards. See [`docs/dashboard-design.md`](docs/dashboard-design.md)
+for the approved visual and interaction requirements.
+
 ## Claude Code StatusLine Source
 
 Claude Code can run the bundled `AILimitBarClaudeStatusLine` helper. It reads the

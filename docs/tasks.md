@@ -604,6 +604,10 @@ state or weakening the current privacy boundary.
   normalized snapshots, refresh settings, and persisted source diagnostics.
   Preserve the current app behavior; history/chart retention is a separate
   feature, not an implicit migration requirement.
+- [ ] Enforce one globally unique account display name across all persisted
+  accounts, including disabled accounts. Trim leading/trailing whitespace and
+  compare names case-insensitively before save; back the rule with a normalized
+  database column and a unique constraint rather than UI validation alone.
 - [ ] Replace `JSONSnapshotStore`, `ProviderConfigurationStore`, and
   `RefreshSettingsStore` behind focused store protocols so `AppModel` keeps its
   existing account and refresh behavior.
@@ -618,14 +622,17 @@ state or weakening the current privacy boundary.
 - [ ] On first launch, import valid legacy `providers.json`, `snapshots.json`,
   refresh settings, and the managed Claude `statusline.json` into one atomic
   database migration. Preserve the original files as backups and make the
-  migration idempotent.
+  migration idempotent. If legacy accounts collide after name normalization,
+  retain every account by assigning deterministic display-name suffixes such as
+  ` (2)` and record an actionable migration warning.
 - [ ] Keep malformed, unsupported, or partially importable legacy data from
   replacing valid database rows; surface actionable diagnostics instead.
 - [ ] Keep credentials, cookies, WebKit browser data, raw provider responses,
   and opaque account/authentication fields out of the database.
 - [ ] Add tests for schema creation/upgrades, concurrent app/helper writes,
   legacy import, idempotency, rollback on failed migration, custom-path
-  migration warnings, and preservation of the last valid snapshot.
+  migration warnings, display-name uniqueness, deterministic legacy-name
+  conflict resolution, and preservation of the last valid snapshot.
 - [ ] Document the database location, backup/recovery behavior, migration
   result, and the new Claude Code setup flow.
 
@@ -642,8 +649,56 @@ Acceptance:
   destroys a prior valid state.
 - The database contains normalized product data only, never credentials or raw
   provider/session material.
+- All saved accounts have globally unique display names after migration; a
+  legacy naming collision does not discard an account or silently overwrite it.
 
-## Milestone 17: Provider And Account Readiness
+## Milestone 17: Terminal Dashboard And Details Redesign
+
+Goal: replace the Liquid Glass dashboard cards and account-details presentation
+with the approved terminal-fieldset status dashboard, without changing provider,
+refresh, or persistence behavior.
+
+Design contract: [`docs/dashboard-design.md`](dashboard-design.md).
+
+- [ ] Replace dashboard glass cards with fieldset-style account panels whose
+  border is interrupted by the account name.
+- [ ] Truncate a long account legend with a tail ellipsis without displacing
+  Refresh or Info controls, and expose the complete name in a tooltip and its
+  accessibility label.
+- [ ] Render one `NN% used` value, one progress bar, and a relative reset label
+  per known limit window; do not show normal-state update timestamps or a
+  duplicate remaining percentage.
+- [ ] Move Refresh All to a glyph control in the menu-panel header and show its
+  in-progress/disabled state.
+- [ ] Add glyph-only individual Refresh and explicit Info controls to every
+  account panel, using the existing per-account refresh and details paths.
+- [ ] Keep stale, failed, manual-only, unavailable, and no-data states visible
+  inline without inventing usage values or permanently occupying normal cards.
+- [ ] Redesign `AccountDetailsView` as the matching technical inspector with
+  precise timestamps, source, confidence, resets, diagnostics, and secondary
+  actions.
+- [ ] Remove dashboard and account-details Liquid Glass treatments, including
+  glass buttons and glass/card hover behavior, while preserving accessible
+  system control semantics.
+- [ ] Add or update focused tests for refresh action availability and preserve
+  existing refresh/account ordering behavior.
+- [ ] Manually verify normal, refreshing, stale, failed, manual-only, and
+  no-data examples in Light and Dark appearance.
+
+Acceptance:
+
+- The main menu panel is readable as an all-account usage dashboard without
+  opening details.
+- Normal cards show only account identity, usage, reset information, and
+  necessary exception states.
+- Refresh All, individual Refresh, and Info are discoverable and do not overlap
+  or lose keyboard/accessibility support.
+- The details popover holds timestamps and diagnostics without duplicating the
+  dashboard or individual Refresh action.
+- No provider, refresh, snapshot, or persistence contract changes are required
+  solely for the visual redesign.
+
+## Milestone 18: Provider And Account Readiness
 
 Goal: prepare the app for more providers and account-level credentials while
 keeping provider implementations conservative.
@@ -663,7 +718,7 @@ Acceptance:
 - Credentials have a clear account-level home without touching JSON storage.
 - Provider adapters can advertise supported source modes.
 
-## Milestone 18: Daily Use Polish
+## Milestone 19: Daily Use Polish
 
 Goal: make the menu bar app useful as a daily status tool before starting the
 WidgetKit extension.
