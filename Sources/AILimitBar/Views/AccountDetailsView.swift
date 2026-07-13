@@ -61,7 +61,7 @@ struct AccountDetailsView: View {
         TerminalInspectorRow(
             label: "REFRESH",
             value: refreshText,
-            valueColor: currentStateColor
+            valueColor: refreshStatusColor
         )
         TerminalRule()
 
@@ -225,10 +225,33 @@ struct AccountDetailsView: View {
         }
     }
 
+    private var refreshStatusColor: Color {
+        switch row.refreshStatus {
+        case .succeeded:
+            TerminalTheme.healthy
+        case .failed:
+            TerminalTheme.error
+        case .idle:
+            persistedRefreshStatusColor
+        case .refreshing:
+            TerminalTheme.primary
+        }
+    }
+
+    private var persistedRefreshStatusColor: Color {
+        if row.refreshIssue != nil || row.snapshot?.status == .error {
+            return TerminalTheme.error
+        }
+        if row.snapshot != nil {
+            return TerminalTheme.healthy
+        }
+        return currentStateColor
+    }
+
     private var refreshText: String {
         switch row.refreshStatus {
         case .idle:
-            currentStateText
+            persistedRefreshText
         case .refreshing:
             "Refreshing"
         case let .succeeded(date):
@@ -236,6 +259,16 @@ struct AccountDetailsView: View {
         case let .failed(date):
             "Failed at \(preciseDate(date))"
         }
+    }
+
+    private var persistedRefreshText: String {
+        if let issue = row.refreshIssue {
+            return "Failed at \(preciseDate(issue.occurredAt))"
+        }
+        if let snapshot = row.snapshot, snapshot.status != .error {
+            return "Succeeded at \(preciseDate(snapshot.lastUpdatedAt))"
+        }
+        return currentStateText
     }
 
     private var currentStateText: String {
