@@ -20,30 +20,30 @@ final class RefreshSettingsTests: XCTestCase {
         XCTAssertEqual(RefreshInterval.oneHour.staleAfter, 2 * 60 * 60)
     }
 
-    func testRefreshSettingsStoreLoadsDefaultsWhenMissing() throws {
-        let store = RefreshSettingsStore(directory: try temporaryDirectory())
+    func testDatabaseRefreshSettingsStoreLoadsDefaultsWhenMissing() throws {
+        let store = DatabaseRefreshSettingsStore(database: try database())
 
-        let result = store.load()
+        let result = store.load(defaults: RefreshSettings())
 
         XCTAssertEqual(result.settings, RefreshSettings())
         XCTAssertNil(result.warning)
     }
 
-    func testRefreshSettingsStoreRoundTripsSettings() throws {
-        let store = RefreshSettingsStore(directory: try temporaryDirectory())
+    func testDatabaseRefreshSettingsStoreRoundTripsSettings() throws {
+        let store = DatabaseRefreshSettingsStore(database: try database())
         let settings = RefreshSettings(interval: .thirtyMinutes)
 
         try store.save(settings)
-        let result = store.load()
+        let result = store.load(defaults: RefreshSettings())
 
         XCTAssertEqual(result.settings, settings)
         XCTAssertNil(result.warning)
     }
 
-    private func temporaryDirectory() throws -> URL {
-        let directory = FileManager.default.temporaryDirectory
-            .appendingPathComponent(UUID().uuidString, isDirectory: true)
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        return directory
+    private func database() throws -> AppDatabase {
+        try AppDatabase(
+            directory: FileManager.default.temporaryDirectory
+                .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        )
     }
 }

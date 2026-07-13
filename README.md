@@ -80,42 +80,30 @@ available.
 ## Claude Code StatusLine Source
 
 Claude Code can run the bundled `AILimitBarClaudeStatusLine` helper. It reads the
-documented `statusLine` JSON from stdin and writes an AI Limitbar-owned local
-snapshot. This is a local estimate, not authoritative account-level quota.
+documented `statusLine` JSON from stdin and writes a normalized AI Limitbar
+snapshot to the app-owned SQLite database. This is a local estimate, not
+authoritative account-level quota.
 
-In Settings, create or edit a Claude Code account, choose `Local snapshot`, and
-use `Install or Repair Helper`. Add the displayed `statusLine` object to
+In Settings, create or edit a Claude Code account, choose `Managed statusLine`,
+save it, and then use `Install or Repair Helper`. Add the displayed `statusLine`
+object to
 `~/.claude/settings.json` explicitly. AI Limitbar does not edit Claude Code
-settings automatically, and the helper replaces the current custom `statusLine`
-when enabled.
+settings automatically. The generated command contains that account's stable
+`--account-id`; it does not accept a database path or a user-managed snapshot
+path.
 
-```json
-{
-  "schemaVersion": 1,
-  "planName": "Max",
-  "periodLabel": "5-hour window",
-  "usedPercent": 64,
-  "remainingLabel": "Approx. 36% remaining",
-  "resetAt": "2026-07-07T18:00:00Z",
-  "limitWindows": [
-    {
-      "id": "rolling-5-hour",
-      "displayName": "5-hour",
-      "usedPercent": 64,
-      "remainingLabel": "Approx. 36% remaining",
-      "resetAt": "2026-07-07T18:00:00Z"
-    }
-  ],
-  "lastUpdatedAt": "2026-07-07T10:15:00Z"
-}
-```
+The database is at `~/Library/Application Support/AI Limitbar/AI Limitbar.sqlite`.
+AI Limitbar enables SQLite WAL mode, foreign keys, and a bounded write timeout so
+the helper can update it while the app is closed or reading. Invalid helper input
+does not change the last stored snapshot.
 
-`schemaVersion` and `lastUpdatedAt` are required. Dates must be ISO 8601
-strings. `usedPercent` and every `limitWindows[].usedPercent`, when present,
-must be between 0 and 100. Claude Code's `five_hour` and `seven_day` statusLine
-windows are mapped to provider-defined `limitWindows` entries.
-The local snapshot must not contain credentials, cookies, tokens, raw provider
-responses, or free-form provider warnings.
+On the first database launch, AI Limitbar imports supported legacy JSON accounts,
+snapshots, refresh settings, and Claude Code statusLine data. It does not delete
+or rewrite those files, so they remain recovery backups. A custom legacy snapshot
+path is read only once; Settings then shows an actionable migration warning and
+requires the managed helper for future updates. The database never stores
+credentials, cookies, WebKit data, raw provider responses, or raw statusLine
+payloads.
 
 ## Ollama Cloud Experimental Web Page Source
 

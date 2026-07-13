@@ -2,17 +2,37 @@ import Foundation
 
 public enum ProviderSourceMode: String, Codable, CaseIterable, Sendable {
     case manual
-    case localSnapshot = "local-snapshot"
+    case claudeStatusLine = "claude-status-line"
     case ollamaWebPage = "ollama-web-page"
     case appServer = "app-server"
 
     public var displayName: String {
         switch self {
         case .manual: "Manual"
-        case .localSnapshot: "Local snapshot"
+        case .claudeStatusLine: "Managed statusLine"
         case .ollamaWebPage: "Experimental web page"
         case .appServer: "Experimental app-server"
         }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        switch try container.decode(String.self) {
+        case "local-snapshot":
+            self = .claudeStatusLine
+        case let rawValue where Self(rawValue: rawValue) != nil:
+            self = Self(rawValue: rawValue)!
+        default:
+            throw DecodingError.dataCorruptedError(
+                in: container,
+                debugDescription: "Unsupported provider source mode."
+            )
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
     }
 }
 

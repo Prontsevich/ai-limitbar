@@ -27,9 +27,6 @@ struct AccountDetailView: View {
 
                 Section("Configuration") {
                     LabeledContent("Source", value: currentAccount.sourceMode.displayName)
-                    if let localSnapshotPath = currentAccount.localSnapshotPath, !localSnapshotPath.isEmpty {
-                        LabeledContent("Local snapshot", value: localSnapshotPath)
-                    }
                     if let codexExecutablePath = currentAccount.codexExecutablePath, !codexExecutablePath.isEmpty {
                         LabeledContent("Codex executable", value: codexExecutablePath)
                     }
@@ -41,6 +38,15 @@ struct AccountDetailView: View {
                         LabeledContent("Last updated", value: snapshot.lastUpdatedAt.formatted(date: .abbreviated, time: .shortened))
                     } else {
                         LabeledContent("Last updated", value: "No usage data")
+                    }
+                }
+
+                if !appModel.migrationDiagnostics(for: currentAccount).isEmpty {
+                    Section("Migration") {
+                        ForEach(appModel.migrationDiagnostics(for: currentAccount)) { diagnostic in
+                            Label(diagnostic.message, systemImage: "exclamationmark.triangle")
+                                .foregroundStyle(.orange)
+                        }
                     }
                 }
             }
@@ -205,7 +211,6 @@ struct AccountEditorDraft: Equatable {
     var displayName: String
     var isEnabled: Bool
     var sourceMode: ProviderSourceMode
-    var localSnapshotPath: String
     var codexExecutablePath: String
 
     init(
@@ -213,14 +218,12 @@ struct AccountEditorDraft: Equatable {
         displayName: String = "",
         isEnabled: Bool = true,
         sourceMode: ProviderSourceMode = .manual,
-        localSnapshotPath: String = "",
         codexExecutablePath: String = ""
     ) {
         self.providerID = providerID
         self.displayName = displayName
         self.isEnabled = isEnabled
         self.sourceMode = sourceMode
-        self.localSnapshotPath = localSnapshotPath
         self.codexExecutablePath = codexExecutablePath
     }
 
@@ -230,7 +233,6 @@ struct AccountEditorDraft: Equatable {
             displayName: account?.displayName ?? "",
             isEnabled: account?.isEnabled ?? true,
             sourceMode: account?.sourceMode ?? .manual,
-            localSnapshotPath: account?.localSnapshotPath ?? "",
             codexExecutablePath: account?.codexExecutablePath ?? ""
         )
     }
@@ -238,11 +240,6 @@ struct AccountEditorDraft: Equatable {
     var normalizedDisplayName: String {
         let trimmed = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? ProviderAccount.defaultDisplayName : trimmed
-    }
-
-    var normalizedSnapshotPath: String? {
-        let trimmed = localSnapshotPath.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? nil : trimmed
     }
 
     var normalizedCodexExecutablePath: String? {
@@ -255,7 +252,6 @@ struct AccountEditorDraft: Equatable {
             normalizedDisplayName != original.normalizedDisplayName ||
             isEnabled != original.isEnabled ||
             sourceMode != original.sourceMode ||
-            normalizedSnapshotPath != original.normalizedSnapshotPath ||
             normalizedCodexExecutablePath != original.normalizedCodexExecutablePath
     }
 }
@@ -329,6 +325,12 @@ struct AccountEditorView: View {
                     }
 
                     TextField("Account Name", text: $draft.displayName)
+                    if let displayNameConflict {
+                        Text(displayNameConflict)
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                     if account == nil {
                         Toggle("Enabled", isOn: $draft.isEnabled)
                     }
@@ -338,30 +340,27 @@ struct AccountEditorView: View {
                     Section("Source") {
                         Picker("Source", selection: $draft.sourceMode) {
                             Text(ProviderSourceMode.manual.displayName).tag(ProviderSourceMode.manual)
-                            Text(ProviderSourceMode.localSnapshot.displayName).tag(ProviderSourceMode.localSnapshot)
+                            Text(ProviderSourceMode.claudeStatusLine.displayName).tag(ProviderSourceMode.claudeStatusLine)
                         }
                         .pickerStyle(.segmented)
 
-                        TextField("Local snapshot JSON path", text: $draft.localSnapshotPath)
-                            .disabled(draft.sourceMode != .localSnapshot)
-
-                        if draft.sourceMode == .localSnapshot {
+                        if draft.sourceMode == .claudeStatusLine {
                             VStack(alignment: .leading, spacing: 8) {
                                 Text("Claude Code statusLine helper")
                                     .font(.subheadline.weight(.semibold))
 
-                                Text("The helper reads Claude Code's official statusLine JSON and writes local-estimate rate-limit data. It replaces the current custom statusLine only after you apply the shown configuration.")
+                                Text("The helper reads Claude Code's official statusLine JSON and writes local-estimate rate-limit data to AI Limitbar's managed database. No JSON path is configured or retained.")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                                     .fixedSize(horizontal: false, vertical: true)
 
                                 Button("Install or Repair Helper", action: installHelper)
+                                    .disabled(account == nil)
 
-                                if let helperPathConflict {
-                                    Text(helperPathConflict)
+                                if account == nil {
+                                    Text("Save this account first, then install its helper configuration.")
                                         .font(.caption)
-                                        .foregroundStyle(.orange)
-                                        .fixedSize(horizontal: false, vertical: true)
+                                        .foregroundStyle(.secondary)
                                 }
 
                                 if let helperSetupMessage {
@@ -447,8 +446,8 @@ struct AccountEditorView: View {
                             .keyboardShortcut(.defaultAction)
                             .disabled(
                                 draft.providerID.isEmpty ||
-                                    (account != nil && !isDirty) ||
-                                    helperPathConflict != nil ||
+                                (account != nil && !isDirty) ||
+                                    displayNameConflict != nil ||
                                     codexAppServerConflict != nil
                             )
                     }
@@ -481,7 +480,6 @@ struct AccountEditorView: View {
                 accountID: account.accountID,
                 displayName: draft.normalizedDisplayName,
                 sourceMode: persistedSourceMode,
-                localSnapshotPath: persistedSnapshotPath,
                 codexExecutablePath: persistedCodexExecutablePath
             ) else { return }
             onSave()
@@ -493,7 +491,6 @@ struct AccountEditorView: View {
             displayName: draft.normalizedDisplayName,
             isEnabled: draft.isEnabled,
             sourceMode: persistedSourceMode,
-            localSnapshotPath: persistedSnapshotPath,
             codexExecutablePath: persistedCodexExecutablePath
         ) else { return }
         onCreate(createdAccount.id)
@@ -508,10 +505,6 @@ struct AccountEditorView: View {
         case "claude-code", "ollama-cloud", "openai-codex": draft.sourceMode
         default: .manual
         }
-    }
-
-    private var persistedSnapshotPath: String? {
-        draft.providerID == "claude-code" ? draft.normalizedSnapshotPath : nil
     }
 
     private var persistedCodexExecutablePath: String? {
@@ -531,42 +524,25 @@ struct AccountEditorView: View {
         return "Only one OpenAI Codex account can use the local app-server source because it reads the active local Codex CLI session."
     }
 
-    private var helperPathConflict: String? {
-        guard draft.providerID == "claude-code",
-              draft.sourceMode == .localSnapshot,
-              let defaultURL = try? ClaudeCodeStatusLinePaths.snapshotURL()
-        else { return nil }
-
-        let normalizedDraftPath = URL(fileURLWithPath: (draft.localSnapshotPath as NSString).expandingTildeInPath)
-            .standardizedFileURL
-            .path
-        guard normalizedDraftPath == defaultURL.standardizedFileURL.path else { return nil }
-
-        let currentAccountID = account?.accountID
-        let isUsedByAnotherAccount = appModel.providerAccounts.contains {
-            $0.providerID == "claude-code" &&
-                $0.localSnapshotPath.map { normalizedPath($0) } == normalizedDraftPath &&
-                $0.accountID != currentAccountID
-        }
-        guard isUsedByAnotherAccount else { return nil }
-        return "The managed Claude Code helper path is already assigned to another account. Use a different local snapshot path for this account."
-    }
-
-    private func normalizedPath(_ path: String) -> String {
-        URL(fileURLWithPath: (path as NSString).expandingTildeInPath)
-            .standardizedFileURL
-            .path
+    private var displayNameConflict: String? {
+        guard appModel.hasDisplayNameConflict(
+            accountID: account?.accountID,
+            displayName: draft.normalizedDisplayName
+        ) else { return nil }
+        return "Account names must be globally unique, including disabled accounts."
     }
 
     private func installHelper() {
+        guard let account else {
+            helperSetupError = "Save the account before installing its statusLine helper."
+            return
+        }
         do {
             let installer = ClaudeCodeStatusLineInstaller()
             let helperURL = try installer.install()
-            let snapshotURL = try installer.defaultSnapshotURL()
-            draft.sourceMode = .localSnapshot
-            draft.localSnapshotPath = snapshotURL.path
+            draft.sourceMode = .claudeStatusLine
             helperSetupError = nil
-            helperSetupMessage = "Installed at \(helperURL.path). Add this object to ~/.claude/settings.json:\n\n\(installer.settingsSnippet(helperURL: helperURL, snapshotURL: snapshotURL))"
+            helperSetupMessage = "Installed at \(helperURL.path). Add this object to ~/.claude/settings.json:\n\n\(installer.settingsSnippet(helperURL: helperURL, accountID: account.accountID))"
         } catch {
             helperSetupMessage = nil
             helperSetupError = error.localizedDescription

@@ -81,7 +81,7 @@ continues to use a local master-detail workspace.
 │ ACCOUNTS         │ claude-main                    [Enabled]│
 │                  │                                         │
 │ > claude-main    │ ┌─ STATUS ────────────────────────────┐ │
-│   ollama-work    │ │ Source       Local snapshot         │ │
+│   ollama-work    │ │ Source       Managed statusLine     │ │
 │   codex-main     │ │ Last update  08:14                  │ │
 │                  │ │ State        Ready                  │ │
 │                  │ └─────────────────────────────────────┘ │

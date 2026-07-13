@@ -26,6 +26,10 @@ extension AppModel {
 
         let trimmed = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
         let resolvedDisplayName = trimmed.isEmpty ? ProviderAccount.defaultDisplayName : trimmed
+        guard !hasDisplayNameConflict(
+            accountID: accountID,
+            displayName: resolvedDisplayName
+        ) else { return }
         providerAccounts[index].displayName = resolvedDisplayName
         updateSnapshotAccountDisplayName(
             providerID: providerID,
@@ -46,7 +50,6 @@ extension AppModel {
         accountID: String,
         displayName: String,
         sourceMode: ProviderSourceMode,
-        localSnapshotPath: String?,
         codexExecutablePath: String? = nil
     ) -> Bool {
         let previousAccounts = providerAccounts
@@ -56,9 +59,13 @@ extension AppModel {
         }) else { return false }
 
         let trimmedDisplayName = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
-        let trimmedSnapshotPath = localSnapshotPath?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let trimmedCodexExecutablePath = codexExecutablePath?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let resolvedDisplayName = trimmedDisplayName.isEmpty ? ProviderAccount.defaultDisplayName : trimmedDisplayName
+
+        guard !hasDisplayNameConflict(
+            accountID: accountID,
+            displayName: resolvedDisplayName
+        ) else { return false }
 
         guard !hasCodexAppServerConflict(
             providerID: providerID,
@@ -68,7 +75,6 @@ extension AppModel {
 
         providerAccounts[index].displayName = resolvedDisplayName
         providerAccounts[index].sourceMode = sourceMode
-        providerAccounts[index].localSnapshotPath = trimmedSnapshotPath.isEmpty ? nil : trimmedSnapshotPath
         providerAccounts[index].codexExecutablePath = trimmedCodexExecutablePath.isEmpty ? nil : trimmedCodexExecutablePath
         updateSnapshotAccountDisplayName(
             providerID: providerID,
@@ -115,18 +121,6 @@ extension AppModel {
         ) else { return }
 
         providerAccounts[index].sourceMode = sourceMode
-        if !saveConfiguration() {
-            providerAccounts = previousAccounts
-        }
-    }
-
-    func setAccountLocalSnapshotPath(_ providerID: String, accountID: String, path: String) {
-        let previousAccounts = providerAccounts
-        guard let index = providerAccounts.firstIndex(where: {
-            $0.providerID == providerID && $0.accountID == accountID
-        }) else { return }
-
-        providerAccounts[index].localSnapshotPath = path.trimmingCharacters(in: .whitespacesAndNewlines)
         if !saveConfiguration() {
             providerAccounts = previousAccounts
         }
@@ -181,13 +175,11 @@ extension AppModel {
         displayName: String? = nil,
         isEnabled: Bool = true,
         sourceMode: ProviderSourceMode = .manual,
-        localSnapshotPath: String? = nil,
         codexExecutablePath: String? = nil
     ) -> ProviderAccount? {
         guard adapter(for: providerID) != nil else { return nil }
         let previousAccounts = providerAccounts
         let trimmedDisplayName = displayName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let trimmedSnapshotPath = localSnapshotPath?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let trimmedCodexExecutablePath = codexExecutablePath?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         guard !hasCodexAppServerConflict(
             providerID: providerID,
@@ -200,9 +192,12 @@ extension AppModel {
             displayName: trimmedDisplayName.isEmpty ? nextAccountDisplayName(for: providerID) : trimmedDisplayName,
             isEnabled: isEnabled,
             sourceMode: sourceMode,
-            localSnapshotPath: trimmedSnapshotPath.isEmpty ? nil : trimmedSnapshotPath,
             codexExecutablePath: trimmedCodexExecutablePath.isEmpty ? nil : trimmedCodexExecutablePath
         )
+        guard !hasDisplayNameConflict(
+            accountID: nil,
+            displayName: account.displayName
+        ) else { return nil }
         providerAccounts.append(account)
         if !saveConfiguration() {
             providerAccounts = previousAccounts
@@ -268,8 +263,26 @@ extension AppModel {
         )
     }
 
+    func hasDisplayNameConflict(
+        accountID: String?,
+        displayName: String
+    ) -> Bool {
+        let nameKey = DatabaseProviderConfigurationStore.displayNameKey(for: displayName)
+        return providerAccounts.contains {
+            $0.accountID != accountID &&
+                DatabaseProviderConfigurationStore.displayNameKey(for: $0.displayName) == nameKey
+        }
+    }
+
     private func nextAccountDisplayName(for providerID: String) -> String {
-        "Account \(accounts(for: providerID).count + 1)"
+        var number = accounts(for: providerID).count + 1
+        while hasDisplayNameConflict(
+            accountID: nil,
+            displayName: "Account \(number)"
+        ) {
+            number += 1
+        }
+        return "Account \(number)"
     }
 
     func hasCodexAppServerConflict(

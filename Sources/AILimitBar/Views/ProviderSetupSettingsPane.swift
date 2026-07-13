@@ -67,7 +67,7 @@ private struct ProviderSetupRow: View {
 
     private var sourceSummary: String {
         switch providerID {
-        case "claude-code": "Manual or local snapshot · statusLine helper"
+        case "claude-code": "Manual or managed statusLine · local database"
         case "openai-codex": "Manual or experimental app-server"
         default: "Manual source"
         }

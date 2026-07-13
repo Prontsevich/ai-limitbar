@@ -2,10 +2,6 @@ import AILimitBarCore
 import Foundation
 
 struct ClaudeCodeStatusLineInstaller {
-    func defaultSnapshotURL() throws -> URL {
-        try ClaudeCodeStatusLinePaths.snapshotURL()
-    }
-
     func install() throws -> URL {
         let sourceURL = Bundle.main.bundleURL
             .appendingPathComponent("Contents", isDirectory: true)
@@ -30,8 +26,8 @@ struct ClaudeCodeStatusLineInstaller {
         return destinationURL
     }
 
-    func settingsSnippet(helperURL: URL, snapshotURL: URL) -> String {
-        let command = "\(shellQuote(helperURL.path)) --snapshot-path \(shellQuote(snapshotURL.path))"
+    func settingsSnippet(helperURL: URL, accountID: String) -> String {
+        let command = "\(shellQuote(helperURL.path)) --account-id \(shellQuote(accountID))"
         let escapedCommand = command
             .replacingOccurrences(of: "\\", with: "\\\\")
             .replacingOccurrences(of: "\"", with: "\\\"")

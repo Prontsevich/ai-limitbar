@@ -2,143 +2,102 @@ import XCTest
 @testable import AILimitBarCore
 
 final class ProviderConfigurationTests: XCTestCase {
-    func testProviderAccountRoundTripsLocalSnapshotSettings() throws {
-        let account = ProviderAccount(
-            providerID: "claude-code",
-            accountID: "work",
-            displayName: "Work",
-            isEnabled: true,
-            sourceMode: .localSnapshot,
-            localSnapshotPath: "/Users/example/Library/Application Support/AI Limitbar/claude-code.json"
+    func testProviderAccountDecodesLegacyLocalSnapshotAsManagedStatusLine() throws {
+        let account = try JSONDecoder().decode(
+            ProviderAccount.self,
+            from: Data(
+                """
+                {
+                  "providerID": "claude-code",
+                  "accountID": "work",
+                  "displayName": "Work",
+                  "isEnabled": true,
+                  "sourceMode": "local-snapshot",
+                  "localSnapshotPath": "/tmp/legacy.json"
+                }
+                """.utf8
+            )
         )
 
-        let data = try JSONEncoder().encode(account)
-        let decoded = try JSONDecoder().decode(ProviderAccount.self, from: data)
-
-        XCTAssertEqual(decoded, account)
-        XCTAssertEqual(decoded.id, "claude-code:work")
+        XCTAssertEqual(account.sourceMode, .claudeStatusLine)
+        XCTAssertEqual(account.localSnapshotPath, "/tmp/legacy.json")
     }
 
-    func testProviderAccountRoundTripsOllamaWebDataStoreID() throws {
-        let dataStoreID = UUID()
-        let account = ProviderAccount(
-            providerID: "ollama-cloud",
-            accountID: "work",
-            displayName: "Work",
-            isEnabled: true,
-            sourceMode: .ollamaWebPage,
-            webDataStoreID: dataStoreID
-        )
-
-        let data = try JSONEncoder().encode(account)
-        let decoded = try JSONDecoder().decode(ProviderAccount.self, from: data)
-
-        XCTAssertEqual(decoded, account)
-        XCTAssertEqual(decoded.webDataStoreID, dataStoreID)
-    }
-
-    func testProviderAccountRoundTripsCodexAppServerOverride() throws {
-        let account = ProviderAccount(
-            providerID: "openai-codex",
-            accountID: "personal",
-            displayName: "Personal",
-            isEnabled: true,
-            sourceMode: .appServer,
-            codexExecutablePath: "~/.local/bin/codex"
-        )
-
-        let data = try JSONEncoder().encode(account)
-        let decoded = try JSONDecoder().decode(ProviderAccount.self, from: data)
-
-        XCTAssertEqual(decoded, account)
-        XCTAssertEqual(decoded.codexExecutablePath, "~/.local/bin/codex")
-    }
-
-    func testProviderConfigurationStoreStartsEmptyWhenMissing() throws {
-        let directory = try temporaryDirectory()
-
-        let result = ProviderConfigurationStore(directory: directory).load(
-            knownProviderIDs: ["mock", "claude-code"]
-        )
-
-        XCTAssertNil(result.warning)
-        XCTAssertEqual(result.accounts, [])
-    }
-
-    func testProviderConfigurationStoreRoundTripsAccountSettings() throws {
-        let directory = try temporaryDirectory()
-        let accounts = [
-            ProviderAccount(providerID: "mock", isEnabled: true),
-            ProviderAccount(providerID: "claude-code", accountID: "work", displayName: "Work", isEnabled: true)
-        ]
-        let store = ProviderConfigurationStore(directory: directory)
-
-        try store.save(accounts)
-        let result = store.load(knownProviderIDs: ["mock", "claude-code"])
-
-        XCTAssertEqual(result.accounts, accounts)
-    }
-
-    func testProviderConfigurationStorePreservesAccountOrder() throws {
-        let directory = try temporaryDirectory()
+    func testDatabaseStoreRoundTripsAccountsAndOrdering() throws {
+        let database = try AppDatabase(directory: temporaryDirectory())
         let accounts = [
             ProviderAccount(providerID: "claude-code", accountID: "work", displayName: "Work", isEnabled: true),
-            ProviderAccount(providerID: "mock", accountID: "demo", displayName: "Demo", isEnabled: true),
-            ProviderAccount(providerID: "claude-code", accountID: "personal", displayName: "Personal", isEnabled: true)
+            ProviderAccount(providerID: "mock", accountID: "demo", displayName: "Demo", isEnabled: true)
         ]
-        let store = ProviderConfigurationStore(directory: directory)
+        let store = DatabaseProviderConfigurationStore(database: database)
 
         try store.save(accounts)
         let result = store.load(knownProviderIDs: ["mock", "claude-code"])
 
-        XCTAssertEqual(result.accounts.map(\.id), [
-            "claude-code:work",
-            "mock:demo",
-            "claude-code:personal"
+        XCTAssertEqual(result.accounts.map(\.id), accounts.map(\.id))
+        XCTAssertNil(result.warning)
+    }
+
+    func testDatabaseStoreRejectsGloballyDuplicateNormalizedDisplayNames() throws {
+        let database = try AppDatabase(directory: temporaryDirectory())
+        let store = DatabaseProviderConfigurationStore(database: database)
+
+        XCTAssertThrowsError(
+            try store.save([
+                ProviderAccount(providerID: "mock", accountID: "one", displayName: " Work ", isEnabled: true),
+                ProviderAccount(providerID: "claude-code", accountID: "two", displayName: "work", isEnabled: false)
+            ])
+        ) { error in
+            XCTAssertEqual(error as? StorageValidationError, .duplicateDisplayName)
+        }
+    }
+
+    func testDatabaseStoreDeletesSnapshotsWhenAccountIsRemoved() throws {
+        let database = try AppDatabase(directory: temporaryDirectory())
+        let account = ProviderAccount(providerID: "mock", accountID: "one", displayName: "One", isEnabled: true)
+        let accounts = DatabaseProviderConfigurationStore(database: database)
+        let snapshots = DatabaseSnapshotStore(database: database)
+        try accounts.save([account])
+        try snapshots.save([
+            UsageSnapshot(
+                providerID: account.providerID,
+                accountID: account.accountID,
+                accountDisplayName: account.displayName,
+                displayName: "Mock",
+                status: .ok,
+                lastUpdatedAt: Date(),
+                confidence: .live,
+                source: "Test"
+            )
         ])
+
+        try accounts.save([])
+
+        XCTAssertTrue(snapshots.load().snapshots.isEmpty)
     }
 
-    func testProviderConfigurationStoreDeduplicatesByProviderScopedAccountKey() throws {
-        let directory = try temporaryDirectory()
-        let stored = [
-            ProviderAccount(providerID: "mock", accountID: "default", displayName: "Mock", isEnabled: true),
-            ProviderAccount(providerID: "claude-code", accountID: "default", displayName: "Claude", isEnabled: true),
-            ProviderAccount(providerID: "mock", accountID: "default", displayName: "Duplicate", isEnabled: true)
-        ]
-        try ProviderConfigurationStore(directory: directory).save(stored)
+    func testDatabaseSourceDiagnosticsRoundTripAndClear() throws {
+        let database = try AppDatabase(directory: temporaryDirectory())
+        let store = DatabaseSourceDiagnosticStore(database: database)
+        let occurredAt = Date(timeIntervalSince1970: 1_000)
 
-        let result = ProviderConfigurationStore(directory: directory).load(
-            knownProviderIDs: ["mock", "claude-code"]
+        try store.replaceRefreshDiagnostics(
+            providerID: "mock",
+            accountID: "one",
+            occurredAt: occurredAt,
+            messages: ["Refresh failed", "Retry later"]
         )
+        try store.recordGlobal(code: "legacy-warning", message: "Legacy data needs attention", occurredAt: occurredAt)
 
-        XCTAssertEqual(result.accounts.map(\.id), [
-            "mock:default",
-            "claude-code:default"
-        ])
+        XCTAssertEqual(store.load().filter { $0.providerID == "mock" }.map(\.message), ["Refresh failed", "Retry later"])
+        XCTAssertEqual(store.load().first { $0.code == "legacy-warning" }?.message, "Legacy data needs attention")
+
+        try store.clearRefreshDiagnostics(providerID: "mock", accountID: "one")
+        XCTAssertFalse(store.load().contains { $0.providerID == "mock" })
     }
 
-    func testProviderConfigurationStoreIgnoresUnknownProvidersWithoutAddingDefaults() throws {
-        let directory = try temporaryDirectory()
-        let stored = [
-            ProviderAccount(providerID: "unknown", isEnabled: true),
-            ProviderAccount(providerID: "claude-code", accountID: "work", displayName: "Work", isEnabled: true)
-        ]
-        try ProviderConfigurationStore(directory: directory).save(stored)
-
-        let result = ProviderConfigurationStore(directory: directory).load(
-            knownProviderIDs: ["mock", "claude-code"]
-        )
-
-        XCTAssertEqual(result.accounts.count, 1)
-        XCTAssertEqual(result.accounts[0].providerID, "claude-code")
-        XCTAssertEqual(result.accounts[0].accountID, "work")
-        XCTAssertEqual(result.accounts[0].displayName, "Work")
-    }
-
-    private func temporaryDirectory() throws -> URL {
-        let directory = FileManager.default.temporaryDirectory
+    private func temporaryDirectory() -> URL {
+        FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        return directory
     }
 }

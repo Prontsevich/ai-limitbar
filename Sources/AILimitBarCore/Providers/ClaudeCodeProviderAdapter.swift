@@ -5,20 +5,18 @@ public struct ClaudeCodeProviderAdapter: ProviderAdapter {
     public let displayName = "Claude Code"
     public let usageURL: URL? = URL(string: "https://claude.ai/settings/usage")
 
-    private let decoder: JSONDecoder
+    private let snapshotStore: (any CurrentSnapshotStore)?
 
-    public init() {
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        self.decoder = decoder
+    public init(snapshotStore: (any CurrentSnapshotStore)? = nil) {
+        self.snapshotStore = snapshotStore
     }
 
     public func fetchSnapshot(account: ProviderAccount) async throws -> UsageSnapshot {
         switch account.sourceMode {
         case .manual:
             return manualSnapshot(account: account)
-        case .localSnapshot:
-            return try localSnapshot(account: account)
+        case .claudeStatusLine:
+            return try managedStatusLineSnapshot(account: account)
         case .ollamaWebPage, .appServer:
             return manualSnapshot(account: account)
         }
@@ -39,111 +37,22 @@ public struct ClaudeCodeProviderAdapter: ProviderAdapter {
         )
     }
 
-    private func localSnapshot(account: ProviderAccount) throws -> UsageSnapshot {
-        guard let path = account.localSnapshotPath, !path.isEmpty else {
+    private func managedStatusLineSnapshot(account: ProviderAccount) throws -> UsageSnapshot {
+        guard let snapshotStore else {
             throw ProviderAdapterError(
                 providerID: id,
-                message: "Claude Code local snapshot path is not configured.",
-                recoverySuggestion: "Select a JSON snapshot file in Settings."
+                message: "Claude Code managed statusLine storage is unavailable.",
+                recoverySuggestion: "Open AI Limitbar and install the bundled statusLine helper from this account's settings."
             )
         }
-
-        let expandedPath = (path as NSString).expandingTildeInPath
-        let fileURL = URL(fileURLWithPath: expandedPath)
-
-        guard FileManager.default.fileExists(atPath: fileURL.path) else {
+        guard let snapshot = try snapshotStore.snapshot(providerID: id, accountID: account.accountID) else {
             throw ProviderAdapterError(
                 providerID: id,
-                message: "Claude Code local snapshot file was not found.",
-                recoverySuggestion: "Run the AI Limitbar statusLine helper or select an existing JSON snapshot file in Settings."
+                message: "Claude Code has not written a managed statusLine snapshot yet.",
+                recoverySuggestion: "Install the bundled statusLine helper and use Claude Code once."
             )
         }
-
-        let data: Data
-        do {
-            data = try Data(contentsOf: fileURL)
-        } catch {
-            throw ProviderAdapterError(
-                providerID: id,
-                message: "Claude Code local snapshot file could not be read.",
-                recoverySuggestion: "Check that the configured file is readable and is still produced by the statusLine helper."
-            )
-        }
-
-        let payload: ClaudeCodeLocalSnapshot
-        do {
-            payload = try decoder.decode(ClaudeCodeLocalSnapshot.self, from: data)
-        } catch {
-            throw ProviderAdapterError(
-                providerID: id,
-                message: "Claude Code local snapshot JSON is invalid.",
-                recoverySuggestion: "Verify the file contains schemaVersion 1 and an ISO 8601 lastUpdatedAt value."
-            )
-        }
-
-        try validate(payload)
-        return makeUsageSnapshot(from: payload, account: account)
-    }
-
-    private func validate(_ payload: ClaudeCodeLocalSnapshot) throws {
-        guard payload.schemaVersion == 1 else {
-            throw ProviderAdapterError(
-                providerID: id,
-                message: "Claude Code local snapshot schema version is unsupported.",
-                recoverySuggestion: "Use schemaVersion 1 for Claude Code local snapshots."
-            )
-        }
-
-        if let usedPercent = payload.usedPercent, !(0...100).contains(usedPercent) {
-            throw ProviderAdapterError(
-                providerID: id,
-                message: "Claude Code local snapshot usedPercent must be between 0 and 100.",
-                recoverySuggestion: "Write usedPercent as a numeric percentage from 0 through 100."
-            )
-        }
-
-        if let invalidWindow = payload.limitWindows.first(where: { window in
-            guard let usedPercent = window.usedPercent else { return false }
-            return !(0...100).contains(usedPercent)
-        }) {
-            throw ProviderAdapterError(
-                providerID: id,
-                message: "Claude Code local snapshot limit window '\(invalidWindow.displayName)' usedPercent must be between 0 and 100.",
-                recoverySuggestion: "Write every limit window usedPercent as a numeric percentage from 0 through 100."
-            )
-        }
-    }
-
-    private func makeUsageSnapshot(from payload: ClaudeCodeLocalSnapshot, account: ProviderAccount) -> UsageSnapshot {
-        let usedPercent = payload.usedPercent
-        let highestWindowPercent = payload.limitWindows.compactMap(\.usedPercent).max()
-        let highestKnownPercent = [usedPercent, highestWindowPercent].compactMap { $0 }.max()
-        let status: UsageStatus
-        if let highestKnownPercent, highestKnownPercent >= 85 {
-            status = .warning
-        } else if highestKnownPercent != nil || payload.remainingLabel != nil || !payload.limitWindows.isEmpty {
-            status = .ok
-        } else {
-            status = .unavailable
-        }
-
-        return UsageSnapshot(
-            providerID: id,
-            accountID: account.accountID,
-            accountDisplayName: account.displayName,
-            displayName: displayName,
-            status: status,
-            planName: payload.planName,
-            periodLabel: payload.periodLabel,
-            usedPercent: usedPercent,
-            remainingLabel: payload.remainingLabel,
-            resetAt: payload.resetAt,
-            limitWindows: payload.limitWindows,
-            lastUpdatedAt: payload.lastUpdatedAt,
-            confidence: .localEstimate,
-            source: "Claude Code local snapshot file",
-            warnings: ["Local estimate only; usage from other machines or Claude surfaces may be missing."]
-        )
+        return snapshot
     }
 }
 

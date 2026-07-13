@@ -29,7 +29,7 @@ final class AppModelTests: XCTestCase {
         XCTAssertTrue(model.snapshots.isEmpty)
         XCTAssertTrue(model.providerRefreshStatuses.isEmpty)
         XCTAssertTrue(model.accountRefreshIssues.isEmpty)
-        XCTAssertTrue(JSONSnapshotStore(directory: directory).load().snapshots.isEmpty)
+        XCTAssertTrue(DatabaseSnapshotStore(database: try AppDatabase(directory: directory)).load().snapshots.isEmpty)
     }
 
     @MainActor
@@ -57,7 +57,7 @@ final class AppModelTests: XCTestCase {
         XCTAssertTrue(model.providerAccounts.isEmpty)
         XCTAssertTrue(model.snapshots.isEmpty)
         XCTAssertTrue(model.providerRefreshStatuses.isEmpty)
-        XCTAssertTrue(JSONSnapshotStore(directory: directory).load().snapshots.isEmpty)
+        XCTAssertTrue(DatabaseSnapshotStore(database: try AppDatabase(directory: directory)).load().snapshots.isEmpty)
     }
 
     @MainActor
@@ -80,6 +80,41 @@ final class AppModelTests: XCTestCase {
         XCTAssertNotNil(model.accountRefreshIssues[account.id])
         XCTAssertEqual(model.snapshots.map(\.id), [account.id])
         XCTAssertFalse(model.hasActiveProviderRefresh)
+    }
+
+    @MainActor
+    func testRefreshDiagnosticsPersistAcrossLaunchAndClearAfterSuccess() async throws {
+        let directory = try temporaryDirectory()
+        let failingAdapter = MismatchedImmediateAdapter()
+        let model = AppModel(
+            registry: ProviderRegistry(adapters: [failingAdapter]),
+            storageDirectory: directory
+        )
+        model.addAccount(providerID: failingAdapter.id, displayName: "Work")
+        let account = try XCTUnwrap(model.providerAccounts.first)
+
+        model.testConnection(providerID: account.providerID, accountID: account.accountID)
+        while model.refreshStatus(for: account) == .refreshing {
+            await Task.yield()
+        }
+
+        let reloaded = AppModel(
+            registry: ProviderRegistry(adapters: [ImmediateProviderAdapter(id: failingAdapter.id)]),
+            storageDirectory: directory
+        )
+        XCTAssertNotNil(reloaded.accountRefreshIssues[account.id])
+
+        reloaded.refreshAccount(providerID: account.providerID, accountID: account.accountID)
+        while reloaded.refreshStatus(for: account) == .refreshing {
+            await Task.yield()
+        }
+        XCTAssertNil(reloaded.accountRefreshIssues[account.id])
+
+        let cleared = AppModel(
+            registry: ProviderRegistry(adapters: [ImmediateProviderAdapter(id: failingAdapter.id)]),
+            storageDirectory: directory
+        )
+        XCTAssertNil(cleared.accountRefreshIssues[account.id])
     }
 
     @MainActor
@@ -108,8 +143,9 @@ final class AppModelTests: XCTestCase {
             displayName: "Work",
             isEnabled: true
         )
-        try ProviderConfigurationStore(directory: directory).save([account])
-        try JSONSnapshotStore(directory: directory).save([
+        let database = try AppDatabase(directory: directory)
+        try DatabaseProviderConfigurationStore(database: database).save([account])
+        try DatabaseSnapshotStore(database: database).save([
             UsageSnapshot(
                 providerID: account.providerID,
                 accountID: account.accountID,
@@ -167,8 +203,7 @@ final class AppModelTests: XCTestCase {
         let account = try XCTUnwrap(model.providerAccounts.first)
 
         model.setAccountDisplayName(adapter.id, accountID: account.accountID, displayName: "Renamed")
-        model.setAccountSourceMode(adapter.id, accountID: account.accountID, sourceMode: .localSnapshot)
-        model.setAccountLocalSnapshotPath(adapter.id, accountID: account.accountID, path: "  ~/usage.json  ")
+        model.setAccountSourceMode(adapter.id, accountID: account.accountID, sourceMode: .claudeStatusLine)
         model.setAccount(adapter.id, accountID: account.accountID, enabled: false)
         model.setAccount(adapter.id, accountID: account.accountID, enabled: true)
         model.setRefreshInterval(.fifteenMinutes)
@@ -179,8 +214,7 @@ final class AppModelTests: XCTestCase {
         )
         let reloadedAccount = try XCTUnwrap(reloaded.providerAccounts.first)
         XCTAssertEqual(reloadedAccount.displayName, "Renamed")
-        XCTAssertEqual(reloadedAccount.sourceMode, .localSnapshot)
-        XCTAssertEqual(reloadedAccount.localSnapshotPath, "~/usage.json")
+        XCTAssertEqual(reloadedAccount.sourceMode, .claudeStatusLine)
         XCTAssertTrue(reloadedAccount.isEnabled)
         XCTAssertEqual(reloaded.refreshSettings.interval, .fifteenMinutes)
         XCTAssertEqual(reloaded.usageURL(providerID: adapter.id, accountID: account.accountID), adapter.usageURL)
@@ -202,8 +236,7 @@ final class AppModelTests: XCTestCase {
             providerID: account.providerID,
             accountID: account.accountID,
             displayName: "  Work  ",
-            sourceMode: .localSnapshot,
-            localSnapshotPath: "  ~/usage.json  "
+            sourceMode: .claudeStatusLine
         ))
 
         let reloaded = AppModel(
@@ -212,8 +245,7 @@ final class AppModelTests: XCTestCase {
         )
         let reloadedAccount = try XCTUnwrap(reloaded.providerAccounts.first)
         XCTAssertEqual(reloadedAccount.displayName, "Work")
-        XCTAssertEqual(reloadedAccount.sourceMode, .localSnapshot)
-        XCTAssertEqual(reloadedAccount.localSnapshotPath, "~/usage.json")
+        XCTAssertEqual(reloadedAccount.sourceMode, .claudeStatusLine)
     }
 
     @MainActor
@@ -247,7 +279,6 @@ final class AppModelTests: XCTestCase {
             accountID: secondAccount.accountID,
             displayName: secondAccount.displayName,
             sourceMode: .appServer,
-            localSnapshotPath: nil,
             codexExecutablePath: nil
         ))
         model.setAccountSourceMode(
@@ -294,14 +325,12 @@ final class AppModelTests: XCTestCase {
         let original = AccountEditorDraft(
             providerID: "claude-code",
             displayName: "Work",
-            sourceMode: .localSnapshot,
-            localSnapshotPath: "~/usage.json"
+            sourceMode: .claudeStatusLine
         )
         let equivalent = AccountEditorDraft(
             providerID: "claude-code",
             displayName: "  Work  ",
-            sourceMode: .localSnapshot,
-            localSnapshotPath: "  ~/usage.json  "
+            sourceMode: .claudeStatusLine
         )
 
         XCTAssertFalse(equivalent.hasChanges(comparedTo: original))
@@ -313,8 +342,7 @@ final class AppModelTests: XCTestCase {
 
         var changed = original
         changed.displayName = "Work"
-        changed.sourceMode = .localSnapshot
-        changed.localSnapshotPath = "~/usage.json"
+        changed.sourceMode = .claudeStatusLine
 
         XCTAssertTrue(changed.hasChanges(comparedTo: original))
     }
@@ -364,33 +392,19 @@ final class AppModelTests: XCTestCase {
     }
 
     @MainActor
-    func testInvalidClaudeSnapshotPreservesPreviousUsageData() async throws {
+    func testInvalidClaudeStatusLineInputPreservesPreviousUsageData() async throws {
         let directory = try temporaryDirectory()
-        let snapshotURL = directory.appendingPathComponent("claude-code.json")
-        try Data(
-            """
-            {
-              "schemaVersion": 1,
-              "limitWindows": [
-                { "id": "rolling-5-hour", "displayName": "5-hour", "usedPercent": 42 }
-              ],
-              "lastUpdatedAt": "2026-07-12T09:00:00Z"
-            }
-            """.utf8
-        ).write(to: snapshotURL)
-
-        let adapter = ClaudeCodeProviderAdapter()
-        let model = AppModel(
-            registry: ProviderRegistry(adapters: [adapter]),
-            storageDirectory: directory
-        )
+        let model = AppModel(storageDirectory: directory)
         model.addAccount(
-            providerID: adapter.id,
+            providerID: "claude-code",
             displayName: "Work",
-            sourceMode: .localSnapshot,
-            localSnapshotPath: snapshotURL.path
+            sourceMode: .claudeStatusLine
         )
         let account = try XCTUnwrap(model.providerAccounts.first)
+        _ = try ClaudeCodeStatusLineDatabaseWriter(directory: directory).writeSnapshot(
+            from: Data("{\"rate_limits\":{\"five_hour\":{\"used_percentage\":42}}}".utf8),
+            accountID: account.accountID
+        )
 
         model.refreshAccount(providerID: account.providerID, accountID: account.accountID)
         while model.refreshStatus(for: account) == .refreshing {
@@ -398,19 +412,15 @@ final class AppModelTests: XCTestCase {
         }
         let previousSnapshot = try XCTUnwrap(model.snapshot(for: account))
 
-        try Data("{invalid".utf8).write(to: snapshotURL)
-        model.refreshAccount(providerID: account.providerID, accountID: account.accountID)
-        while model.refreshStatus(for: account) == .refreshing {
-            await Task.yield()
-        }
+        XCTAssertThrowsError(
+            try ClaudeCodeStatusLineDatabaseWriter(directory: directory).writeSnapshot(
+                from: Data("{invalid".utf8),
+                accountID: account.accountID
+            )
+        )
 
         XCTAssertEqual(model.snapshot(for: account), previousSnapshot)
-        XCTAssertNotNil(model.accountRefreshIssues[account.id])
-        if case .failed = model.refreshStatus(for: account) {
-            // Expected: the failed refresh is tracked separately from the last good snapshot.
-        } else {
-            XCTFail("Expected the invalid helper output to mark the refresh as failed.")
-        }
+        XCTAssertNil(model.accountRefreshIssues[account.id])
     }
 
     @MainActor

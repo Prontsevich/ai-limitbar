@@ -35,7 +35,7 @@ menu bar app can reliably produce normalized snapshots.
 ## MVP Implementation Status
 
 The current implementation is a SwiftPM-based macOS app with a SwiftUI
-`MenuBarExtra`, normalized provider snapshots, local JSON storage, provider
+`MenuBarExtra`, normalized provider snapshots, local SQLite storage, provider
 account settings, and a project-local build/run script.
 
 The app ships with:
@@ -44,9 +44,9 @@ The app ships with:
 - `CodexAppServerProviderAdapter` with a manual fallback and an opt-in
   experimental app-server source for one local Codex CLI identity.
 - `OllamaCloudProviderAdapter` with manual and opt-in experimental web-page modes.
-- `ClaudeCodeProviderAdapter` with manual and opt-in local-snapshot modes.
-- `snapshots.json` for persisted normalized snapshots.
-- `providers.json` for persisted provider enablement state.
+- `ClaudeCodeProviderAdapter` with manual and opt-in managed statusLine modes.
+- One app-owned GRDB/SQLite database for persisted accounts, snapshots,
+  refresh settings, and safe source diagnostics.
 - A disabled credential surface plus a Keychain service interface for future
   real provider integrations.
 
@@ -54,8 +54,8 @@ The MVP fetches live data only through explicitly opted-in experimental source
 paths. The Codex app-server source uses the documented local app-server protocol
 but remains experimental because CLI compatibility can change. Ollama's
 experimental page source is live but undocumented and is not treated as
-authoritative. Claude Code can read an AI Limitbar-owned local snapshot as an
-explicit local estimate; the remaining provider paths are manual-confidence
+authoritative. Claude Code can write an AI Limitbar-owned managed database
+snapshot as an explicit local estimate; the remaining provider paths are manual-confidence
 fallbacks.
 
 ## Non-Goals For MVP
@@ -242,7 +242,7 @@ Supported source strategy:
 | Source | Output shape | Fit for AI Limitbar |
 | --- | --- | --- |
 | Claude Code `/usage`, `/cost`, and `/stats` commands | Interactive session screen showing session cost, plan usage limits, activity stats, and per-feature breakdown on supported plans. API session cost is computed locally from token counts. Pro, Max, Team, and Enterprise plans include plan usage bars and breakdowns; day/week breakdown is approximate and computed from local session history on the current machine. | Good manual source. Not a reliable parser target for MVP because the checked docs describe an interactive command, not a stable JSON CLI/API output for current remaining plan quota. |
-| Claude Code status line | User-configured command receives JSON session data on stdin, including `rate_limits.five_hour` and `rate_limits.seven_day` with consumed percentages and reset timestamps when available. | Selected opt-in source. AI Limitbar's helper writes a versioned local snapshot with `local-estimate` confidence. It remains machine/session-local, not authoritative account-wide usage. |
+| Claude Code status line | User-configured command receives JSON session data on stdin, including `rate_limits.five_hour` and `rate_limits.seven_day` with consumed percentages and reset timestamps when available. | Selected opt-in source. AI Limitbar's helper validates the input and writes a normalized `local-estimate` snapshot to the app-owned database. It remains machine/session-local, not authoritative account-wide usage. |
 | OpenTelemetry export | Metrics and logs/events for organization usage, cost, token counters, active time, tool activity, and API request events when telemetry is enabled. | Future team/admin mode can ingest telemetry with `local-estimate` or organization-reporting confidence. It requires explicit telemetry configuration and is not a default personal account source. |
 | Claude Code analytics dashboard | Team/Enterprise usage and contribution dashboards, with CSV export; API customers have Console team insights. | Future admin/reporting mode only. Not a live personal remaining-limit source. |
 | Claude Console Usage page | Authoritative billing for API users. | Manual source for API billing. It should not be shown as Claude subscription plan remaining quota. |
@@ -251,29 +251,28 @@ Selected initial confidence level: `local-estimate` for statusLine snapshots and
 `manual` when the helper is not configured.
 
 Selected MVP source mode: configure an AI Limitbar-owned statusLine helper. The
-helper consumes only documented statusLine JSON and writes schema v1 to
-`~/Library/Application Support/AI Limitbar/Claude Code/statusline.json`. The
-user must explicitly add the generated command to `~/.claude/settings.json`;
-AI Limitbar does not edit Claude Code settings automatically.
+helper consumes only documented statusLine JSON and writes the normalized
+snapshot to `~/Library/Application Support/AI Limitbar/AI Limitbar.sqlite`. The
+user must explicitly add the generated `--account-id` command to
+`~/.claude/settings.json`; AI Limitbar does not edit Claude Code settings
+automatically.
 
 First real provider decision: Claude Code is the initial Milestone 5 provider.
-The first implementation does not parse Claude's interactive screens or private
-local files. It provides an opt-in helper that writes an AI Limitbar-owned JSON
-snapshot. The snapshot contract is versioned and clearly labeled as local
-machine data rather than authoritative account-level quota.
+The implementation does not parse Claude's interactive screens or private local
+files. It provides an opt-in helper that writes only a normalized local-machine
+estimate, not authoritative account-level quota.
 
 Configuration requirements:
 
 - Provider settings persist a source mode for each provider.
-- Claude Code supports `manual` and `local-snapshot` source modes.
-- Claude Code local-snapshot mode persists a JSON file path; the Settings helper
-  setup defaults to the managed Application Support path.
-- One enabled account may use the managed helper path because Claude Code's
-  statusLine input does not carry an account identifier.
+- Claude Code supports `manual` and `claude-status-line` source modes.
+- Claude Code statusLine setup never persists a user-controlled JSON path.
+- Each managed helper command carries a saved account ID, so multiple accounts
+  can have independent statusLine snippets.
 - Existing provider settings without source fields must continue to load as
   `manual` mode.
 
-Local snapshot schema version 1:
+Legacy JSON snapshot schema version 1 is supported only for one-time migration:
 
 ```json
 {
@@ -445,27 +444,27 @@ should show an unavailable/manual state instead of inventing progress bars.
 
 ## Storage
 
-### Current JSON storage
+### Legacy JSON import
 
-The current MVP persists provider accounts, refresh settings, normalized
+Earlier releases persisted provider accounts, refresh settings, normalized
 snapshots, and the AI Limitbar-managed Claude Code `statusLine` payload as
-versioned JSON documents in Application Support. This is legacy storage for the
-planned database migration, not the long-term persistence architecture.
+versioned JSON documents in Application Support. They are now legacy import
+sources, not active persistence.
 
-Raw legacy arrays and documents with another format version are not decoded as
-current snapshots. Before replacing an unsupported or malformed document, the
-store preserves the original file as a local backup.
+Raw legacy arrays and documents with another format version are not imported.
+AI Limitbar never deletes or rewrites the original files, so they remain
+available as local backups.
 
-### Target local database
+### Active local database
 
-AI Limitbar will use GRDB over SQLite as its single app-owned persistence
+AI Limitbar uses GRDB over SQLite as its single app-owned persistence
 engine. The database location is fixed at
 `~/Library/Application Support/AI Limitbar/AI Limitbar.sqlite`; users do not
 select database or snapshot paths.
 
 GRDB is shared through `AILimitBarCore` by the menu bar app and the bundled
 `AILimitBarClaudeStatusLine` executable. SQLite WAL mode, foreign-key
-enforcement, transactions, and a bounded busy timeout provide predictable
+enforcement, transactions, and a two-second busy timeout provide predictable
 cross-process behavior. SQLite still permits one writer at a time; each writer
 must make a short, validated transaction rather than holding a write lock while
 performing provider or UI work.
@@ -485,7 +484,7 @@ same rule before attempting a write. A legacy import that finds a collision
 retains every account with deterministic ` (2)`, ` (3)`, and later suffixes and
 surfaces a migration warning rather than discarding or overwriting data.
 
-The Claude Code source becomes an AI Limitbar-managed database source. The
+The Claude Code source is an AI Limitbar-managed database source. The
 helper validates its documented `statusLine` input and writes the normalized
 local-estimate snapshot directly to the database, including when AI Limitbar is
 not running. The Settings UI does not expose a generic local JSON path.

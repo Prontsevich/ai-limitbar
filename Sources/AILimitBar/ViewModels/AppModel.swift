@@ -7,14 +7,16 @@ final class AppModel: ObservableObject {
     @Published var providerAccounts: [ProviderAccount] = []
     @Published var providerRefreshStatuses: [String: ProviderRefreshStatus] = [:]
     @Published var accountRefreshIssues: [String: AccountRefreshIssue] = [:]
+    @Published var sourceDiagnostics: [SourceDiagnostic] = []
     @Published var refreshSettings = RefreshSettings()
     @Published var isRefreshing = false
     @Published var storageWarning: String?
 
     let registry: ProviderRegistry
-    let snapshotStore: JSONSnapshotStore
-    let configurationStore: ProviderConfigurationStore
-    let refreshSettingsStore: RefreshSettingsStore
+    let snapshotStore: any CurrentSnapshotStore
+    let configurationStore: any ProviderAccountStore
+    let refreshSettingsStore: any RefreshSettingsStoreProtocol
+    let diagnosticStore: any SourceDiagnosticStore
     let refreshCoordinator: ProviderRefreshCoordinator
     let ollamaWebPageClient: OllamaWebPageClientController?
     var scheduledRefreshTimer: Timer?
@@ -31,10 +33,10 @@ final class AppModel: ObservableObject {
     ) {
         self.ollamaWebPageClient = ollamaWebPageClient
         let resolvedClient: any OllamaWebPageClient = ollamaWebPageClient ?? UnavailableOllamaWebPageClient()
-        self.registry = registry ?? ProviderRegistry(ollamaWebPageClient: resolvedClient)
         self.refreshCoordinator = refreshCoordinator
 
         let directory: URL
+        var initialStorageWarning: String?
         if let storageDirectory {
             directory = storageDirectory
         } else {
@@ -44,17 +46,43 @@ final class AppModel: ObservableObject {
                 let fallback = FileManager.default.temporaryDirectory.appendingPathComponent("AI Limitbar")
                 try? FileManager.default.createDirectory(at: fallback, withIntermediateDirectories: true)
                 directory = fallback
-                self.storageWarning = "Application Support is unavailable. Temporary storage is active."
+                initialStorageWarning = "Application Support is unavailable. Temporary storage is active."
             }
         }
 
-        let snapshotContainer = LocalSnapshotStorageContainer(snapshotsDirectory: directory)
-        self.snapshotStore = JSONSnapshotStore(container: snapshotContainer)
-        self.configurationStore = ProviderConfigurationStore(directory: directory)
-        self.refreshSettingsStore = RefreshSettingsStore(directory: directory)
+        let database: AppDatabase?
+        do {
+            database = try AppDatabase(directory: directory)
+        } catch {
+            database = nil
+            initialStorageWarning = "AI Limitbar storage is unavailable. Changes cannot be saved."
+        }
+        let snapshotStore = DatabaseSnapshotStore(database: database)
+        self.snapshotStore = snapshotStore
+        self.configurationStore = DatabaseProviderConfigurationStore(database: database)
+        self.refreshSettingsStore = DatabaseRefreshSettingsStore(database: database)
+        self.diagnosticStore = DatabaseSourceDiagnosticStore(database: database)
+        self.storageWarning = initialStorageWarning
+        self.registry = registry ?? ProviderRegistry(
+            ollamaWebPageClient: resolvedClient,
+            claudeSnapshotStore: snapshotStore
+        )
+
+        if let database {
+            do {
+                try LegacyStorageImporter(
+                    directory: directory,
+                    database: database,
+                    knownProviderIDs: Set(self.registry.adapters.map(\.id))
+                ).runIfNeeded()
+            } catch {
+                self.storageWarning = "Legacy JSON data could not be migrated. Existing database data remains available."
+            }
+        }
         loadConfiguration()
         loadRefreshSettings()
         loadSnapshots()
+        loadDiagnostics()
         configureScheduledRefresh()
     }
 
@@ -163,6 +191,14 @@ final class AppModel: ObservableObject {
 
     func snapshot(for account: ProviderAccount) -> UsageSnapshot? {
         snapshots.first { $0.id == account.id }
+    }
+
+    func migrationDiagnostics(for account: ProviderAccount) -> [SourceDiagnostic] {
+        sourceDiagnostics.filter {
+            $0.providerID == account.providerID &&
+                $0.accountID == account.accountID &&
+                !$0.code.hasPrefix("refresh-")
+        }
     }
 
     func isSnapshotStale(_ snapshot: UsageSnapshot, now: Date = Date()) -> Bool {

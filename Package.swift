@@ -12,6 +12,9 @@ let package = Package(
         .executable(name: "AILimitBarClaudeStatusLine", targets: ["AILimitBarClaudeStatusLine"]),
         .library(name: "AILimitBarCore", targets: ["AILimitBarCore"])
     ],
+    dependencies: [
+        .package(url: "https://github.com/groue/GRDB.swift.git", from: "7.10.0")
+    ],
     targets: [
         .executableTarget(
             name: "AILimitBar",
@@ -25,6 +28,9 @@ let package = Package(
         ),
         .target(
             name: "AILimitBarCore",
+            dependencies: [
+                .product(name: "GRDB", package: "GRDB.swift")
+            ],
             path: "Sources/AILimitBarCore"
         ),
         .testTarget(

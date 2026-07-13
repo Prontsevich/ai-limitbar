@@ -1,4 +1,5 @@
 import Foundation
+import GRDB
 
 public enum ClaudeCodeStatusLineError: Error, LocalizedError, Equatable, Sendable {
     case invalidInput
@@ -19,16 +20,16 @@ public enum ClaudeCodeStatusLineError: Error, LocalizedError, Equatable, Sendabl
 
 public struct ClaudeCodeStatusLinePaths: Sendable {
     public static let directoryName = "Claude Code"
-    public static let snapshotFileName = "statusline.json"
+    public static let legacySnapshotFileName = "statusline.json"
     public static let helperFileName = "AILimitBarClaudeStatusLine"
 
-    public static func snapshotURL(
+    public static func legacySnapshotURL(
         directoryResolver: ApplicationSupportDirectoryResolver = ApplicationSupportDirectoryResolver()
     ) throws -> URL {
         try directoryResolver
             .resolve()
             .appendingPathComponent(directoryName, isDirectory: true)
-            .appendingPathComponent(snapshotFileName)
+            .appendingPathComponent(legacySnapshotFileName)
     }
 
     public static func helperURL(
@@ -92,6 +93,115 @@ public struct ClaudeCodeStatusLineSnapshotWriter: Sendable {
         )
         try encoded.write(to: url, options: .atomic)
         return snapshot
+    }
+}
+
+public enum ClaudeCodeSnapshotFactory {
+    public static func makeUsageSnapshot(
+        from payload: ClaudeCodeLocalSnapshot,
+        account: ProviderAccount
+    ) throws -> UsageSnapshot {
+        try validate(payload)
+        let highestKnownPercent = [payload.usedPercent, payload.limitWindows.compactMap(\.usedPercent).max()]
+            .compactMap { $0 }
+            .max()
+        let status: UsageStatus
+        if let highestKnownPercent, highestKnownPercent >= 85 {
+            status = .warning
+        } else if highestKnownPercent != nil || payload.remainingLabel != nil || !payload.limitWindows.isEmpty {
+            status = .ok
+        } else {
+            status = .unavailable
+        }
+
+        return UsageSnapshot(
+            providerID: "claude-code",
+            accountID: account.accountID,
+            accountDisplayName: account.displayName,
+            displayName: "Claude Code",
+            status: status,
+            planName: payload.planName,
+            periodLabel: payload.periodLabel,
+            usedPercent: payload.usedPercent,
+            remainingLabel: payload.remainingLabel,
+            resetAt: payload.resetAt,
+            limitWindows: payload.limitWindows,
+            lastUpdatedAt: payload.lastUpdatedAt,
+            confidence: .localEstimate,
+            source: "Claude Code managed statusLine",
+            warnings: ["Local estimate only; usage from other machines or Claude surfaces may be missing."]
+        )
+    }
+
+    private static func validate(_ payload: ClaudeCodeLocalSnapshot) throws {
+        guard payload.schemaVersion == 1 else {
+            throw ProviderAdapterError(
+                providerID: "claude-code",
+                message: "Claude Code local snapshot schema version is unsupported.",
+                recoverySuggestion: "Run the bundled statusLine helper again."
+            )
+        }
+        if let usedPercent = payload.usedPercent, !(0...100).contains(usedPercent) {
+            throw ProviderAdapterError(
+                providerID: "claude-code",
+                message: "Claude Code local snapshot usedPercent must be between 0 and 100."
+            )
+        }
+        if let invalidWindow = payload.limitWindows.first(where: {
+            guard let usedPercent = $0.usedPercent else { return false }
+            return !(0...100).contains(usedPercent)
+        }) {
+            throw ProviderAdapterError(
+                providerID: "claude-code",
+                message: "Claude Code local snapshot limit window '\(invalidWindow.displayName)' usedPercent must be between 0 and 100."
+            )
+        }
+    }
+}
+
+public struct ClaudeCodeStatusLineDatabaseWriter: Sendable {
+    private let directory: URL
+
+    public init(directory: URL) {
+        self.directory = directory
+    }
+
+    @discardableResult
+    public func writeSnapshot(
+        from data: Data,
+        accountID: String,
+        now: Date = Date()
+    ) throws -> UsageSnapshot {
+        let payload = try ClaudeCodeStatusLineSnapshotWriter().makeSnapshot(from: data, now: now)
+        let database = try AppDatabase(directory: directory)
+        return try database.pool.write { db in
+            guard let row = try Row.fetchOne(
+                db,
+                sql: """
+                    SELECT display_name, is_enabled, source_mode, web_data_store_id, codex_executable_path
+                    FROM provider_accounts
+                    WHERE provider_id = 'claude-code' AND account_id = ?
+                    """,
+                arguments: [accountID]
+            ),
+            row["source_mode"] as String == ProviderSourceMode.claudeStatusLine.rawValue
+            else {
+                throw AppDatabaseError.missingClaudeCodeAccount
+            }
+
+            let account = ProviderAccount(
+                providerID: "claude-code",
+                accountID: accountID,
+                displayName: row["display_name"],
+                isEnabled: row["is_enabled"],
+                sourceMode: .claudeStatusLine,
+                webDataStoreID: (row["web_data_store_id"] as String?).flatMap(UUID.init(uuidString:)),
+                codexExecutablePath: row["codex_executable_path"]
+            )
+            let snapshot = try ClaudeCodeSnapshotFactory.makeUsageSnapshot(from: payload, account: account)
+            try DatabaseSnapshotStore.upsert(snapshot, in: db)
+            return snapshot
+        }
     }
 }
 

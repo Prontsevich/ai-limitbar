@@ -126,6 +126,7 @@ extension AppModel {
         } else {
             upsert(snapshot)
             accountRefreshIssues.removeValue(forKey: snapshot.id)
+            clearPersistedRefreshIssue(for: snapshot)
             setRefreshStatus(.succeeded(snapshot.lastUpdatedAt), for: snapshot.id)
         }
         return true
@@ -135,10 +136,12 @@ extension AppModel {
         if existingSnapshot(matching: snapshot) == nil {
             upsert(snapshot)
         }
-        accountRefreshIssues[snapshot.id] = AccountRefreshIssue(
+        let issue = AccountRefreshIssue(
             occurredAt: snapshot.lastUpdatedAt,
             warnings: snapshot.warnings
         )
+        accountRefreshIssues[snapshot.id] = issue
+        persistRefreshIssue(issue, for: snapshot)
         setRefreshStatus(.failed(snapshot.lastUpdatedAt), for: snapshot.id)
     }
 

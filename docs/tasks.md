@@ -601,45 +601,45 @@ Goal: replace the app's JSON persistence and Claude Code snapshot file with one
 app-owned SQLite database accessed through GRDB, without losing existing local
 state or weakening the current privacy boundary.
 
-- [ ] Add GRDB through Swift Package Manager and make it available to both
+- [x] Add GRDB through Swift Package Manager and make it available to both
   `AILimitBar` and `AILimitBarClaudeStatusLine` through `AILimitBarCore`.
-- [ ] Create one non-user-configurable database at
+- [x] Create one non-user-configurable database at
   `~/Library/Application Support/AI Limitbar/AI Limitbar.sqlite` and enable
   WAL mode, foreign-key enforcement, and a bounded busy timeout.
-- [ ] Define versioned GRDB migrations for provider accounts, current
+- [x] Define versioned GRDB migrations for provider accounts, current
   normalized snapshots, refresh settings, and persisted source diagnostics.
   Preserve the current app behavior; history/chart retention is a separate
   feature, not an implicit migration requirement.
-- [ ] Enforce one globally unique account display name across all persisted
+- [x] Enforce one globally unique account display name across all persisted
   accounts, including disabled accounts. Trim leading/trailing whitespace and
   compare names case-insensitively before save; back the rule with a normalized
   database column and a unique constraint rather than UI validation alone.
-- [ ] Replace `JSONSnapshotStore`, `ProviderConfigurationStore`, and
+- [x] Replace `JSONSnapshotStore`, `ProviderConfigurationStore`, and
   `RefreshSettingsStore` behind focused store protocols so `AppModel` keeps its
   existing account and refresh behavior.
-- [ ] Replace Claude Code's generic `local-snapshot` path with an
+- [x] Replace Claude Code's generic `local-snapshot` path with an
   AI Limitbar-managed `statusLine` database source. The helper must validate
   and write only the normalized snapshot in a short transaction, even when the
   app is not running.
-- [ ] Remove the user-editable local snapshot path from Settings after the
+- [x] Remove the user-editable local snapshot path from Settings after the
   managed source is available. Existing custom paths must not be silently
   followed forever: import the last valid value once, retain a clear migration
   warning, and guide the user to configure the bundled helper.
-- [ ] On first launch, import valid legacy `providers.json`, `snapshots.json`,
+- [x] On first launch, import valid legacy `providers.json`, `snapshots.json`,
   refresh settings, and the managed Claude `statusline.json` into one atomic
   database migration. Preserve the original files as backups and make the
   migration idempotent. If legacy accounts collide after name normalization,
   retain every account by assigning deterministic display-name suffixes such as
   ` (2)` and record an actionable migration warning.
-- [ ] Keep malformed, unsupported, or partially importable legacy data from
+- [x] Keep malformed, unsupported, or partially importable legacy data from
   replacing valid database rows; surface actionable diagnostics instead.
-- [ ] Keep credentials, cookies, WebKit browser data, raw provider responses,
+- [x] Keep credentials, cookies, WebKit browser data, raw provider responses,
   and opaque account/authentication fields out of the database.
-- [ ] Add tests for schema creation/upgrades, concurrent app/helper writes,
+- [x] Add tests for schema creation/upgrades, concurrent app/helper writes,
   legacy import, idempotency, rollback on failed migration, custom-path
   migration warnings, display-name uniqueness, deterministic legacy-name
   conflict resolution, and preservation of the last valid snapshot.
-- [ ] Document the database location, backup/recovery behavior, migration
+- [x] Document the database location, backup/recovery behavior, migration
   result, and the new Claude Code setup flow.
 
 Acceptance:

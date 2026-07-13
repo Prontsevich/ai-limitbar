@@ -1,4 +1,5 @@
 import AILimitBarCore
+import Foundation
 
 extension AppModel {
     func loadConfiguration() {
@@ -21,7 +22,7 @@ extension AppModel {
     }
 
     func loadRefreshSettings() {
-        let result = refreshSettingsStore.load()
+        let result = refreshSettingsStore.load(defaults: RefreshSettings())
         refreshSettings = result.settings
         storageWarning = storageWarning ?? result.warning
     }
@@ -68,6 +69,57 @@ extension AppModel {
 
     func existingSnapshot(matching snapshot: UsageSnapshot) -> UsageSnapshot? {
         snapshots.first { $0.id == snapshot.id }
+    }
+
+    func loadDiagnostics() {
+        let diagnostics = diagnosticStore.load()
+        sourceDiagnostics = diagnostics
+        let accountDiagnostics = Dictionary(grouping: diagnostics.compactMap { diagnostic -> (String, SourceDiagnostic)? in
+            guard let providerID = diagnostic.providerID,
+                  let accountID = diagnostic.accountID,
+                  diagnostic.code.hasPrefix("refresh-")
+            else { return nil }
+            return ("\(providerID):\(accountID)", diagnostic)
+        }, by: \.0)
+        accountRefreshIssues = Dictionary(uniqueKeysWithValues: accountDiagnostics.map { accountID, entries in
+            let diagnostics = entries.map(\.1).sorted { $0.code < $1.code }
+            return (
+                accountID,
+                AccountRefreshIssue(
+                    occurredAt: diagnostics.map(\.occurredAt).max() ?? Date(),
+                    warnings: diagnostics.map(\.message)
+                )
+            )
+        })
+
+        if storageWarning == nil,
+           let globalDiagnostic = diagnostics.first(where: { $0.providerID == nil && $0.accountID == nil }) {
+            storageWarning = globalDiagnostic.message
+        }
+    }
+
+    func persistRefreshIssue(_ issue: AccountRefreshIssue, for snapshot: UsageSnapshot) {
+        do {
+            try diagnosticStore.replaceRefreshDiagnostics(
+                providerID: snapshot.providerID,
+                accountID: snapshot.accountID,
+                occurredAt: issue.occurredAt,
+                messages: issue.warnings
+            )
+        } catch {
+            storageWarning = "Provider diagnostics could not be saved."
+        }
+    }
+
+    func clearPersistedRefreshIssue(for snapshot: UsageSnapshot) {
+        do {
+            try diagnosticStore.clearRefreshDiagnostics(
+                providerID: snapshot.providerID,
+                accountID: snapshot.accountID
+            )
+        } catch {
+            storageWarning = "Provider diagnostics could not be saved."
+        }
     }
 
     private func clearStorageWarning(_ warning: String) {

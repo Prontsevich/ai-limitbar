@@ -247,7 +247,7 @@ struct AccountDetailsView: View {
             "Connect Ollama to load the experimental settings-page source."
         case .appServer:
             "Refresh this account to read the experimental local Codex app-server source."
-        case .manual, .localSnapshot:
+        case .manual, .claudeStatusLine:
             "Refresh or test this account to load a snapshot."
         }
     }
