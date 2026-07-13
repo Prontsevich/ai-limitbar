@@ -63,8 +63,7 @@ AI Limitbar is a modern-only macOS app targeting macOS 26 Tahoe or later.
 ## 🗄️ Storage
 
 All data lives in a local [GRDB](https://github.com/groue/GRDB.swift)/SQLite database at
-`~/Library/Application Support/AI Limitbar/AI Limitbar.sqlite`. Legacy JSON files are
-imported once on first launch and preserved as `.backup`.
+`~/Library/Application Support/AI Limitbar/AI Limitbar.sqlite`.
 
 **Never stored:** credentials, cookies, tokens, raw provider responses, or raw statusLine payloads.
 
