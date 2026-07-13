@@ -5,7 +5,6 @@
 
 [![Swift 6.2](https://img.shields.io/badge/Swift-6.2-F05138?logo=swift&logoColor=white)](https://swift.org)
 [![macOS 26+](https://img.shields.io/badge/macOS-26%2B-000000?logo=apple&logoColor=white)](https://www.apple.com/macos)
-[![SwiftPM](https://img.shields.io/badge/SwiftPM-package-FA7343?logo=swift&logoColor=white)](https://swift.org/package-manager)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](#license)
 
 The MVP is intentionally honest about data quality: values can be live,
@@ -16,27 +15,11 @@ credentials are required to start.
 
 ## ✨ Features
 
-**📊 Usage Tracking**
 - Normalized snapshots across providers — live, delayed, local estimates, or manual
 - Configurable refresh interval (manual by default)
 - Per-provider refresh status with stale-snapshot flags
-- Configurable dashboard height presets: `Compact` (320 pt), `Standard` (440 pt), `Tall` (640 pt)
-
-**🔌 Providers**
-- OpenAI Codex — manual + experimental app-server rate-limit source
-- Claude Code — `statusLine` helper for local-estimate snapshots
-- Ollama Cloud — experimental web-page source with isolated WebKit sessions
-- Mock provider for development
-
-**🔒 Privacy-first**
-- No credentials stored — Keychain interface ready for future integrations
-- No raw provider responses, cookies, or tokens persisted
-- Each web source gets an isolated WebKit data store
-
-**🖥️ Menu-bar-only**
-- `LSUIElement` bundle — no Dock icon, no main window
-- Liquid Glass-capable, macOS 26 Tahoe baseline
-- Terminal-fieldset dashboard design (Codex `/status` + lazygit visual grammar)
+- Dashboard height presets: `Compact` (320 pt), `Standard` (440 pt), `Tall` (640 pt)
+- Menu-bar-only `LSUIElement` bundle — no Dock icon, no main window
 
 ## 🔌 Providers
 
@@ -62,8 +45,6 @@ swift test                 # Test
 ./script/build_and_run.sh  # Build, stage .app bundle, launch
 ```
 
-Useful run modes:
-
 | Mode | Description |
 | --- | --- |
 | `--verify` | Build + foreground app smoke test |
@@ -71,37 +52,21 @@ Useful run modes:
 | `--logs` | Show live app logs |
 | `--telemetry` | Enable telemetry output |
 
-The run script stages a menu-bar-only `.app` bundle in `dist/AILimitBar.app`,
-ad-hoc signed and validated after staging.
-
 ## 🎨 Platform Direction
 
 AI Limitbar is a modern-only macOS app targeting macOS 26 Tahoe or later.
 
 - Standard SwiftUI controls and system structures are the default — Liquid Glass is the design baseline
-- Custom glass surfaces for AI Limitbar-specific compositions only, not for recreating system controls
 - Terminal-fieldset dashboard is an intentional exception (see [`docs/dashboard-design.md`](docs/dashboard-design.md))
 - Settings follow a terminal-adjacent style (see [`docs/settings-design.md`](docs/settings-design.md))
 
 ## 🗄️ Storage
 
-Accounts, snapshots, refresh settings, and source diagnostics are stored in a
-local [GRDB](https://github.com/groue/GRDB.swift)/SQLite database:
+All data lives in a local [GRDB](https://github.com/groue/GRDB.swift)/SQLite database at
+`~/Library/Application Support/AI Limitbar/AI Limitbar.sqlite`. Legacy JSON files are
+imported once on first launch and preserved as `.backup`.
 
-```
-~/Library/Application Support/AI Limitbar/AI Limitbar.sqlite
-```
-
-SQLite WAL mode, foreign keys, and a bounded write timeout are enabled so the
-bundled Claude Code `statusLine` helper can update snapshots while the app is
-closed or reading. The dashboard-height preset is stored separately in
-`UserDefaults`.
-
-Legacy `snapshots.json`, `providers.json`, and `refresh-settings.json` files
-are imported once on first launch and preserved as `.backup` — never deleted.
-
-**Never stored:** credentials, cookies, tokens, raw provider responses, or raw
-statusLine payloads.
+**Never stored:** credentials, cookies, tokens, raw provider responses, or raw statusLine payloads.
 
 ## 📖 Documentation
 
@@ -115,18 +80,9 @@ statusLine payloads.
 
 ## 🗺️ Roadmap
 
-Completed milestones ✅ → future work 📋.
+**Done ✅** — Milestones 0–17: app skeleton, persistence, provider research, Claude Code, refresh coordination, account model, dashboard redesign, settings master-detail, modern macOS baseline, Ollama web source, Codex app-server, SQLite migration, terminal dashboard.
 
-**Done ✅** (Milestones 0–17)
-App skeleton · persistence · provider research · Claude Code source · refresh
-coordination · widget readiness · account model · dashboard redesign · settings
-master-detail · modern macOS baseline · stabilization · Ollama web source ·
-Codex app-server · SQLite migration · terminal dashboard.
-
-**Backlog 📋** (Milestones 18–24)
-Settings window lifecycle · provider/account readiness · daily-use polish ·
-app localization (EN+RU) · per-limit thresholds · usage notifications ·
-dashboard themes · WidgetKit widget.
+**Backlog 📋** — Milestones 18–24: settings window lifecycle, provider/account readiness, daily-use polish, localization (EN+RU), per-limit thresholds, usage notifications, dashboard themes, WidgetKit widget.
 
 ## 📄 License
 
