@@ -30,7 +30,8 @@ let package = Package(
         .testTarget(
             name: "AILimitBarCoreTests",
             dependencies: ["AILimitBarCore"],
-            path: "Tests/AILimitBarCoreTests"
+            path: "Tests/AILimitBarCoreTests",
+            resources: [.copy("Fixtures")]
         ),
         .testTarget(
             name: "AILimitBarTests",

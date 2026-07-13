@@ -185,9 +185,7 @@ struct AccountDetailsView: View {
         VStack(alignment: .leading, spacing: 4) {
             Text("No usage data")
                 .font(.subheadline.weight(.semibold))
-            Text(currentAccount.sourceMode == .ollamaWebPage
-                ? "Connect Ollama to load the experimental settings-page source."
-                : "Refresh or test this account to load a snapshot.")
+            Text(emptyStateMessage)
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -241,6 +239,17 @@ struct AccountDetailsView: View {
 
     private var ollamaConnectionTitle: String {
         currentAccount.webDataStoreID == nil ? "Connect" : "Reconnect"
+    }
+
+    private var emptyStateMessage: String {
+        switch currentAccount.sourceMode {
+        case .ollamaWebPage:
+            "Connect Ollama to load the experimental settings-page source."
+        case .appServer:
+            "Refresh this account to read the experimental local Codex app-server source."
+        case .manual, .localSnapshot:
+            "Refresh or test this account to load a snapshot."
+        }
     }
 
     private func beginOllamaConnection() {

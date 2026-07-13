@@ -41,7 +41,8 @@ account settings, and a project-local build/run script.
 The app ships with:
 
 - `MockProviderAdapter` for refreshable local-estimate data.
-- Manual placeholder adapter for OpenAI Codex.
+- `CodexAppServerProviderAdapter` with a manual fallback and an opt-in
+  experimental app-server source for one local Codex CLI identity.
 - `OllamaCloudProviderAdapter` with manual and opt-in experimental web-page modes.
 - `ClaudeCodeProviderAdapter` with manual and opt-in local-snapshot modes.
 - `snapshots.json` for persisted normalized snapshots.
@@ -49,15 +50,13 @@ The app ships with:
 - A disabled credential surface plus a Keychain service interface for future
   real provider integrations.
 
-The MVP deliberately does not fetch authoritative live OpenAI, Claude, or Ollama
-quota data. Ollama's experimental page source is live but undocumented and is
-not treated as authoritative. Claude Code can read an AI Limitbar-owned local snapshot as an
-explicit local estimate; the other provider paths remain manual-confidence
-placeholders until stable machine-readable sources are verified.
-
-The planned Ollama Cloud web-page mode is an explicit exception to the
-manual-first baseline. It remains disabled by default and is not part of the
-current implementation until Milestone 14 is complete.
+The MVP fetches live data only through explicitly opted-in experimental source
+paths. The Codex app-server source uses the documented local app-server protocol
+but remains experimental because CLI compatibility can change. Ollama's
+experimental page source is live but undocumented and is not treated as
+authoritative. Claude Code can read an AI Limitbar-owned local snapshot as an
+explicit local estimate; the remaining provider paths are manual-confidence
+fallbacks.
 
 ## Non-Goals For MVP
 
@@ -181,42 +180,39 @@ failure must preserve the last valid normalized snapshot.
 
 ### OpenAI Codex
 
-Codex exposes usage and rate-limit information through product surfaces such as
-CLI commands and status UI. Enterprise workspaces also have analytics-style
-reporting, but that data can lag and may not represent a personal real-time
-remaining quota.
+AI Limitbar keeps `manual` as the default and fallback OpenAI Codex source. One
+explicitly selected account may use `app-server`, which starts a short-lived
+local `codex app-server --listen stdio://` process for a refresh. It performs
+the documented JSONL initialization handshake, requests
+`account/rateLimits/read`, then terminates the process. This is not terminal
+automation: AI Limitbar never starts an interactive CLI, drives `/status`
+through a PTY, reads browser content, or reads local Codex authentication or
+session files.
 
-Initial integration should be treated as best-effort until a stable,
-documented source for the target account type is confirmed.
+The app resolves `codex` from an optional per-account executable override, then
+from the shell PATH and standard local install locations. The override is a
+local executable path only; AI Limitbar does not persist credentials, cookies,
+tokens, or account files. Automatic discovery never stores its result.
 
-MVP status: manual-confidence placeholder only. The app can open the provider
-surface, but it does not parse Codex usage or store Codex credentials.
+The source selects a limit bucket only when it is explicitly identified as
+`codex`: the exact `rateLimitsByLimitId.codex` entry is preferred, otherwise
+the response must contain exactly one bucket whose `limitId` is `codex`. It
+normalizes a valid `primary` window and an optional valid `secondary` window.
+Malformed percentages, missing buckets, invalid reset timestamps, and changed
+protocol shapes result in a useful warning or recoverable error; they never
+produce a fabricated quota value. If a valid response is received, the snapshot
+is `live` and is labeled `Codex app-server (Experimental)` with a compatibility
+warning.
 
-Research date: 2026-07-07.
+Raw JSON-RPC payloads remain process-local and are discarded. The decoder
+projects only the limit identifier, percentage, duration, and reset timestamp;
+credit balances, opaque reset-credit identifiers, and other account fields are
+excluded before snapshot creation or diagnostics. A missing executable,
+unauthenticated CLI, unsupported protocol, malformed response, timeout, or
+launch failure leaves the manual workflow available and preserves the last
+valid snapshot through the existing refresh path.
 
-Official sources checked:
-
-- <https://developers.openai.com/codex/auth>
-- <https://developers.openai.com/codex/pricing>
-- <https://developers.openai.com/codex/cli/slash-commands>
-- <https://developers.openai.com/codex/enterprise/governance>
-
-Supported source strategy by account type:
-
-| Account type | Supported source | Fit for AI Limitbar |
-| --- | --- | --- |
-| ChatGPT Plus, Pro, Business, Edu, or Enterprise signed in through Codex | Codex usage dashboard for current limits; CLI `/status` for remaining limits during an active CLI session; CLI `/usage` for daily, weekly, or cumulative token activity when service account auth is present. | MVP should use `manual` confidence and open the Codex usage dashboard or instruct the user to inspect `/status` or `/usage`. There is no documented non-interactive local API for current remaining quota in the checked docs. |
-| API key auth | Usage-based access charged through the OpenAI Platform account. | Treat as separate from ChatGPT Codex included limits. A future API-key mode may link to Platform usage, but it should not be displayed as ChatGPT Codex remaining quota. |
-| Enterprise/Edu admin or analytics viewer | Codex Analytics Dashboard and Analytics API. The API returns daily or weekly workspace/per-user usage buckets and requires `codex.enterprise.analytics.read`. The dashboard data can lag by up to 12 hours. | Future admin-only mode can use `delayed` confidence for workspace reporting. It is not a personal live limit source and should not be the default provider mode. |
-| Enterprise compliance workflows | Compliance API exports audit records and token metadata for ChatGPT-authenticated Codex activity. | Useful for governance/audit integrations, not for a compact remaining-limit widget. |
-
-Selected initial confidence level: `manual`.
-
-Selected MVP source mode: open the Codex usage dashboard and label the snapshot
-as manual. Do not parse browser pages, raw local auth state, CLI TUI output, or
-undocumented Codex service endpoints. Revisit implementation only if an
-official non-interactive source for current personal Codex limits is documented
-or if an enterprise user explicitly configures the delayed Analytics API mode.
+Reference: <https://developers.openai.com/codex/app-server/>.
 
 ### Claude Code
 
@@ -325,8 +321,8 @@ The schema intentionally excludes free-form provider warnings, raw responses,
 credentials, cookies, and tokens so the app does not persist arbitrary provider
 text outside Keychain.
 
-OpenAI Codex remains manual-first because the checked sources do not document a
-non-interactive personal quota API. Ollama Cloud remains manual-first by
+OpenAI Codex remains manual-first, with an opt-in local app-server rate-limit
+source for one authenticated CLI identity. Ollama Cloud remains manual-first by
 default because the checked API docs do not expose account usage or
 remaining-limit endpoints; its planned web-page mode is isolated and clearly
 marked as experimental.

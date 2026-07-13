@@ -46,7 +46,8 @@ extension AppModel {
         accountID: String,
         displayName: String,
         sourceMode: ProviderSourceMode,
-        localSnapshotPath: String?
+        localSnapshotPath: String?,
+        codexExecutablePath: String? = nil
     ) -> Bool {
         let previousAccounts = providerAccounts
         let previousSnapshots = snapshots
@@ -56,11 +57,19 @@ extension AppModel {
 
         let trimmedDisplayName = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedSnapshotPath = localSnapshotPath?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let trimmedCodexExecutablePath = codexExecutablePath?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let resolvedDisplayName = trimmedDisplayName.isEmpty ? ProviderAccount.defaultDisplayName : trimmedDisplayName
+
+        guard !hasCodexAppServerConflict(
+            providerID: providerID,
+            accountID: accountID,
+            sourceMode: sourceMode
+        ) else { return false }
 
         providerAccounts[index].displayName = resolvedDisplayName
         providerAccounts[index].sourceMode = sourceMode
         providerAccounts[index].localSnapshotPath = trimmedSnapshotPath.isEmpty ? nil : trimmedSnapshotPath
+        providerAccounts[index].codexExecutablePath = trimmedCodexExecutablePath.isEmpty ? nil : trimmedCodexExecutablePath
         updateSnapshotAccountDisplayName(
             providerID: providerID,
             accountID: accountID,
@@ -99,7 +108,11 @@ extension AppModel {
         let previousAccounts = providerAccounts
         guard let index = providerAccounts.firstIndex(where: {
             $0.providerID == providerID && $0.accountID == accountID
-        }) else { return }
+        }), !hasCodexAppServerConflict(
+            providerID: providerID,
+            accountID: accountID,
+            sourceMode: sourceMode
+        ) else { return }
 
         providerAccounts[index].sourceMode = sourceMode
         if !saveConfiguration() {
@@ -168,19 +181,27 @@ extension AppModel {
         displayName: String? = nil,
         isEnabled: Bool = true,
         sourceMode: ProviderSourceMode = .manual,
-        localSnapshotPath: String? = nil
+        localSnapshotPath: String? = nil,
+        codexExecutablePath: String? = nil
     ) -> ProviderAccount? {
         guard adapter(for: providerID) != nil else { return nil }
         let previousAccounts = providerAccounts
         let trimmedDisplayName = displayName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let trimmedSnapshotPath = localSnapshotPath?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let trimmedCodexExecutablePath = codexExecutablePath?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !hasCodexAppServerConflict(
+            providerID: providerID,
+            accountID: nil,
+            sourceMode: sourceMode
+        ) else { return nil }
         let account = ProviderAccount(
             providerID: providerID,
             accountID: "account-\(UUID().uuidString.lowercased())",
             displayName: trimmedDisplayName.isEmpty ? nextAccountDisplayName(for: providerID) : trimmedDisplayName,
             isEnabled: isEnabled,
             sourceMode: sourceMode,
-            localSnapshotPath: trimmedSnapshotPath.isEmpty ? nil : trimmedSnapshotPath
+            localSnapshotPath: trimmedSnapshotPath.isEmpty ? nil : trimmedSnapshotPath,
+            codexExecutablePath: trimmedCodexExecutablePath.isEmpty ? nil : trimmedCodexExecutablePath
         )
         providerAccounts.append(account)
         if !saveConfiguration() {
@@ -249,6 +270,19 @@ extension AppModel {
 
     private func nextAccountDisplayName(for providerID: String) -> String {
         "Account \(accounts(for: providerID).count + 1)"
+    }
+
+    func hasCodexAppServerConflict(
+        providerID: String,
+        accountID: String?,
+        sourceMode: ProviderSourceMode
+    ) -> Bool {
+        guard providerID == "openai-codex", sourceMode == .appServer else { return false }
+        return providerAccounts.contains {
+            $0.providerID == "openai-codex" &&
+                $0.sourceMode == .appServer &&
+                $0.accountID != accountID
+        }
     }
 
     private func moveAccount(providerID: String, accountID: String, offset: Int) {

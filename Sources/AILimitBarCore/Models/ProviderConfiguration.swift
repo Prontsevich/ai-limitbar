@@ -4,12 +4,14 @@ public enum ProviderSourceMode: String, Codable, CaseIterable, Sendable {
     case manual
     case localSnapshot = "local-snapshot"
     case ollamaWebPage = "ollama-web-page"
+    case appServer = "app-server"
 
     public var displayName: String {
         switch self {
         case .manual: "Manual"
         case .localSnapshot: "Local snapshot"
         case .ollamaWebPage: "Experimental web page"
+        case .appServer: "Experimental app-server"
         }
     }
 }
@@ -28,6 +30,7 @@ public struct ProviderAccount: Codable, Identifiable, Equatable, Sendable {
     public var sourceMode: ProviderSourceMode
     public var localSnapshotPath: String?
     public var webDataStoreID: UUID?
+    public var codexExecutablePath: String?
 
     public init(
         providerID: String,
@@ -36,7 +39,8 @@ public struct ProviderAccount: Codable, Identifiable, Equatable, Sendable {
         isEnabled: Bool,
         sourceMode: ProviderSourceMode = .manual,
         localSnapshotPath: String? = nil,
-        webDataStoreID: UUID? = nil
+        webDataStoreID: UUID? = nil,
+        codexExecutablePath: String? = nil
     ) {
         self.providerID = providerID
         self.accountID = accountID
@@ -45,6 +49,7 @@ public struct ProviderAccount: Codable, Identifiable, Equatable, Sendable {
         self.sourceMode = sourceMode
         self.localSnapshotPath = localSnapshotPath
         self.webDataStoreID = webDataStoreID
+        self.codexExecutablePath = codexExecutablePath
     }
 
     public init(from decoder: Decoder) throws {
@@ -56,5 +61,6 @@ public struct ProviderAccount: Codable, Identifiable, Equatable, Sendable {
         sourceMode = try container.decodeIfPresent(ProviderSourceMode.self, forKey: .sourceMode) ?? .manual
         localSnapshotPath = try container.decodeIfPresent(String.self, forKey: .localSnapshotPath)
         webDataStoreID = try container.decodeIfPresent(UUID.self, forKey: .webDataStoreID)
+        codexExecutablePath = try container.decodeIfPresent(String.self, forKey: .codexExecutablePath)
     }
 }

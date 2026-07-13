@@ -217,6 +217,62 @@ final class AppModelTests: XCTestCase {
     }
 
     @MainActor
+    func testCodexAppServerConfigurationPersistsAndAllowsOnlyOneAccount() throws {
+        let directory = try temporaryDirectory()
+        let adapter = ImmediateProviderAdapter(id: "openai-codex")
+        let model = AppModel(
+            registry: ProviderRegistry(adapters: [adapter]),
+            storageDirectory: directory
+        )
+
+        let firstAccount = try XCTUnwrap(model.addAccount(
+            providerID: adapter.id,
+            displayName: "Personal",
+            sourceMode: .appServer,
+            codexExecutablePath: "  ~/.local/bin/codex  "
+        ))
+        let secondAccount = try XCTUnwrap(model.addAccount(
+            providerID: adapter.id,
+            displayName: "Work",
+            sourceMode: .manual
+        ))
+
+        XCTAssertNil(model.addAccount(
+            providerID: adapter.id,
+            displayName: "Duplicate",
+            sourceMode: .appServer
+        ))
+        XCTAssertFalse(model.updateAccount(
+            providerID: secondAccount.providerID,
+            accountID: secondAccount.accountID,
+            displayName: secondAccount.displayName,
+            sourceMode: .appServer,
+            localSnapshotPath: nil,
+            codexExecutablePath: nil
+        ))
+        model.setAccountSourceMode(
+            secondAccount.providerID,
+            accountID: secondAccount.accountID,
+            sourceMode: .appServer
+        )
+        XCTAssertEqual(
+            model.account(providerID: secondAccount.providerID, accountID: secondAccount.accountID)?.sourceMode,
+            .manual
+        )
+
+        let reloaded = AppModel(
+            registry: ProviderRegistry(adapters: [adapter]),
+            storageDirectory: directory
+        )
+        let persisted = try XCTUnwrap(reloaded.account(
+            providerID: firstAccount.providerID,
+            accountID: firstAccount.accountID
+        ))
+        XCTAssertEqual(persisted.sourceMode, .appServer)
+        XCTAssertEqual(persisted.codexExecutablePath, "~/.local/bin/codex")
+    }
+
+    @MainActor
     func testMovingMultipleAccountsPreservesDashboardOrder() throws {
         let directory = try temporaryDirectory()
         let adapter = ImmediateProviderAdapter(id: "test")

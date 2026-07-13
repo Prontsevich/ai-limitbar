@@ -37,6 +37,23 @@ final class ProviderConfigurationTests: XCTestCase {
         XCTAssertEqual(decoded.webDataStoreID, dataStoreID)
     }
 
+    func testProviderAccountRoundTripsCodexAppServerOverride() throws {
+        let account = ProviderAccount(
+            providerID: "openai-codex",
+            accountID: "personal",
+            displayName: "Personal",
+            isEnabled: true,
+            sourceMode: .appServer,
+            codexExecutablePath: "~/.local/bin/codex"
+        )
+
+        let data = try JSONEncoder().encode(account)
+        let decoded = try JSONDecoder().decode(ProviderAccount.self, from: data)
+
+        XCTAssertEqual(decoded, account)
+        XCTAssertEqual(decoded.codexExecutablePath, "~/.local/bin/codex")
+    }
+
     func testProviderConfigurationStoreStartsEmptyWhenMissing() throws {
         let directory = try temporaryDirectory()
 

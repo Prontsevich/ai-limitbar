@@ -557,29 +557,29 @@ Goal: add an opt-in, experimental OpenAI Codex source that reads structured
 current CLI rate-limit data without scraping an interactive terminal, browser,
 or local session history.
 
-- [ ] Add an `app-server` source mode for OpenAI Codex; keep `manual` as the
+- [x] Add an `app-server` source mode for OpenAI Codex; keep `manual` as the
   default and fallback mode.
-- [ ] Locate an installed `codex` executable without storing authentication
+- [x] Locate an installed `codex` executable without storing authentication
   material, cookies, tokens, or account files.
-- [ ] Start `codex app-server --listen stdio://` for one refresh, complete the
+- [x] Start `codex app-server --listen stdio://` for one refresh, complete the
   JSON-RPC initialization handshake, and request `account/rateLimits/read`.
-- [ ] Normalize `primary` and optional `secondary` rate-limit windows into
+- [x] Normalize `primary` and optional `secondary` rate-limit windows into
   provider-defined `UsageLimitWindow` values; do not assume a weekly window is
   always present.
-- [ ] Handle multi-bucket responses defensively and select the Codex limit
+- [x] Handle multi-bucket responses defensively and select the Codex limit
   bucket only when it is explicitly identified.
-- [ ] Discard raw app-server responses and unneeded account fields, including
+- [x] Discard raw app-server responses and unneeded account fields, including
   credit balance strings, reset-credit identifiers, and opaque account data.
-- [ ] Add diagnostics for a missing CLI, unauthenticated CLI, unsupported or
+- [x] Add diagnostics for a missing CLI, unauthenticated CLI, unsupported or
   changed app-server schema, malformed JSON-RPC responses, timeouts, and
   process-launch failures.
-- [ ] Use the configured refresh schedule rather than high-frequency polling;
+- [x] Use the configured refresh schedule rather than high-frequency polling;
   terminate the short-lived app-server process after each request.
-- [ ] Label the source as experimental in Settings and snapshots, with clear
+- [x] Label the source as experimental in Settings and snapshots, with clear
   compatibility and data-coverage warnings.
-- [ ] Add fixture-based tests for current, missing-secondary, multi-bucket,
+- [x] Add fixture-based tests for current, missing-secondary, multi-bucket,
   malformed, and timeout/error responses without depending on a real account.
-- [ ] Document setup, the experimental compatibility boundary, privacy rules,
+- [x] Document setup, the experimental compatibility boundary, privacy rules,
   and the manual fallback.
 
 Acceptance:

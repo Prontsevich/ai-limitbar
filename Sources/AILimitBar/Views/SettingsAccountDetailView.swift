@@ -1,5 +1,6 @@
 import AILimitBarCore
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct AccountDetailView: View {
     @Environment(\.openURL) private var openURL
@@ -28,6 +29,9 @@ struct AccountDetailView: View {
                     LabeledContent("Source", value: currentAccount.sourceMode.displayName)
                     if let localSnapshotPath = currentAccount.localSnapshotPath, !localSnapshotPath.isEmpty {
                         LabeledContent("Local snapshot", value: localSnapshotPath)
+                    }
+                    if let codexExecutablePath = currentAccount.codexExecutablePath, !codexExecutablePath.isEmpty {
+                        LabeledContent("Codex executable", value: codexExecutablePath)
                     }
                 }
 
@@ -202,19 +206,22 @@ struct AccountEditorDraft: Equatable {
     var isEnabled: Bool
     var sourceMode: ProviderSourceMode
     var localSnapshotPath: String
+    var codexExecutablePath: String
 
     init(
         providerID: String,
         displayName: String = "",
         isEnabled: Bool = true,
         sourceMode: ProviderSourceMode = .manual,
-        localSnapshotPath: String = ""
+        localSnapshotPath: String = "",
+        codexExecutablePath: String = ""
     ) {
         self.providerID = providerID
         self.displayName = displayName
         self.isEnabled = isEnabled
         self.sourceMode = sourceMode
         self.localSnapshotPath = localSnapshotPath
+        self.codexExecutablePath = codexExecutablePath
     }
 
     init(account: ProviderAccount?, defaultProviderID: String) {
@@ -223,7 +230,8 @@ struct AccountEditorDraft: Equatable {
             displayName: account?.displayName ?? "",
             isEnabled: account?.isEnabled ?? true,
             sourceMode: account?.sourceMode ?? .manual,
-            localSnapshotPath: account?.localSnapshotPath ?? ""
+            localSnapshotPath: account?.localSnapshotPath ?? "",
+            codexExecutablePath: account?.codexExecutablePath ?? ""
         )
     }
 
@@ -237,12 +245,18 @@ struct AccountEditorDraft: Equatable {
         return trimmed.isEmpty ? nil : trimmed
     }
 
+    var normalizedCodexExecutablePath: String? {
+        let trimmed = codexExecutablePath.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
     func hasChanges(comparedTo original: AccountEditorDraft) -> Bool {
         providerID != original.providerID ||
             normalizedDisplayName != original.normalizedDisplayName ||
             isEnabled != original.isEnabled ||
             sourceMode != original.sourceMode ||
-            normalizedSnapshotPath != original.normalizedSnapshotPath
+            normalizedSnapshotPath != original.normalizedSnapshotPath ||
+            normalizedCodexExecutablePath != original.normalizedCodexExecutablePath
     }
 }
 
@@ -258,6 +272,7 @@ struct AccountEditorView: View {
     @State private var draft: AccountEditorDraft
     @State private var helperSetupMessage: String?
     @State private var helperSetupError: String?
+    @State private var isSelectingCodexExecutable = false
 
     init(
         appModel: AppModel,
@@ -381,6 +396,40 @@ struct AccountEditorView: View {
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     }
+                } else if draft.providerID == "openai-codex" {
+                    Section("Source") {
+                        Picker("Source", selection: $draft.sourceMode) {
+                            Text(ProviderSourceMode.manual.displayName).tag(ProviderSourceMode.manual)
+                            Text(ProviderSourceMode.appServer.displayName).tag(ProviderSourceMode.appServer)
+                        }
+                        .pickerStyle(.segmented)
+
+                        if draft.sourceMode == .appServer {
+                            Text("Experimental source: AI Limitbar starts a short-lived local Codex app-server to read current rate-limit windows. It never reads Codex credentials, session files, browser data, or terminal output.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+
+                            TextField("Codex executable path (optional)", text: $draft.codexExecutablePath)
+
+                            HStack {
+                                Text("Leave blank to locate Codex automatically.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                Spacer()
+                                Button("Browse…") {
+                                    isSelectingCodexExecutable = true
+                                }
+                            }
+
+                            if let codexAppServerConflict {
+                                Text(codexAppServerConflict)
+                                    .font(.caption)
+                                    .foregroundStyle(.orange)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                    }
                 } else {
                     Section("Source") {
                         LabeledContent("Source", value: ProviderSourceMode.manual.displayName)
@@ -396,7 +445,12 @@ struct AccountEditorView: View {
 
                         Button(account == nil ? "Create" : "Save", action: save)
                             .keyboardShortcut(.defaultAction)
-                            .disabled(draft.providerID.isEmpty || (account != nil && !isDirty) || helperPathConflict != nil)
+                            .disabled(
+                                draft.providerID.isEmpty ||
+                                    (account != nil && !isDirty) ||
+                                    helperPathConflict != nil ||
+                                    codexAppServerConflict != nil
+                            )
                     }
                 }
             }
@@ -408,6 +462,15 @@ struct AccountEditorView: View {
             .onChange(of: draft) { _, _ in
                 updateDirtyState()
             }
+            .fileImporter(
+                isPresented: $isSelectingCodexExecutable,
+                allowedContentTypes: [.executable],
+                allowsMultipleSelection: false
+            ) { result in
+                if case let .success(urls) = result, let url = urls.first {
+                    draft.codexExecutablePath = url.path
+                }
+            }
         }
     }
 
@@ -418,7 +481,8 @@ struct AccountEditorView: View {
                 accountID: account.accountID,
                 displayName: draft.normalizedDisplayName,
                 sourceMode: persistedSourceMode,
-                localSnapshotPath: persistedSnapshotPath
+                localSnapshotPath: persistedSnapshotPath,
+                codexExecutablePath: persistedCodexExecutablePath
             ) else { return }
             onSave()
             return
@@ -429,7 +493,8 @@ struct AccountEditorView: View {
             displayName: draft.normalizedDisplayName,
             isEnabled: draft.isEnabled,
             sourceMode: persistedSourceMode,
-            localSnapshotPath: persistedSnapshotPath
+            localSnapshotPath: persistedSnapshotPath,
+            codexExecutablePath: persistedCodexExecutablePath
         ) else { return }
         onCreate(createdAccount.id)
     }
@@ -440,13 +505,30 @@ struct AccountEditorView: View {
 
     private var persistedSourceMode: ProviderSourceMode {
         switch draft.providerID {
-        case "claude-code", "ollama-cloud": draft.sourceMode
+        case "claude-code", "ollama-cloud", "openai-codex": draft.sourceMode
         default: .manual
         }
     }
 
     private var persistedSnapshotPath: String? {
         draft.providerID == "claude-code" ? draft.normalizedSnapshotPath : nil
+    }
+
+    private var persistedCodexExecutablePath: String? {
+        draft.providerID == "openai-codex" ? draft.normalizedCodexExecutablePath : nil
+    }
+
+    private var codexAppServerConflict: String? {
+        guard draft.providerID == "openai-codex",
+              draft.sourceMode == .appServer,
+              appModel.hasCodexAppServerConflict(
+                  providerID: draft.providerID,
+                  accountID: account?.accountID,
+                  sourceMode: draft.sourceMode
+              )
+        else { return nil }
+
+        return "Only one OpenAI Codex account can use the local app-server source because it reads the active local Codex CLI session."
     }
 
     private var helperPathConflict: String? {

@@ -66,6 +66,10 @@ private struct ProviderSetupRow: View {
     }
 
     private var sourceSummary: String {
-        providerID == "claude-code" ? "Manual or local snapshot · statusLine helper" : "Manual source"
+        switch providerID {
+        case "claude-code": "Manual or local snapshot · statusLine helper"
+        case "openai-codex": "Manual or experimental app-server"
+        default: "Manual source"
+        }
     }
 }
