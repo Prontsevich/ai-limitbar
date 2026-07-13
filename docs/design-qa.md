@@ -2,19 +2,17 @@
 
 ## Source Visual Truth
 
-- Codex CLI `/status` reference:
-  `/var/folders/s3/b_8vjfw14l7_rl9x_j_cnp740000gn/T/codex-clipboard-b298d7a3-2871-4da6-8cd6-4c7e731c3013.png`
-- lazygit reference:
-  `/var/folders/s3/b_8vjfw14l7_rl9x_j_cnp740000gn/T/codex-clipboard-9c6fd8e5-12c1-49ff-bcbf-7013faa921e2.png`
+- Codex CLI `/status` reference screenshot (temporary clipboard capture, no longer available).
+- lazygit reference screenshot (temporary clipboard capture, no longer available).
 
 ## Implementation Screenshots
 
-- Dashboard before the current fix:
-  `/var/folders/s3/b_8vjfw14l7_rl9x_j_cnp740000gn/T/codex-clipboard-30f6473e-e4b6-48b0-8aa6-ac9ade386004.png`
-- Details popover before the current fix:
-  `/var/folders/s3/b_8vjfw14l7_rl9x_j_cnp740000gn/T/codex-clipboard-34f46d16-352f-4edc-8b45-d5af4e86bd14.png`
-- Dashboard before the current controls and status-policy fix:
-  `/var/folders/s3/b_8vjfw14l7_rl9x_j_cnp740000gn/T/codex-clipboard-8aecd28a-f3d1-4cbf-8e10-4b890215182e.png`
+All screenshots below were temporary clipboard captures that are no longer
+available. The findings and fixes remain valid.
+
+- Dashboard before the current fix.
+- Details popover before the current fix.
+- Dashboard before the current controls and status-policy fix.
 
 ## Comparison State
 

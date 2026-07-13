@@ -60,13 +60,6 @@ AI Limitbar is a modern-only macOS app targeting macOS 26 Tahoe or later.
 - Terminal-fieldset dashboard is an intentional exception (see [`docs/dashboard-design.md`](docs/dashboard-design.md))
 - Settings follow a terminal-adjacent style (see [`docs/settings-design.md`](docs/settings-design.md))
 
-## 🗄️ Storage
-
-All data lives in a local [GRDB](https://github.com/groue/GRDB.swift)/SQLite database at
-`~/Library/Application Support/AI Limitbar/AI Limitbar.sqlite`.
-
-**Never stored:** credentials, cookies, tokens, raw provider responses, or raw statusLine payloads.
-
 ## 📖 Documentation
 
 | Document | Description |
@@ -75,6 +68,7 @@ All data lives in a local [GRDB](https://github.com/groue/GRDB.swift)/SQLite dat
 | [`docs/tasks.md`](docs/tasks.md) | Milestone tracker (24 milestones, 16 done) |
 | [`docs/dashboard-design.md`](docs/dashboard-design.md) | Terminal-fieldset dashboard design contract |
 | [`docs/settings-design.md`](docs/settings-design.md) | Settings window lifecycle and visual contract |
+| [`docs/design-qa.md`](docs/design-qa.md) | Dashboard visual QA findings and fixes |
 | [`docs/providers/`](docs/providers/) | Per-provider implementation notes |
 
 ## 🗺️ Roadmap
