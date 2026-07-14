@@ -21,6 +21,12 @@ final class OllamaWebPageNavigationTests: XCTestCase {
                 interactive: true
             )
         )
+        XCTAssertTrue(
+            OllamaWebPageNavigationPolicy.allowsMainFrameNavigation(
+                URL(string: "https://accounts.google.by/signin/v2/challenge/totp")!,
+                interactive: true
+            )
+        )
     }
 
     func testScheduledNavigationRejectsAuthenticationRedirects() {
@@ -48,6 +54,12 @@ final class OllamaWebPageNavigationTests: XCTestCase {
         XCTAssertFalse(
             OllamaWebPageNavigationPolicy.allowsMainFrameNavigation(
                 URL(string: "http://ollama.com/settings")!,
+                interactive: true
+            )
+        )
+        XCTAssertFalse(
+            OllamaWebPageNavigationPolicy.allowsMainFrameNavigation(
+                URL(string: "https://accounts.google.evil.example/signin")!,
                 interactive: true
             )
         )

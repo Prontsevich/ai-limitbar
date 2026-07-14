@@ -17,8 +17,9 @@ usage card even when Ollama wraps both cards in a shared section. The source
 also reports the reset time for each window when Ollama exposes it. During
 interactive sign-in, WebKit may follow Ollama's documented authentication
 redirect through `api.workos.com`, `signin.ollama.com`, Google, or GitHub;
-scheduled refreshes do not follow those auth redirects. Interactive sign-in
-remains open until it completes or the user cancels it; scheduled refreshes
+regional Google Account endpoints such as `accounts.google.by` are allowed for
+interactive sign-in. Scheduled refreshes never follow third-party redirects.
+Interactive sign-in remains open until it completes or the user cancels it; scheduled refreshes
 retain a 20-second load timeout. WebKit cancellation events from an OAuth
 redirect or an obsolete navigation after the settings page becomes visible are
 ignored; actual failures before the settings page remain actionable. The bridge

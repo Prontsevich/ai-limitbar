@@ -192,9 +192,16 @@ private final class OllamaWebPageSession: NSObject, WKNavigationDelegate {
             return
         }
 
-        guard let url = navigationAction.request.url,
-              OllamaWebPageNavigationPolicy.allowsMainFrameNavigation(url, interactive: isInteractive)
-        else {
+        guard let url = navigationAction.request.url else {
+            decisionHandler(.cancel)
+            return
+        }
+
+        let isAllowed = OllamaWebPageNavigationPolicy.allowsMainFrameNavigation(
+            url,
+            interactive: isInteractive
+        )
+        guard isAllowed else {
             decisionHandler(.cancel)
             return
         }
@@ -429,10 +436,29 @@ enum OllamaWebPageNavigationPolicy {
         guard interactive else { return false }
         return host == "api.workos.com" ||
             host == "accounts.google.com" ||
+            allowsRegionalGoogleAccountHost(host) ||
             host == "google.com" ||
             host.hasSuffix(".google.com") ||
             host == "github.com" ||
             host.hasSuffix(".github.com")
+    }
+
+    private static func allowsRegionalGoogleAccountHost(_ host: String) -> Bool {
+        let prefix = "accounts.google."
+        guard host.hasPrefix(prefix) else { return false }
+
+        let suffixLabels = host
+            .dropFirst(prefix.count)
+            .split(separator: ".")
+        if suffixLabels == ["com"] {
+            return true
+        }
+        if suffixLabels.count == 1, suffixLabels[0].count == 2 {
+            return true
+        }
+        return suffixLabels.count == 2 &&
+            (suffixLabels[0] == "co" || suffixLabels[0] == "com") &&
+            suffixLabels[1].count == 2
     }
 
     static func isSettingsURL(_ url: URL) -> Bool {
