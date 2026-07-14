@@ -803,15 +803,20 @@ smoke command. The command first exercises an app-layer integration scenario
 with a deterministic fake provider and disposable storage: create an account,
 change the refresh schedule, refresh, persist a normalized snapshot, recreate
 `AppModel`, and verify that account configuration, settings, and snapshot state
-reload. It then stages the normal debug `.app`, launches it through Launch
-Services, waits for the app process, and fails if startup does not succeed.
+reload. The targeted test is
+`AILimitBarTests.AppModelTests/testDailyUseSmokePersistsAccountSettingsAndSnapshot`.
+It then stages the normal debug `.app`, launches it through Launch Services with
+the internal `--ai-limitbar-storage-directory` argument, waits for a new
+`AILimitBar` process to remain alive, and fails if startup does not succeed.
 
 The automated path must not touch the user's normal Application Support
 database, Keychain, isolated WebKit stores, provider CLIs, or network sources.
-It terminates only the process it launched and leaves no test persistence
-residue. Process launch proves startup only; menu-bar interaction, Settings
-focus, pointer behavior, and other GUI details remain explicit manual QA rather
-than being inferred from a running PID.
+The test and staged-app launch each use disposable storage and leave no test
+persistence residue. `--verify` identifies the smoke process against the
+pre-launch PID set and terminates only that process; the staged bundle remains
+available for manual QA. Process launch proves startup only; menu-bar
+interaction, Settings focus, pointer behavior, and other GUI details remain
+explicit manual QA rather than being inferred from a running PID.
 
 ## Usage Thresholds
 

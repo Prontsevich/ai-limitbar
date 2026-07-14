@@ -1060,25 +1060,33 @@ Acceptance:
 Goal: provide one repeatable verification command for app launch, refresh, and
 the persistence paths needed for normal daily use.
 
-- [ ] Add one deterministic app-layer integration smoke test that uses a fake
+- [x] Add one deterministic app-layer integration smoke test that uses a fake
   provider and disposable storage to create an account, change the refresh
   schedule, perform a refresh, persist a normalized snapshot, recreate
   `AppModel`, and verify that the account, settings, and snapshot reload.
-- [ ] Keep `./script/build_and_run.sh --verify` as the public smoke entrypoint.
+- [x] Keep `./script/build_and_run.sh --verify` as the public smoke entrypoint.
   It runs the deterministic integration check, stages the normal debug `.app`
   bundle, launches it through Launch Services, waits for the `AILimitBar`
   process, and fails when the process cannot start or exits immediately.
-- [ ] Give the automated smoke path disposable storage. It must not read or
+- [x] Give the automated smoke path disposable storage. It must not read or
   write the user's normal Application Support database, Keychain, WebKit data,
   provider CLIs, or network sources.
-- [ ] Terminate only the smoke-launched process after verification and leave the
+- [x] Terminate only the smoke-launched process after verification and leave the
   staged bundle available for manual QA. Keep interactive menu-bar, Settings,
   focus, and pointer checks documented as manual verification rather than
   claiming that process launch proves them.
 
+Implementation status (2026-07-15): the app-layer test uses a fixed fake
+provider snapshot and disposable GRDB storage. `--verify` runs that test before
+staging, launches the staged bundle through Launch Services with a disposable
+storage-directory argument, verifies a new process remains alive, and cleans up
+only that process and its temporary storage. Full automated verification passed;
+interactive menu-bar, Settings, focus, and pointer checks remain manual.
+
 Acceptance:
 
-- One documented command verifies deterministic refresh, Settings persistence,
+- One documented command verifies deterministic refresh, account and refresh
+  settings persistence,
   snapshot persistence, bundle staging, and foreground app launch.
 - The command is repeatable and leaves no account, snapshot, refresh status,
   process, or persistence residue in the user's real app data.

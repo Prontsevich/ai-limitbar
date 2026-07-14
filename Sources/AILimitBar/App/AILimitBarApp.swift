@@ -7,7 +7,11 @@ struct AILimitBarApp: App {
 
     init() {
         let ollamaClient = OllamaWebPageClientController()
-        let model = AppModel(ollamaWebPageClient: ollamaClient)
+        let launchOptions = AppLaunchOptions()
+        let model = AppModel(
+            ollamaWebPageClient: ollamaClient,
+            storageDirectory: launchOptions.storageDirectory
+        )
         _appModel = StateObject(wrappedValue: model)
         _menuBarStatusItemController = StateObject(
             wrappedValue: MenuBarStatusItemController(appModel: model)

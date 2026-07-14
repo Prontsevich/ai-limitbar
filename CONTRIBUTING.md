@@ -14,13 +14,18 @@ swift test                 # Run full test suite
 
 | Mode | Description |
 | --- | --- |
-| `--verify` | Build + foreground app smoke test |
+| `--verify` | Deterministic integration smoke + staged Launch Services startup check |
 | `--debug` | Attach LLDB to the staged bundle |
 | `--logs` | Show live app logs |
 | `--telemetry` | Enable telemetry output |
 
-The run script builds the SwiftPM product, stages a local ad-hoc signed `.app`
-bundle in `dist/`, and launches it. All modes use the same bundle shape.
+The run script builds the SwiftPM product and stages a local ad-hoc signed
+`.app` bundle in `dist/`. `--verify` first runs the deterministic app-layer
+integration test, then launches the staged bundle through Launch Services with
+disposable storage, verifies startup stability, and terminates only the process
+created by that check. The staged bundle remains in `dist/` for manual QA.
+Interactive menu-bar, Settings, focus, and pointer checks are not inferred from
+the process check and must be performed manually.
 
 ## Release Packaging
 

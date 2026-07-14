@@ -636,6 +636,72 @@ final class AppModelTests: XCTestCase {
     }
 
     @MainActor
+    func testDailyUseSmokePersistsAccountSettingsAndSnapshot() async throws {
+        let directory = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let adapter = DeterministicSmokeProviderAdapter()
+        let model = AppModel(
+            registry: ProviderRegistry(adapters: [adapter]),
+            storageDirectory: directory,
+            refreshCoordinator: ProviderRefreshCoordinator(
+                retryPolicy: ProviderRetryPolicy(maxAttempts: 1, initialDelay: 0)
+            )
+        )
+        let account = try XCTUnwrap(model.addAccount(
+            providerID: adapter.id,
+            displayName: "Smoke Account",
+            sourceMode: .manual
+        ))
+        let expectedSnapshot = adapter.snapshot(for: account)
+
+        model.setRefreshInterval(.fifteenMinutes)
+        XCTAssertEqual(model.refreshSettings.interval, .fifteenMinutes)
+
+        await model.refreshEnabledProviders()
+
+        XCTAssertEqual(model.snapshot(for: account), expectedSnapshot)
+        XCTAssertEqual(
+            model.refreshStatus(for: account),
+            .succeeded(expectedSnapshot.lastUpdatedAt)
+        )
+        XCTAssertNil(model.accountRefreshIssues[account.id])
+        XCTAssertNotNil(model.sourceRefreshStates[account.id]?.lastSuccessfulRefreshAt)
+        XCTAssertNil(model.storageWarning)
+
+        let reloaded = AppModel(
+            registry: ProviderRegistry(adapters: [adapter]),
+            storageDirectory: directory,
+            refreshCoordinator: ProviderRefreshCoordinator(
+                retryPolicy: ProviderRetryPolicy(maxAttempts: 1, initialDelay: 0)
+            )
+        )
+
+        XCTAssertEqual(reloaded.providerAccounts, [account])
+        XCTAssertEqual(
+            reloaded.refreshSettings,
+            RefreshSettings(interval: .fifteenMinutes)
+        )
+        XCTAssertEqual(reloaded.snapshot(for: account), expectedSnapshot)
+        XCTAssertEqual(reloaded.refreshStatus(for: account), .idle)
+        XCTAssertNil(reloaded.accountRefreshIssues[account.id])
+        XCTAssertNotNil(reloaded.sourceRefreshStates[account.id]?.lastSuccessfulRefreshAt)
+        XCTAssertNil(reloaded.storageWarning)
+    }
+
+    func testAppLaunchOptionsReadsDisposableStorageDirectory() {
+        let directory = URL(fileURLWithPath: "/private/tmp/ai-limitbar-smoke", isDirectory: true)
+        let options = AppLaunchOptions(arguments: [
+            "/path/to/AILimitBar",
+            AppLaunchOptions.storageDirectoryArgument,
+            directory.path
+        ])
+
+        XCTAssertEqual(options.storageDirectory, directory)
+        XCTAssertNil(AppLaunchOptions(arguments: ["/path/to/AILimitBar"]).storageDirectory)
+    }
+
+    @MainActor
     func testInvalidClaudeStatusLineInputPreservesPreviousUsageData() async throws {
         let directory = try temporaryDirectory()
         let model = AppModel(storageDirectory: directory)
@@ -870,6 +936,52 @@ private struct ImmediateProviderAdapter: ProviderAdapter {
             lastUpdatedAt: Date(),
             confidence: .localEstimate,
             source: "Test"
+        )
+    }
+}
+
+private struct DeterministicSmokeProviderAdapter: ProviderAdapter {
+    let id = "smoke-provider"
+    let displayName = "Deterministic Smoke Provider"
+    let usageURL: URL? = nil
+
+    func fetchSnapshot(account: ProviderAccount) async throws -> UsageSnapshot {
+        snapshot(for: account)
+    }
+
+    func snapshot(for account: ProviderAccount) -> UsageSnapshot {
+        let updatedAt = Date(timeIntervalSince1970: 1_800_000_000)
+        let resetAt = updatedAt.addingTimeInterval(86_400)
+        return UsageSnapshot(
+            providerID: id,
+            accountID: account.accountID,
+            accountDisplayName: account.displayName,
+            displayName: displayName,
+            status: .ok,
+            planName: "Smoke Plan",
+            periodLabel: "Smoke window",
+            usedPercent: 42,
+            remainingLabel: "58% remaining",
+            resetAt: resetAt,
+            limitWindows: [
+                UsageLimitWindow(
+                    id: "weekly",
+                    displayName: "Weekly",
+                    usedPercent: 42,
+                    remainingLabel: "58% remaining",
+                    resetAt: resetAt
+                ),
+                UsageLimitWindow(
+                    id: "rolling-5-hour",
+                    displayName: "5-hour",
+                    usedPercent: 17,
+                    remainingLabel: "83% remaining",
+                    resetAt: updatedAt.addingTimeInterval(18_000)
+                )
+            ],
+            lastUpdatedAt: updatedAt,
+            confidence: .localEstimate,
+            source: "Deterministic smoke provider"
         )
     }
 }
