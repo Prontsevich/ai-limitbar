@@ -43,7 +43,7 @@ available. The findings and fixes remain valid.
   account legend is clipped beneath the dashboard header.
   Fix applied: the list has a visible vertical scroll indicator and a 10-point
   legend clearance above its first panel. Its device-local viewport preset is
-  Compact (320 pt), Standard (440 pt), or Tall (640 pt), so long account lists
+  Compact (320 pt), Standard (460 pt), or Tall (640 pt), so long account lists
   can show more rows without growing the popover indefinitely.
 - [P1] The fieldset breaks are much wider than their legends, and close panels
   let a following legend mask the previous panel's lower border.

@@ -83,7 +83,7 @@ pressed behavior for all interactive elements.
 - Leave a small top clearance before the first account so its legend cannot
   overlap the dashboard header. Cap the account-list viewport at a compact
   height and use a visible vertical scroll indicator for additional accounts.
-  Settings offers `Compact` (320 pt), `Standard` (440 pt), and `Tall` (640 pt)
+  Settings offers `Compact` (320 pt), `Standard` (460 pt), and `Tall` (640 pt)
   viewport presets. The value is a local `UserDefaults` preference, not
   provider or account data. Each preset sets the visible viewport height and
   account lists scroll within it.

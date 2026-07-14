@@ -23,7 +23,7 @@ thresholds, notifications, theme editing, provider credentials, or persistence
 changes that belong to later milestones.
 
 The current Refresh pane includes the refresh schedule and a device-local
-Dashboard height picker with `Compact` (320 pt), `Standard` (440 pt), and `Tall`
+Dashboard height picker with `Compact` (320 pt), `Standard` (460 pt), and `Tall`
 (640 pt) viewport presets. Milestone 23 moves both controls into
 General; Milestone 18 preserves their behavior and stored values.
 

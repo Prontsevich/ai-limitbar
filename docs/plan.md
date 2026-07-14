@@ -694,7 +694,7 @@ break adjacent borders.
 
 The dashboard viewport is a device-local preference rather than account or
 provider data. The current Refresh Settings pane offers `Compact` (320 pt),
-`Standard` (440 pt), and `Tall` (640 pt) viewport presets stored in
+`Standard` (460 pt), and `Tall` (640 pt) viewport presets stored in
 `UserDefaults`. A preset sets the visible dashboard viewport height and longer
 account lists scroll within it. Milestone 23 moves this control with the refresh
 schedule into General.

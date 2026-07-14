@@ -20,7 +20,7 @@ enum DashboardHeightPreset: String, CaseIterable, Identifiable {
     var viewportHeight: CGFloat {
         switch self {
         case .compact: 320
-        case .standard: 440
+        case .standard: 460
         case .tall: 640
         }
     }

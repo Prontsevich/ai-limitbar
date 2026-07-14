@@ -8,7 +8,7 @@ final class DashboardHeightPresetTests: XCTestCase {
         XCTAssertEqual(DashboardHeightPreset.tall.rawValue, "tall")
 
         XCTAssertEqual(DashboardHeightPreset.compact.viewportHeight, 320)
-        XCTAssertEqual(DashboardHeightPreset.standard.viewportHeight, 440)
+        XCTAssertEqual(DashboardHeightPreset.standard.viewportHeight, 460)
         XCTAssertEqual(DashboardHeightPreset.tall.viewportHeight, 640)
     }
 }
