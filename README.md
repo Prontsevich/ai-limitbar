@@ -7,35 +7,39 @@
 [![macOS 26+](https://img.shields.io/badge/macOS-26%2B-000000?logo=apple&logoColor=white)](https://www.apple.com/macos)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](#license)
 
-The MVP is intentionally honest about data quality: values can be live,
-delayed, local estimates, manual checks, or unknown. No real provider
-credentials are required to start.
+## Why
 
----
+Checking AI provider usage limits usually means opening each provider's page
+separately. AI Limitbar brings them together in one menu bar dropdown — with
+honest labels for what's live, what's estimated, and what needs attention.
 
-## ✨ Features
+No real provider credentials are required to start.
 
-- Normalized snapshots across providers — live, delayed, local estimates, or manual
+![AI Limitbar dashboard in dark mode](docs/screenshots/dashboard-dark.png)
+
+## Features
+
+- One menu bar panel for all your AI provider usage limits
+- Normalized snapshots — live, delayed, local estimates, or manual
 - Configurable refresh interval (manual by default)
-- Per-provider refresh status with stale-snapshot flags
-- Dashboard height presets: `Compact` (320 pt), `Standard` (440 pt), `Tall` (640 pt)
-- Menu-bar-only `LSUIElement` bundle — no Dock icon, no main window
+- Stale-snapshot flags so you know when data is outdated
+- Dashboard height presets: Compact, Standard, Tall
+- Menu-bar-only — no Dock icon, no main window
 
-## 🔌 Providers
+## Providers
 
-| Provider | Default | Experimental Source | Snapshot Type |
-| --- | --- | --- | --- |
-| **OpenAI Codex** | Manual | App-server (`codex app-server`) | 🟢 Live rate-limit windows |
-| **Claude Code** | `statusLine` helper → SQLite | `/usage` CLI | 🟡 Local estimate / 🟢 Live plan limits |
-| **Ollama Cloud** | Manual | Web page (isolated WebKit) | 🟢 Live session/weekly |
-| **Mock** | — | — | 🟡 Local estimate |
+| Provider | Source | Data Type |
+| --- | --- | --- |
+| **OpenAI Codex** | App-server | 🟢 Live rate-limit windows |
+| **Claude Code** | Helper + `/usage` CLI | 🟡 Local estimate / 🟢 Live plan limits |
+| **Ollama Cloud** | Web page (isolated WebKit) | 🟢 Live session/weekly |
 
-Experimental sources are opt-in. A successful experimental read is presented as
-`OK`; the `Experimental` label is informational, not a warning.
+Experimental sources are opt-in. A successful experimental read is `OK`;
+the `Experimental` label is informational, not a warning.
 
 → See [`docs/providers/`](docs/providers/) for implementation details.
 
-## 📦 Download
+## Download
 
 **Requirements:** macOS 26+ on Apple Silicon
 
@@ -49,63 +53,32 @@ you trust this repository and its release, try opening the app once, then use
 **System Settings → Privacy & Security → Open Anyway**. See Apple's
 [Gatekeeper instructions](https://support.apple.com/guide/mac-help/open-an-app-by-overriding-security-settings-mh40617/mac).
 
-## 🛠️ Development
+## Roadmap
 
-**Requirements:** macOS 26+, Xcode 26+ (Swift 6.2)
+**Done ✅** — Core app, persistence, Claude Code, refresh coordination, account
+model, dashboard redesign, settings, Ollama web source, Codex app-server, SQLite
+migration, terminal dashboard, Settings redesign, Claude `/usage` CLI, and
+GitHub Release distribution.
 
-```zsh
-swift build                # Build
-swift test                 # Test
-./script/build_and_run.sh  # Build, stage .app bundle, launch
-```
+**Backlog 📋** — Provider/account readiness, daily-use polish, localization
+(EN+RU), per-limit thresholds, usage notifications, dashboard themes, and
+WidgetKit.
 
-| Mode | Description |
-| --- | --- |
-| `--verify` | Build + foreground app smoke test |
-| `--debug` | Attach LLDB to the staged bundle |
-| `--logs` | Show live app logs |
-| `--telemetry` | Enable telemetry output |
-
-Create a locally validated Apple Silicon release archive with:
-
-```zsh
-./script/package_release.sh 0.1.0
-```
-
-The `Release` GitHub Actions workflow can be run manually to validate a package
-before publication. A tag in `vMAJOR.MINOR.PATCH` format publishes the matching
-archive automatically. Release tags must point to commits contained in `main`:
-
-```zsh
-git tag -a v0.1.0 -m "AI Limitbar 0.1.0"
-git push origin v0.1.0
-```
-
-## 🎨 Platform Direction
-
-AI Limitbar is a modern-only macOS app targeting macOS 26 Tahoe or later.
-
-- Standard SwiftUI controls and system structures are the default
-- Terminal-fieldset dashboard is the product-specific composition (see [`docs/dashboard-design.md`](docs/dashboard-design.md))
-- Settings follow a terminal-adjacent style (see [`docs/settings-design.md`](docs/settings-design.md))
-
-## 📖 Documentation
+## Documentation
 
 | Document | Description |
 | --- | --- |
-| [`docs/plan.md`](docs/plan.md) | Full product plan, provider research, architecture |
-| [`docs/tasks.md`](docs/tasks.md) | Milestone tracker (27 milestones, 19 done) |
-| [`docs/dashboard-design.md`](docs/dashboard-design.md) | Terminal-fieldset dashboard design contract |
-| [`docs/settings-design.md`](docs/settings-design.md) | Settings window lifecycle and visual contract |
-| [`docs/design-qa.md`](docs/design-qa.md) | Dashboard visual QA findings and fixes |
+| [`docs/plan.md`](docs/plan.md) | Product plan, provider research, architecture |
+| [`docs/tasks.md`](docs/tasks.md) | Milestone tracker |
+| [`docs/dashboard-design.md`](docs/dashboard-design.md) | Dashboard design contract |
+| [`docs/settings-design.md`](docs/settings-design.md) | Settings design contract |
 | [`docs/providers/`](docs/providers/) | Per-provider implementation notes |
 
-## 🗺️ Roadmap
+## Contributing
 
-**Done ✅** — Milestones 0–18: app skeleton, persistence, provider research, Claude Code, refresh coordination, account model, dashboard redesign, settings master-detail, modern macOS baseline, Ollama web source, Codex app-server, SQLite migration, terminal dashboard, and Settings lifecycle/redesign.
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) for build instructions, development
+setup, and release procedures.
 
-**Backlog 📋** — Milestones 19–26: Claude `/usage` CLI, GitHub Release distribution, provider/account readiness, daily-use polish, localization (EN+RU), per-limit thresholds, usage notifications, dashboard themes, and WidgetKit.
-
-## 📄 License
+## License
 
 MIT. See [`LICENSE`](LICENSE).
