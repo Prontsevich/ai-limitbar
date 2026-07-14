@@ -24,6 +24,21 @@ enum ApplicationLifecycle {
     }
 
     @MainActor
+    static func openOllamaConnection(using openWindow: OpenWindowAction) {
+        activate()
+
+        if let connectionWindow = visibleOllamaConnectionWindow() {
+            connectionWindow.makeKeyAndOrderFront(nil)
+            return
+        }
+
+        openWindow(id: OllamaConnectionWindowConfiguration.id)
+        DispatchQueue.main.async {
+            visibleOllamaConnectionWindow()?.makeKeyAndOrderFront(nil)
+        }
+    }
+
+    @MainActor
     static func terminate() {
         NSApplication.shared.terminate(nil)
     }
@@ -44,6 +59,13 @@ enum ApplicationLifecycle {
     private static func visibleSettingsWindow() -> NSWindow? {
         NSApplication.shared.windows.first { window in
             window.title == SettingsWindowConfiguration.title && window.isVisible
+        }
+    }
+
+    @MainActor
+    private static func visibleOllamaConnectionWindow() -> NSWindow? {
+        NSApplication.shared.windows.first { window in
+            window.title == OllamaConnectionWindowConfiguration.title && window.isVisible
         }
     }
 

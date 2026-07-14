@@ -68,6 +68,7 @@ private final class OllamaWebPageSession: NSObject, WKNavigationDelegate {
     private var continuation: CheckedContinuation<OllamaUsagePagePayload, any Error>?
     private var timeoutTask: Task<Void, Never>?
     private var isInteractive = false
+    private var hasReachedSettingsPage = false
 
     init(dataStoreID: UUID) {
         self.dataStoreID = dataStoreID
@@ -103,6 +104,7 @@ private final class OllamaWebPageSession: NSObject, WKNavigationDelegate {
         }
 
         isInteractive = interactive
+        hasReachedSettingsPage = false
         return try await withTaskCancellationHandler(operation: {
             try await withCheckedThrowingContinuation { continuation in
                 self.continuation = continuation
@@ -200,10 +202,8 @@ private final class OllamaWebPageSession: NSObject, WKNavigationDelegate {
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-        guard continuation != nil,
-              let url = webView.url,
-              url.path == "/settings" || isInteractive
-        else {
+        guard continuation != nil else { return }
+        guard let url = webView.url else {
             finish(
                 failure: ProviderAdapterError(
                     providerID: "ollama-cloud",
@@ -213,9 +213,32 @@ private final class OllamaWebPageSession: NSObject, WKNavigationDelegate {
             )
             return
         }
+
+        guard OllamaWebPageNavigationPolicy.isSettingsURL(url) else {
+            guard !isInteractive else { return }
+            finish(
+                failure: ProviderAdapterError(
+                    providerID: "ollama-cloud",
+                    message: "Ollama session is missing or expired.",
+                    recoverySuggestion: "Reconnect Ollama through AI Limitbar."
+                )
+            )
+            return
+        }
+
+        hasReachedSettingsPage = true
+        extractUsageFromSettingsPage()
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        guard !OllamaWebPageNavigationFailurePolicy.shouldIgnore(
+            error,
+            currentURL: webView.url,
+            hasReachedSettingsPage: hasReachedSettingsPage
+        ) else {
+            extractUsageFromSettingsPage()
+            return
+        }
         finish(
             failure: ProviderAdapterError(
                 providerID: "ollama-cloud",
@@ -228,6 +251,25 @@ private final class OllamaWebPageSession: NSObject, WKNavigationDelegate {
 
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
         self.webView(webView, didFail: navigation, withError: error)
+    }
+
+    private func extractUsageFromSettingsPage() {
+        guard continuation != nil,
+              let url = webView.url,
+              OllamaWebPageNavigationPolicy.isSettingsURL(url)
+        else { return }
+
+        webView.evaluateJavaScript(Self.usageUserScript) { [weak self] _, error in
+            guard let self, error != nil, self.continuation != nil else { return }
+            self.finish(
+                failure: ProviderAdapterError(
+                    providerID: "ollama-cloud",
+                    message: "Ollama settings page could not be inspected.",
+                    recoverySuggestion: "Reconnect Ollama and try again.",
+                    isTransient: true
+                )
+            )
+        }
     }
 
     private static let usageUserScript = #"""
@@ -345,10 +387,24 @@ private final class OllamaWebPageSession: NSObject, WKNavigationDelegate {
         };
       };
 
-      const session = sectionFor("Session usage");
-      const weekly = sectionFor("Weekly usage");
-      if (session || weekly) {
+      let delivered = false;
+      const publishUsage = () => {
+        if (delivered) return true;
+        const session = sectionFor("Session usage");
+        const weekly = sectionFor("Weekly usage");
+        if (!session && !weekly) return false;
+
+        delivered = true;
         window.webkit.messageHandlers.ollamaUsage.postMessage(JSON.stringify({ session, weekly }));
+        return true;
+      };
+
+      if (!publishUsage()) {
+        const observer = new MutationObserver(() => {
+          if (publishUsage()) observer.disconnect();
+        });
+        observer.observe(document.documentElement, { childList: true, subtree: true, characterData: true });
+        setTimeout(() => observer.disconnect(), 10_000);
       }
     })();
     """#
@@ -377,5 +433,23 @@ enum OllamaWebPageNavigationPolicy {
             host.hasSuffix(".google.com") ||
             host == "github.com" ||
             host.hasSuffix(".github.com")
+    }
+
+    static func isSettingsURL(_ url: URL) -> Bool {
+        url.scheme == "https" && url.host?.lowercased() == "ollama.com" && url.path == "/settings"
+    }
+}
+
+enum OllamaWebPageNavigationFailurePolicy {
+    static func shouldIgnore(
+        _ error: Error,
+        currentURL: URL?,
+        hasReachedSettingsPage: Bool
+    ) -> Bool {
+        let error = error as NSError
+        if error.domain == NSURLErrorDomain && error.code == NSURLErrorCancelled {
+            return true
+        }
+        return hasReachedSettingsPage && currentURL.map(OllamaWebPageNavigationPolicy.isSettingsURL) == true
     }
 }

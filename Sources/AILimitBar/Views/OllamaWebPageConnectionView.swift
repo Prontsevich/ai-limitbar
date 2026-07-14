@@ -3,10 +3,10 @@ import SwiftUI
 import WebKit
 
 struct OllamaWebPageConnectionSheet: View {
-    @Environment(\.dismiss) private var dismiss
     @ObservedObject var appModel: AppModel
     let account: ProviderAccount
     let client: OllamaWebPageClientController
+    let dismiss: () -> Void
 
     @State private var attempt = 0
     @State private var isConnecting = false
@@ -91,6 +91,45 @@ struct OllamaWebPageConnectionSheet: View {
             return "\(providerError.message) \(recoverySuggestion)"
         }
         return providerError.message
+    }
+}
+
+struct OllamaWebPageConnectionWindow: View {
+    @Environment(\.dismissWindow) private var dismissWindow
+    @ObservedObject var appModel: AppModel
+
+    var body: some View {
+        Group {
+            if let account = appModel.ollamaConnectionAccount,
+               let client = appModel.ollamaWebPageClient {
+                OllamaWebPageConnectionSheet(
+                    appModel: appModel,
+                    account: account,
+                    client: client,
+                    dismiss: { closeConnection(for: account) }
+                )
+            } else {
+                ContentUnavailableView(
+                    "Ollama Connection Unavailable",
+                    systemImage: "person.crop.circle.badge.exclamationmark",
+                    description: Text("Choose Connect Ollama or Reconnect from an Ollama account first.")
+                )
+                .frame(
+                    minWidth: OllamaConnectionWindowConfiguration.preferredSize.width,
+                    minHeight: OllamaConnectionWindowConfiguration.preferredSize.height
+                )
+            }
+        }
+        .onDisappear {
+            if let account = appModel.ollamaConnectionAccount {
+                appModel.clearOllamaConnection(for: account)
+            }
+        }
+    }
+
+    private func closeConnection(for account: ProviderAccount) {
+        appModel.clearOllamaConnection(for: account)
+        dismissWindow(id: OllamaConnectionWindowConfiguration.id)
     }
 }
 

@@ -11,6 +11,7 @@ final class AppModel: ObservableObject {
     @Published var refreshSettings = RefreshSettings()
     @Published var isRefreshing = false
     @Published var storageWarning: String?
+    @Published private(set) var ollamaConnectionAccount: ProviderAccount?
 
     let registry: ProviderRegistry
     let snapshotStore: any CurrentSnapshotStore
@@ -119,6 +120,15 @@ final class AppModel: ObservableObject {
 
     var hasActiveProviderRefresh: Bool {
         providerRefreshStatuses.values.contains(.refreshing)
+    }
+
+    func presentOllamaConnection(for account: ProviderAccount) {
+        ollamaConnectionAccount = account
+    }
+
+    func clearOllamaConnection(for account: ProviderAccount) {
+        guard ollamaConnectionAccount?.id == account.id else { return }
+        ollamaConnectionAccount = nil
     }
 
     var menuBarTitle: String {

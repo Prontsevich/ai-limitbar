@@ -242,6 +242,7 @@ extension AppModel {
         }
         saveSnapshots()
         if account.providerID == "ollama-cloud" {
+            clearOllamaConnection(for: account)
             ollamaWebPageClient?.forgetSession(for: account)
         }
     }

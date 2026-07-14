@@ -3,10 +3,10 @@ import SwiftUI
 
 struct AccountDetailsView: View {
     @Environment(\.openURL) private var openURL
+    @Environment(\.openWindow) private var openWindow
     @ObservedObject var appModel: AppModel
     let row: AccountSnapshotRow
 
-    @State private var isShowingOllamaConnection = false
     @State private var connectionError: String?
 
     private var dashboardPresentation: DashboardAccountPresentation {
@@ -32,15 +32,6 @@ struct AccountDetailsView: View {
         }
         .frame(maxHeight: 520)
         .background(TerminalTheme.surface)
-        .sheet(isPresented: $isShowingOllamaConnection) {
-            if let client = appModel.ollamaWebPageClient {
-                OllamaWebPageConnectionSheet(
-                    appModel: appModel,
-                    account: currentAccount,
-                    client: client
-                )
-            }
-        }
         .alert("Ollama Connection", isPresented: connectionErrorBinding) {
             Button("OK", role: .cancel) {}
         } message: {
@@ -297,15 +288,16 @@ struct AccountDetailsView: View {
     private func beginOllamaConnection() {
         guard currentAccount.providerID == "ollama-cloud",
               appModel.ollamaWebPageClient != nil,
-              appModel.prepareOllamaWebPageConnection(
+              let connectedAccount = appModel.prepareOllamaWebPageConnection(
                   providerID: currentAccount.providerID,
                   accountID: currentAccount.accountID
-              ) != nil
+              )
         else {
             connectionError = "Save the account before connecting Ollama through AI Limitbar."
             return
         }
-        isShowingOllamaConnection = true
+        appModel.presentOllamaConnection(for: connectedAccount)
+        ApplicationLifecycle.openOllamaConnection(using: openWindow)
     }
 
     private var connectionErrorBinding: Binding<Bool> {

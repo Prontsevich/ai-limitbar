@@ -4,11 +4,11 @@ import UniformTypeIdentifiers
 
 struct AccountDetailView: View {
     @Environment(\.openURL) private var openURL
+    @Environment(\.openWindow) private var openWindow
     @ObservedObject var appModel: AppModel
     let account: ProviderAccount
     let onEdit: () -> Void
 
-    @State private var isShowingOllamaConnection = false
     @State private var connectionError: String?
 
     var body: some View {
@@ -74,19 +74,6 @@ struct AccountDetailView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             .scrollBounceBehavior(.basedOnSize)
-        }
-        .sheet(isPresented: $isShowingOllamaConnection) {
-            if let client = appModel.ollamaWebPageClient,
-               let connectedAccount = appModel.account(
-                   providerID: account.providerID,
-                   accountID: account.accountID
-               ) {
-                OllamaWebPageConnectionSheet(
-                    appModel: appModel,
-                    account: connectedAccount,
-                    client: client
-                )
-            }
         }
         .alert("Ollama Connection", isPresented: connectionErrorBinding) {
             Button("OK", role: .cancel) {}
@@ -213,15 +200,16 @@ struct AccountDetailView: View {
 
     private func beginOllamaConnection() {
         guard appModel.ollamaWebPageClient != nil,
-              appModel.prepareOllamaWebPageConnection(
-                  providerID: currentAccount.providerID,
-                  accountID: currentAccount.accountID
-              ) != nil
+              let connectedAccount = appModel.prepareOllamaWebPageConnection(
+                  providerID: account.providerID,
+                  accountID: account.accountID
+              )
         else {
             connectionError = "Save the account before connecting Ollama through AI Limitbar."
             return
         }
-        isShowingOllamaConnection = true
+        appModel.presentOllamaConnection(for: connectedAccount)
+        ApplicationLifecycle.openOllamaConnection(using: openWindow)
     }
 
     private var connectionErrorBinding: Binding<Bool> {

@@ -47,3 +47,16 @@ enum SettingsWindowConfiguration {
         )
     }
 }
+
+enum OllamaConnectionWindowConfiguration {
+    static let id = "ollama-connection"
+    static let title = "Connect Ollama"
+    static let preferredSize = CGSize(width: 1_080, height: 840)
+
+    static func defaultSize(contentSize: CGSize, visibleRect: CGRect) -> CGSize {
+        CGSize(
+            width: min(max(preferredSize.width, contentSize.width), visibleRect.width),
+            height: min(max(preferredSize.height, contentSize.height), visibleRect.height)
+        )
+    }
+}

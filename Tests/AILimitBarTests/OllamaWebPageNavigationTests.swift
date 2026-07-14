@@ -52,4 +52,38 @@ final class OllamaWebPageNavigationTests: XCTestCase {
             )
         )
     }
+
+    func testNavigationFailurePolicyIgnoresCancelledRedirects() {
+        XCTAssertTrue(
+            OllamaWebPageNavigationFailurePolicy.shouldIgnore(
+                URLError(.cancelled),
+                currentURL: nil,
+                hasReachedSettingsPage: false
+            )
+        )
+        XCTAssertFalse(
+            OllamaWebPageNavigationFailurePolicy.shouldIgnore(
+                URLError(.notConnectedToInternet),
+                currentURL: nil,
+                hasReachedSettingsPage: false
+            )
+        )
+    }
+
+    func testNavigationFailurePolicyPreservesVisibleSettingsPage() {
+        XCTAssertTrue(
+            OllamaWebPageNavigationFailurePolicy.shouldIgnore(
+                URLError(.cannotFindHost),
+                currentURL: URL(string: "https://ollama.com/settings")!,
+                hasReachedSettingsPage: true
+            )
+        )
+        XCTAssertFalse(
+            OllamaWebPageNavigationFailurePolicy.shouldIgnore(
+                URLError(.cannotFindHost),
+                currentURL: URL(string: "https://api.workos.com/user_management/authorize")!,
+                hasReachedSettingsPage: true
+            )
+        )
+    }
 }

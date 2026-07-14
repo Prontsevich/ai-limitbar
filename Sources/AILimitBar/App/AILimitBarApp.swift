@@ -38,5 +38,22 @@ struct AILimitBarApp: App {
             )
             return WindowPlacement(placement.position, size: placement.size)
         }
+
+        Window(OllamaConnectionWindowConfiguration.title, id: OllamaConnectionWindowConfiguration.id) {
+            OllamaWebPageConnectionWindow(appModel: appModel)
+                .windowMinimizeBehavior(.disabled)
+                .windowResizeBehavior(.disabled)
+                .windowFullScreenBehavior(.disabled)
+        }
+        .defaultLaunchBehavior(.suppressed)
+        .restorationBehavior(.disabled)
+        .windowResizability(.contentMinSize)
+        .defaultWindowPlacement { content, context in
+            let size = OllamaConnectionWindowConfiguration.defaultSize(
+                contentSize: content.sizeThatFits(.unspecified),
+                visibleRect: context.defaultDisplay.visibleRect
+            )
+            return WindowPlacement(size: size)
+        }
     }
 }
