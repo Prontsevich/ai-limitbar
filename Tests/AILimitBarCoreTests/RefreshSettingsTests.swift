@@ -3,9 +3,21 @@ import XCTest
 
 final class RefreshSettingsTests: XCTestCase {
     func testRefreshIntervalDisplayNamesAndDurations() {
-        XCTAssertEqual(RefreshInterval.manualOnly.displayName, "Manual only")
+        XCTAssertEqual(RefreshInterval.manualOnly.displayName, "Manual")
         XCTAssertNil(RefreshInterval.manualOnly.timeInterval)
         XCTAssertEqual(RefreshInterval.manualOnly.staleAfter, 24 * 60 * 60)
+
+        XCTAssertEqual(RefreshInterval.oneMinute.displayName, "1 min")
+        XCTAssertEqual(RefreshInterval.oneMinute.timeInterval, 1 * 60)
+        XCTAssertEqual(RefreshInterval.oneMinute.staleAfter, 2 * 60)
+
+        XCTAssertEqual(RefreshInterval.fiveMinutes.displayName, "5 min")
+        XCTAssertEqual(RefreshInterval.fiveMinutes.timeInterval, 5 * 60)
+        XCTAssertEqual(RefreshInterval.fiveMinutes.staleAfter, 10 * 60)
+
+        XCTAssertEqual(RefreshInterval.tenMinutes.displayName, "10 min")
+        XCTAssertEqual(RefreshInterval.tenMinutes.timeInterval, 10 * 60)
+        XCTAssertEqual(RefreshInterval.tenMinutes.staleAfter, 20 * 60)
 
         XCTAssertEqual(RefreshInterval.fifteenMinutes.displayName, "15 min")
         XCTAssertEqual(RefreshInterval.fifteenMinutes.timeInterval, 15 * 60)
@@ -31,7 +43,7 @@ final class RefreshSettingsTests: XCTestCase {
 
     func testDatabaseRefreshSettingsStoreRoundTripsSettings() throws {
         let store = DatabaseRefreshSettingsStore(database: try database())
-        let settings = RefreshSettings(interval: .thirtyMinutes)
+        let settings = RefreshSettings(interval: .fiveMinutes)
 
         try store.save(settings)
         let result = store.load(defaults: RefreshSettings())

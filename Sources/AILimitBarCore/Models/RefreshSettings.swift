@@ -2,6 +2,9 @@ import Foundation
 
 public enum RefreshInterval: String, Codable, CaseIterable, Identifiable, Sendable {
     case manualOnly = "manual-only"
+    case oneMinute = "1-minute"
+    case fiveMinutes = "5-minutes"
+    case tenMinutes = "10-minutes"
     case fifteenMinutes = "15-minutes"
     case thirtyMinutes = "30-minutes"
     case oneHour = "1-hour"
@@ -10,7 +13,10 @@ public enum RefreshInterval: String, Codable, CaseIterable, Identifiable, Sendab
 
     public var displayName: String {
         switch self {
-        case .manualOnly: "Manual only"
+        case .manualOnly: "Manual"
+        case .oneMinute: "1 min"
+        case .fiveMinutes: "5 min"
+        case .tenMinutes: "10 min"
         case .fifteenMinutes: "15 min"
         case .thirtyMinutes: "30 min"
         case .oneHour: "1 hr"
@@ -20,6 +26,9 @@ public enum RefreshInterval: String, Codable, CaseIterable, Identifiable, Sendab
     public var timeInterval: TimeInterval? {
         switch self {
         case .manualOnly: nil
+        case .oneMinute: 1 * 60
+        case .fiveMinutes: 5 * 60
+        case .tenMinutes: 10 * 60
         case .fifteenMinutes: 15 * 60
         case .thirtyMinutes: 30 * 60
         case .oneHour: 60 * 60
@@ -29,7 +38,7 @@ public enum RefreshInterval: String, Codable, CaseIterable, Identifiable, Sendab
     public var staleAfter: TimeInterval {
         switch self {
         case .manualOnly: 24 * 60 * 60
-        case .fifteenMinutes, .thirtyMinutes, .oneHour:
+        case .oneMinute, .fiveMinutes, .tenMinutes, .fifteenMinutes, .thirtyMinutes, .oneHour:
             (timeInterval ?? 0) * 2
         }
     }

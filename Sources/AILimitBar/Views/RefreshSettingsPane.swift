@@ -66,7 +66,6 @@ struct RefreshSettingsPane: View {
         }
         .padding(.horizontal, 24)
         .padding(.vertical, 20)
-        .frame(maxWidth: 760, alignment: .topLeading)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 

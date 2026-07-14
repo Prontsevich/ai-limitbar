@@ -656,9 +656,11 @@ Widget constraints:
 Stored snapshots must not contain raw tokens, API keys, cookies, or provider
 session data.
 
-Snapshots are considered stale after 24 hours in manual-only mode or after two
-missed configured refresh intervals in scheduled mode. Staleness is runtime UI
-state derived from `lastUpdatedAt`; it is not persisted as a snapshot field.
+The refresh schedule offers Manual, 1 min, 5 min, 10 min, 15 min, 30 min,
+and 1 hr. Snapshots are considered stale after 24 hours in manual-only mode or
+after two missed configured refresh intervals in scheduled mode. Staleness is
+runtime UI state derived from `lastUpdatedAt`; it is not persisted as a snapshot
+field.
 
 Provider refreshes retry transient `ProviderAdapterError` failures with a small
 exponential backoff. Configuration, schema, and validation errors are permanent
