@@ -180,6 +180,22 @@ public final class AppDatabase: @unchecked Sendable {
                 ON source_diagnostics(provider_id, account_id, occurred_at)
                 """)
         }
+
+        migrator.registerMigration("v4-refresh-state-diagnostics") { db in
+            try db.execute(sql: """
+                CREATE TABLE source_refresh_state (
+                    provider_id TEXT NOT NULL,
+                    account_id TEXT NOT NULL,
+                    last_attempt_at REAL,
+                    last_successful_refresh_at REAL,
+                    last_failed_refresh_at REAL,
+                    PRIMARY KEY (provider_id, account_id),
+                    FOREIGN KEY (provider_id, account_id)
+                        REFERENCES provider_accounts(provider_id, account_id)
+                        ON DELETE CASCADE
+                )
+                """)
+        }
         return migrator
     }
 }

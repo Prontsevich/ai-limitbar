@@ -31,6 +31,10 @@ public struct SourceDiagnostic: Identifiable, Equatable, Sendable {
 
 public protocol SourceDiagnosticStore: Sendable {
     func load() -> [SourceDiagnostic]
+    func loadRefreshStates() -> [SourceRefreshState]
+    func recordRefreshAttempt(providerID: String, accountID: String, occurredAt: Date) throws
+    func recordRefreshSuccess(providerID: String, accountID: String, occurredAt: Date) throws
+    func recordRefreshFailure(providerID: String, accountID: String, occurredAt: Date) throws
     func replaceRefreshDiagnostics(
         providerID: String,
         accountID: String,
@@ -448,6 +452,55 @@ public final class DatabaseSourceDiagnosticStore: SourceDiagnosticStore, @unchec
         }
     }
 
+    public func loadRefreshStates() -> [SourceRefreshState] {
+        guard let database else { return [] }
+        do {
+            return try database.pool.read { db in
+                try Row.fetchAll(db, sql: """
+                    SELECT provider_id, account_id, last_attempt_at,
+                           last_successful_refresh_at, last_failed_refresh_at
+                    FROM source_refresh_state
+                    """).map { row in
+                    SourceRefreshState(
+                        providerID: row["provider_id"],
+                        accountID: row["account_id"],
+                        lastAttemptAt: (row["last_attempt_at"] as Double?).map(Date.init(timeIntervalSince1970:)),
+                        lastSuccessfulRefreshAt: (row["last_successful_refresh_at"] as Double?).map(Date.init(timeIntervalSince1970:)),
+                        lastFailedRefreshAt: (row["last_failed_refresh_at"] as Double?).map(Date.init(timeIntervalSince1970:))
+                    )
+                }
+            }
+        } catch {
+            return []
+        }
+    }
+
+    public func recordRefreshAttempt(providerID: String, accountID: String, occurredAt: Date) throws {
+        try upsertRefreshState(
+            providerID: providerID,
+            accountID: accountID,
+            lastAttemptAt: occurredAt
+        )
+    }
+
+    public func recordRefreshSuccess(providerID: String, accountID: String, occurredAt: Date) throws {
+        try upsertRefreshState(
+            providerID: providerID,
+            accountID: accountID,
+            lastAttemptAt: occurredAt,
+            lastSuccessfulRefreshAt: occurredAt
+        )
+    }
+
+    public func recordRefreshFailure(providerID: String, accountID: String, occurredAt: Date) throws {
+        try upsertRefreshState(
+            providerID: providerID,
+            accountID: accountID,
+            lastAttemptAt: occurredAt,
+            lastFailedRefreshAt: occurredAt
+        )
+    }
+
     public func replaceRefreshDiagnostics(
         providerID: String,
         accountID: String,
@@ -489,6 +542,43 @@ public final class DatabaseSourceDiagnosticStore: SourceDiagnosticStore, @unchec
             try db.execute(
                 sql: "INSERT INTO source_diagnostics (code, message, occurred_at) VALUES (?, ?, ?)",
                 arguments: [code, message, occurredAt.timeIntervalSince1970]
+            )
+        }
+    }
+
+    private func upsertRefreshState(
+        providerID: String,
+        accountID: String,
+        lastAttemptAt: Date,
+        lastSuccessfulRefreshAt: Date? = nil,
+        lastFailedRefreshAt: Date? = nil
+    ) throws {
+        guard let database else { throw AppDatabaseError.unavailable }
+        try database.pool.write { db in
+            try db.execute(
+                sql: """
+                    INSERT INTO source_refresh_state (
+                        provider_id, account_id, last_attempt_at,
+                        last_successful_refresh_at, last_failed_refresh_at
+                    ) VALUES (?, ?, ?, ?, ?)
+                    ON CONFLICT(provider_id, account_id) DO UPDATE SET
+                        last_attempt_at = excluded.last_attempt_at,
+                        last_successful_refresh_at = COALESCE(
+                            excluded.last_successful_refresh_at,
+                            source_refresh_state.last_successful_refresh_at
+                        ),
+                        last_failed_refresh_at = COALESCE(
+                            excluded.last_failed_refresh_at,
+                            source_refresh_state.last_failed_refresh_at
+                        )
+                    """,
+                arguments: [
+                    providerID,
+                    accountID,
+                    lastAttemptAt.timeIntervalSince1970,
+                    lastSuccessfulRefreshAt?.timeIntervalSince1970,
+                    lastFailedRefreshAt?.timeIntervalSince1970
+                ]
             )
         }
     }

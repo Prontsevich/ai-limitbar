@@ -111,6 +111,13 @@ public struct OllamaCloudProviderAdapter: ProviderAdapter {
     public let id = "ollama-cloud"
     public let displayName = "Ollama Cloud"
     public let usageURL = URL(string: "https://ollama.com/settings")
+    public let capabilities = ProviderCapabilities(sources: [
+        ProviderSourceCapability(
+            mode: .ollamaWebPage,
+            kind: .live,
+            summary: "Read usage from the authenticated Ollama settings page in AI Limitbar."
+        )
+    ])
 
     private let client: any OllamaWebPageClient
 

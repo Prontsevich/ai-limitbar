@@ -4,6 +4,13 @@ public struct MockProviderAdapter: ProviderAdapter {
     public let id = "mock"
     public let displayName = "Mock Provider"
     public let usageURL: URL? = nil
+    public let capabilities = ProviderCapabilities(sources: [
+        ProviderSourceCapability(
+            mode: .manual,
+            kind: .manual,
+            summary: "Built-in generated data for development and UI checks."
+        )
+    ])
 
     public init() {}
 

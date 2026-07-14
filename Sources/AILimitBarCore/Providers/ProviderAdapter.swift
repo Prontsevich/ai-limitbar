@@ -25,6 +25,11 @@ public protocol ProviderAdapter: Sendable {
     var id: String { get }
     var displayName: String { get }
     var usageURL: URL? { get }
+    var capabilities: ProviderCapabilities { get }
 
     func fetchSnapshot(account: ProviderAccount) async throws -> UsageSnapshot
+}
+
+public extension ProviderAdapter {
+    var capabilities: ProviderCapabilities { .manualOnly }
 }

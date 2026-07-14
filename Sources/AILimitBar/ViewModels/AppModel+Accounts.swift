@@ -224,6 +224,7 @@ extension AppModel {
         let previousSnapshots = snapshots
         let previousStatuses = providerRefreshStatuses
         let previousIssues = accountRefreshIssues
+        let previousRefreshStates = sourceRefreshStates
         guard let account = providerAccounts.first(where: {
             $0.providerID == providerID && $0.accountID == accountID
         }) else { return }
@@ -233,11 +234,13 @@ extension AppModel {
         snapshots.removeAll { $0.id == accountKey }
         providerRefreshStatuses.removeValue(forKey: accountKey)
         accountRefreshIssues.removeValue(forKey: accountKey)
+        sourceRefreshStates.removeValue(forKey: accountKey)
         guard saveConfiguration() else {
             providerAccounts = previousAccounts
             snapshots = previousSnapshots
             providerRefreshStatuses = previousStatuses
             accountRefreshIssues = previousIssues
+            sourceRefreshStates = previousRefreshStates
             return
         }
         saveSnapshots()

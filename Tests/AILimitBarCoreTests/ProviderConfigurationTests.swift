@@ -9,6 +9,30 @@ final class ProviderConfigurationTests: XCTestCase {
         XCTAssertEqual(ProviderSourceMode.defaultMode(for: "mock"), .manual)
     }
 
+    func testProviderAdaptersExposeSourceCapabilities() {
+        let adapters = ProviderRegistry.defaultAdapters
+        let claude = adapters.first { $0.id == "claude-code" }
+        let codex = adapters.first { $0.id == "openai-codex" }
+        let ollama = adapters.first { $0.id == "ollama-cloud" }
+
+        XCTAssertEqual(
+            claude?.capabilities.capability(for: .claudeStatusLine)?.kind,
+            .localSnapshot
+        )
+        XCTAssertEqual(
+            claude?.capabilities.capability(for: .claudeUsageCLI)?.kind,
+            .live
+        )
+        XCTAssertEqual(
+            codex?.capabilities.capability(for: .appServer)?.kind,
+            .live
+        )
+        XCTAssertEqual(
+            ollama?.capabilities.capability(for: .ollamaWebPage)?.kind,
+            .live
+        )
+    }
+
     func testProviderAccountWithoutSourceUsesProviderDefault() {
         XCTAssertEqual(
             ProviderAccount(providerID: "openai-codex", isEnabled: true).sourceMode,
@@ -257,6 +281,38 @@ final class ProviderConfigurationTests: XCTestCase {
 
         try store.clearRefreshDiagnostics(providerID: "mock", accountID: "one")
         XCTAssertFalse(store.load().contains { $0.providerID == "mock" })
+    }
+
+    func testDatabaseRefreshStateKeepsSuccessAndFailureTimestampsSeparate() throws {
+        let database = try AppDatabase(directory: temporaryDirectory())
+        let store = DatabaseSourceDiagnosticStore(database: database)
+        try DatabaseProviderConfigurationStore(database: database).save([
+            ProviderAccount(providerID: "mock", accountID: "one", displayName: "One", isEnabled: true)
+        ])
+
+        try store.recordRefreshSuccess(
+            providerID: "mock",
+            accountID: "one",
+            occurredAt: Date(timeIntervalSince1970: 100)
+        )
+        try store.recordRefreshFailure(
+            providerID: "mock",
+            accountID: "one",
+            occurredAt: Date(timeIntervalSince1970: 200)
+        )
+        try store.recordRefreshAttempt(
+            providerID: "mock",
+            accountID: "one",
+            occurredAt: Date(timeIntervalSince1970: 300)
+        )
+
+        let state = try XCTUnwrap(store.loadRefreshStates().first)
+        XCTAssertEqual(state.lastSuccessfulRefreshAt, Date(timeIntervalSince1970: 100))
+        XCTAssertEqual(state.lastFailedRefreshAt, Date(timeIntervalSince1970: 200))
+        XCTAssertEqual(state.lastAttemptAt, Date(timeIntervalSince1970: 300))
+
+        try DatabaseProviderConfigurationStore(database: database).save([])
+        XCTAssertTrue(store.loadRefreshStates().isEmpty)
     }
 
     private func temporaryDirectory() -> URL {

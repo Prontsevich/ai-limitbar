@@ -11,6 +11,23 @@ public struct ClaudeCodeProviderAdapter: ProviderAdapter {
     public let id = "claude-code"
     public let displayName = "Claude Code"
     public let usageURL: URL? = URL(string: "https://claude.ai/settings/usage")
+    public let capabilities = ProviderCapabilities(sources: [
+        ProviderSourceCapability(
+            mode: .manual,
+            kind: .manual,
+            summary: "Open Claude Code usage and maintain the snapshot manually."
+        ),
+        ProviderSourceCapability(
+            mode: .claudeStatusLine,
+            kind: .localSnapshot,
+            summary: "Read the normalized snapshot written by the managed statusLine helper."
+        ),
+        ProviderSourceCapability(
+            mode: .claudeUsageCLI,
+            kind: .live,
+            summary: "Read current plan limits through the authenticated local Claude CLI."
+        )
+    ])
 
     private let snapshotStore: (any CurrentSnapshotStore)?
     private let usageCLIClient: any ClaudeUsageCLIClient

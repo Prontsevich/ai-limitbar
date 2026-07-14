@@ -123,8 +123,14 @@ extension AppModel {
             return false
         }
         if snapshot.status == .error {
+            recordRefreshFailure(for: snapshot)
             handleFailedSnapshot(snapshot)
         } else {
+            if snapshot.status == .ok || snapshot.status == .warning {
+                recordRefreshSuccess(for: snapshot)
+            } else {
+                recordRefreshAttempt(for: snapshot)
+            }
             upsert(snapshot)
             accountRefreshIssues.removeValue(forKey: snapshot.id)
             clearPersistedRefreshIssue(for: snapshot)

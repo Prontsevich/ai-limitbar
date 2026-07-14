@@ -49,6 +49,8 @@ struct AccountDetailsView: View {
 
     @ViewBuilder
     private var inspectorRows: some View {
+        let diagnostics = appModel.accountDiagnostics(for: currentAccount)
+
         TerminalInspectorRow(
             label: "REFRESH",
             value: refreshText,
@@ -57,9 +59,19 @@ struct AccountDetailsView: View {
         TerminalRule()
 
         TerminalInspectorRow(
-            label: "UPDATED",
-            value: row.snapshot.map { preciseDate($0.lastUpdatedAt) } ?? "No usage data"
+            label: "SOURCE STATE",
+            value: diagnostics.message,
+            valueColor: sourceAvailabilityColor(diagnostics.availability)
         )
+
+        if diagnostics.availability == .failed,
+           let lastSuccessfulRefreshAt = diagnostics.lastSuccessfulRefreshAt {
+            TerminalRule()
+            TerminalInspectorRow(
+                label: "LAST SUCCESS",
+                value: preciseDate(lastSuccessfulRefreshAt)
+            )
+        }
         TerminalRule()
 
         if let snapshot = row.snapshot {
@@ -231,6 +243,17 @@ struct AccountDetailsView: View {
         }
     }
 
+    private func sourceAvailabilityColor(_ availability: ProviderSourceAvailability) -> Color {
+        switch availability {
+        case .supported:
+            TerminalTheme.healthy
+        case .needsConnection, .noData:
+            TerminalTheme.warning
+        case .failed, .unsupported:
+            TerminalTheme.error
+        }
+    }
+
     private var persistedRefreshStatusColor: Color {
         if row.refreshIssue != nil || row.snapshot?.status == .error {
             return TerminalTheme.error
@@ -257,6 +280,9 @@ struct AccountDetailsView: View {
     private var persistedRefreshText: String {
         if let issue = row.refreshIssue {
             return "Failed at \(preciseDate(issue.occurredAt))"
+        }
+        if let date = appModel.accountDiagnostics(for: currentAccount).lastSuccessfulRefreshAt {
+            return "Succeeded at \(preciseDate(date))"
         }
         if let snapshot = row.snapshot, snapshot.status != .error {
             return "Succeeded at \(preciseDate(snapshot.lastUpdatedAt))"

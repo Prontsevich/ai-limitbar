@@ -950,17 +950,16 @@ Acceptance:
 ## Milestone 21: Provider And Account Readiness
 
 Goal: prepare the app for more providers, multi-account identity mappings, and
-account-level credentials while keeping provider implementations conservative
-and requiring evidence before adding authenticated web sources.
+clear account/source readiness diagnostics while keeping provider
+implementations conservative and requiring evidence before adding authenticated
+web sources.
 
-- [ ] Add provider/account source diagnostics model.
-- [ ] Track last successful refresh separately from failed refresh attempts.
-- [ ] Add account-level credential slots backed by Keychain.
-- [ ] Add credential presence checks without exposing secret values.
-- [ ] Add provider capability metadata for manual, local snapshot, live, and
-  delayed modes.
-- [ ] Improve error copy for missing credentials, unsupported source modes, and
+- [x] Add provider/account source diagnostics model.
+- [x] Track last successful refresh separately from failed refresh attempts.
+- [x] Improve error copy for missing connections, unsupported source modes, and
   unavailable provider APIs.
+- [x] Add provider capability metadata for manual, local snapshot, live, and
+  delayed modes.
 - [ ] Run an authenticated multi-account web-source research gate for Claude and
   OpenAI Codex before adding either provider to the existing Ollama WebKit
   implementation. Treat Claude and Codex as independent feasibility decisions;
@@ -1005,7 +1004,6 @@ and requiring evidence before adding authenticated web sources.
 Acceptance:
 
 - The app can explain why each account is or is not refreshable.
-- Credentials have a clear account-level home without touching JSON storage.
 - Provider adapters can advertise supported source modes.
 - Claude and Codex each have an independently documented feasibility result
   backed by an authenticated WebKit check rather than an assumed page shape or

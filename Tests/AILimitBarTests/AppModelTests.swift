@@ -104,18 +104,25 @@ final class AppModelTests: XCTestCase {
             storageDirectory: directory
         )
         XCTAssertNotNil(reloaded.accountRefreshIssues[account.id])
+        XCTAssertNil(reloaded.sourceRefreshStates[account.id]?.lastSuccessfulRefreshAt)
+        XCTAssertEqual(
+            reloaded.sourceRefreshStates[account.id]?.lastFailedRefreshAt,
+            reloaded.sourceRefreshStates[account.id]?.lastAttemptAt
+        )
 
         reloaded.refreshAccount(providerID: account.providerID, accountID: account.accountID)
         while reloaded.refreshStatus(for: account) == .refreshing {
             await Task.yield()
         }
         XCTAssertNil(reloaded.accountRefreshIssues[account.id])
+        XCTAssertNotNil(reloaded.sourceRefreshStates[account.id]?.lastSuccessfulRefreshAt)
 
         let cleared = AppModel(
             registry: ProviderRegistry(adapters: [ImmediateProviderAdapter(id: failingAdapter.id)]),
             storageDirectory: directory
         )
         XCTAssertNil(cleared.accountRefreshIssues[account.id])
+        XCTAssertNotNil(cleared.sourceRefreshStates[account.id]?.lastSuccessfulRefreshAt)
     }
 
     @MainActor

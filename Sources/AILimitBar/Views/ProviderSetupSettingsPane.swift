@@ -67,12 +67,10 @@ private struct ProviderSetupRow: View {
     }
 
     private var sourceSummary: String {
-        switch providerID {
-        case "mock": "Built-in local fixture"
-        case "claude-code": "Manual · managed statusLine · experimental /usage CLI"
-        case "openai-codex": "Experimental app-server"
-        case "ollama-cloud": "Experimental web page"
-        default: "No configured source"
-        }
+        let capabilities = appModel.providerCapabilities(for: providerID)
+        guard !capabilities.sources.isEmpty else { return "No configured source" }
+        return capabilities.sources
+            .map { "\($0.mode.displayName) · \($0.kind.displayName)" }
+            .joined(separator: " · ")
     }
 }

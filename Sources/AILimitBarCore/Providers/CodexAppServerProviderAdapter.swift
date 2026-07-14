@@ -4,6 +4,13 @@ public struct CodexAppServerProviderAdapter: ProviderAdapter {
     public let id = "openai-codex"
     public let displayName = "OpenAI Codex"
     public let usageURL: URL? = URL(string: "https://chatgpt.com/codex")
+    public let capabilities = ProviderCapabilities(sources: [
+        ProviderSourceCapability(
+            mode: .appServer,
+            kind: .live,
+            summary: "Read current rate limits through the local Codex app-server."
+        )
+    ])
 
     private let client: any CodexAppServerClient
 

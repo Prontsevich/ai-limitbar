@@ -74,6 +74,9 @@ extension AppModel {
     func loadDiagnostics() {
         let diagnostics = diagnosticStore.load()
         sourceDiagnostics = diagnostics
+        sourceRefreshStates = Dictionary(
+            uniqueKeysWithValues: diagnosticStore.loadRefreshStates().map { ($0.providerID + ":" + $0.accountID, $0) }
+        )
         let configuredAccountIDs = Set(providerAccounts.map(\.id))
         let accountDiagnostics = Dictionary(grouping: diagnostics.compactMap { diagnostic -> (String, SourceDiagnostic)? in
             guard let providerID = diagnostic.providerID,
@@ -123,6 +126,76 @@ extension AppModel {
         } catch {
             storageWarning = "Provider diagnostics could not be saved."
         }
+    }
+
+    func recordRefreshAttempt(for snapshot: UsageSnapshot) {
+        do {
+            try diagnosticStore.recordRefreshAttempt(
+                providerID: snapshot.providerID,
+                accountID: snapshot.accountID,
+                occurredAt: snapshot.lastUpdatedAt
+            )
+            updateRefreshState(for: snapshot) { state in
+                SourceRefreshState(
+                    providerID: state?.providerID ?? snapshot.providerID,
+                    accountID: state?.accountID ?? snapshot.accountID,
+                    lastAttemptAt: snapshot.lastUpdatedAt,
+                    lastSuccessfulRefreshAt: state?.lastSuccessfulRefreshAt,
+                    lastFailedRefreshAt: state?.lastFailedRefreshAt
+                )
+            }
+        } catch {
+            storageWarning = "Provider refresh state could not be saved."
+        }
+    }
+
+    func recordRefreshSuccess(for snapshot: UsageSnapshot) {
+        do {
+            try diagnosticStore.recordRefreshSuccess(
+                providerID: snapshot.providerID,
+                accountID: snapshot.accountID,
+                occurredAt: snapshot.lastUpdatedAt
+            )
+            updateRefreshState(for: snapshot) { state in
+                SourceRefreshState(
+                    providerID: state?.providerID ?? snapshot.providerID,
+                    accountID: state?.accountID ?? snapshot.accountID,
+                    lastAttemptAt: snapshot.lastUpdatedAt,
+                    lastSuccessfulRefreshAt: snapshot.lastUpdatedAt,
+                    lastFailedRefreshAt: state?.lastFailedRefreshAt
+                )
+            }
+        } catch {
+            storageWarning = "Provider refresh state could not be saved."
+        }
+    }
+
+    func recordRefreshFailure(for snapshot: UsageSnapshot) {
+        do {
+            try diagnosticStore.recordRefreshFailure(
+                providerID: snapshot.providerID,
+                accountID: snapshot.accountID,
+                occurredAt: snapshot.lastUpdatedAt
+            )
+            updateRefreshState(for: snapshot) { state in
+                SourceRefreshState(
+                    providerID: state?.providerID ?? snapshot.providerID,
+                    accountID: state?.accountID ?? snapshot.accountID,
+                    lastAttemptAt: snapshot.lastUpdatedAt,
+                    lastSuccessfulRefreshAt: state?.lastSuccessfulRefreshAt,
+                    lastFailedRefreshAt: snapshot.lastUpdatedAt
+                )
+            }
+        } catch {
+            storageWarning = "Provider refresh state could not be saved."
+        }
+    }
+
+    private func updateRefreshState(
+        for snapshot: UsageSnapshot,
+        update: (SourceRefreshState?) -> SourceRefreshState
+    ) {
+        sourceRefreshStates[snapshot.id] = update(sourceRefreshStates[snapshot.id])
     }
 
     private func clearStorageWarning(_ warning: String) {

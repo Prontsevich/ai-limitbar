@@ -8,6 +8,7 @@ final class AppModel: ObservableObject {
     @Published var providerRefreshStatuses: [String: ProviderRefreshStatus] = [:]
     @Published var accountRefreshIssues: [String: AccountRefreshIssue] = [:]
     @Published var sourceDiagnostics: [SourceDiagnostic] = []
+    @Published var sourceRefreshStates: [String: SourceRefreshState] = [:]
     @Published var refreshSettings = RefreshSettings()
     @Published var isRefreshing = false
     @Published var storageWarning: String?
@@ -184,6 +185,64 @@ final class AppModel: ObservableObject {
         adapter(for: providerID)?.displayName ?? providerID
     }
 
+    func providerCapabilities(for providerID: String) -> ProviderCapabilities {
+        adapter(for: providerID)?.capabilities ?? .manualOnly
+    }
+
+    func sourceCapability(for account: ProviderAccount) -> ProviderSourceCapability? {
+        providerCapabilities(for: account.providerID).capability(for: account.sourceMode)
+    }
+
+    func accountDiagnostics(for account: ProviderAccount) -> ProviderAccountDiagnostics {
+        let capability = sourceCapability(for: account)
+        let state = sourceRefreshStates[account.id]
+        let snapshot = snapshot(for: account)
+        let issue = accountRefreshIssues[account.id]
+
+        let availability: ProviderSourceAvailability
+        let message: String
+        let messages: [String]
+
+        if capability == nil {
+            availability = .unsupported
+            message = "This source mode is not supported by the provider adapter."
+            messages = [message]
+        } else if issue != nil || snapshot?.status == .error {
+            availability = .failed
+            messages = issue?.warnings ?? snapshot?.warnings ?? ["The last refresh failed."]
+            message = messages.first ?? "The last refresh failed."
+        } else if account.sourceMode == .ollamaWebPage && account.webDataStoreID == nil {
+            availability = .needsConnection
+            message = "Connect this account through AI Limitbar before refreshing."
+            messages = [message]
+        } else if snapshot == nil || snapshot?.status == .unavailable {
+            availability = .noData
+            message = noDataMessage(for: account)
+            if let snapshot, !snapshot.warnings.isEmpty {
+                messages = snapshot.warnings
+            } else {
+                messages = [message]
+            }
+        } else {
+            availability = .supported
+            message = capability?.summary ?? "The configured source is supported."
+            messages = []
+        }
+
+        return ProviderAccountDiagnostics(
+            providerID: account.providerID,
+            accountID: account.accountID,
+            sourceMode: account.sourceMode,
+            sourceKind: capability?.kind,
+            availability: availability,
+            message: message,
+            lastAttemptAt: state?.lastAttemptAt,
+            lastSuccessfulRefreshAt: state?.lastSuccessfulRefreshAt,
+            lastFailedRefreshAt: state?.lastFailedRefreshAt,
+            messages: messages
+        )
+    }
+
     func accounts(for providerID: String) -> [ProviderAccount] {
         providerAccounts
             .filter { $0.providerID == providerID }
@@ -221,5 +280,18 @@ final class AppModel: ObservableObject {
             guard account(providerID: providerID, accountID: accountID) != nil else { return nil }
         }
         return url
+    }
+
+    private func noDataMessage(for account: ProviderAccount) -> String {
+        switch account.sourceMode {
+        case .ollamaWebPage:
+            "Connect Ollama to load the experimental settings-page source."
+        case .appServer:
+            "Refresh this account to read the experimental local Codex app-server source."
+        case .claudeUsageCLI:
+            "Refresh this account to read the experimental local Claude /usage source."
+        case .manual, .claudeStatusLine:
+            "Refresh or test this account to load a snapshot."
+        }
     }
 }
