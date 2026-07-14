@@ -74,12 +74,15 @@ extension AppModel {
     func loadDiagnostics() {
         let diagnostics = diagnosticStore.load()
         sourceDiagnostics = diagnostics
+        let configuredAccountIDs = Set(providerAccounts.map(\.id))
         let accountDiagnostics = Dictionary(grouping: diagnostics.compactMap { diagnostic -> (String, SourceDiagnostic)? in
             guard let providerID = diagnostic.providerID,
                   let accountID = diagnostic.accountID,
                   diagnostic.code.hasPrefix("refresh-")
             else { return nil }
-            return ("\(providerID):\(accountID)", diagnostic)
+            let accountKey = "\(providerID):\(accountID)"
+            guard configuredAccountIDs.contains(accountKey) else { return nil }
+            return (accountKey, diagnostic)
         }, by: \.0)
         accountRefreshIssues = Dictionary(uniqueKeysWithValues: accountDiagnostics.map { accountID, entries in
             let diagnostics = entries.map(\.1).sorted { $0.code < $1.code }

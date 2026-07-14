@@ -119,6 +119,68 @@ final class AppModelTests: XCTestCase {
     }
 
     @MainActor
+    func testDeletingFailedAccountClearsDiagnosticsAndMenuBarStateAcrossLaunch() async throws {
+        let directory = try temporaryDirectory()
+        let failingAdapter = MismatchedImmediateAdapter()
+        let model = AppModel(
+            registry: ProviderRegistry(adapters: [failingAdapter]),
+            storageDirectory: directory
+        )
+        model.addAccount(providerID: failingAdapter.id, displayName: "Work")
+        let account = try XCTUnwrap(model.providerAccounts.first)
+
+        model.testConnection(providerID: account.providerID, accountID: account.accountID)
+        while model.refreshStatus(for: account) == .refreshing {
+            await Task.yield()
+        }
+        XCTAssertFalse(model.accountRefreshIssues.isEmpty)
+        XCTAssertEqual(model.menuBarSystemImage, "exclamationmark.triangle")
+
+        model.deleteAccount(providerID: account.providerID, accountID: account.accountID)
+
+        XCTAssertTrue(model.accountRefreshIssues.isEmpty)
+        XCTAssertEqual(model.menuBarSystemImage, "gauge.with.dots.needle.33percent")
+        let database = try AppDatabase(directory: directory)
+        XCTAssertTrue(DatabaseSourceDiagnosticStore(database: database).load().isEmpty)
+
+        let reloaded = AppModel(
+            registry: ProviderRegistry(adapters: [ImmediateProviderAdapter(id: failingAdapter.id)]),
+            storageDirectory: directory
+        )
+        XCTAssertTrue(reloaded.accountRefreshIssues.isEmpty)
+        XCTAssertEqual(reloaded.menuBarSystemImage, "gauge.with.dots.needle.33percent")
+    }
+
+    @MainActor
+    func testLateFailedOllamaConnectionResultDoesNotRestoreDeletedAccountState() throws {
+        let directory = try temporaryDirectory()
+        let adapter = OllamaCloudProviderAdapter()
+        let model = AppModel(
+            registry: ProviderRegistry(adapters: [adapter]),
+            storageDirectory: directory
+        )
+        model.addAccount(
+            providerID: adapter.id,
+            displayName: "Ollama Work",
+            sourceMode: .ollamaWebPage
+        )
+        let account = try XCTUnwrap(model.providerAccounts.first)
+
+        model.deleteAccount(providerID: account.providerID, accountID: account.accountID)
+        model.acceptOllamaUsagePayload(
+            OllamaUsagePagePayload(session: nil, weekly: nil),
+            for: account
+        )
+
+        XCTAssertTrue(model.providerAccounts.isEmpty)
+        XCTAssertTrue(model.snapshots.isEmpty)
+        XCTAssertTrue(model.providerRefreshStatuses.isEmpty)
+        XCTAssertTrue(model.accountRefreshIssues.isEmpty)
+        let database = try AppDatabase(directory: directory)
+        XCTAssertTrue(DatabaseSourceDiagnosticStore(database: database).load().isEmpty)
+    }
+
+    @MainActor
     func testFailedConfigurationSaveRollsBackAccountMutation() throws {
         let root = try temporaryDirectory()
         let invalidDirectory = root.appendingPathComponent("not-a-directory")

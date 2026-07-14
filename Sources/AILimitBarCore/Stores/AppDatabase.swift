@@ -137,6 +137,49 @@ public final class AppDatabase: @unchecked Sendable {
                   AND codex_executable_path IS NOT NULL
                 """)
         }
+
+        migrator.registerMigration("v3-account-diagnostic-lifecycle") { db in
+            try db.execute(sql: """
+                CREATE TABLE source_diagnostics_v3 (
+                    id INTEGER PRIMARY KEY,
+                    provider_id TEXT,
+                    account_id TEXT,
+                    code TEXT NOT NULL,
+                    message TEXT NOT NULL,
+                    occurred_at REAL NOT NULL,
+                    FOREIGN KEY (provider_id, account_id)
+                        REFERENCES provider_accounts(provider_id, account_id)
+                        ON DELETE CASCADE
+                )
+                """)
+            try db.execute(sql: """
+                INSERT INTO source_diagnostics_v3 (
+                    id, provider_id, account_id, code, message, occurred_at
+                )
+                SELECT
+                    diagnostic.id,
+                    diagnostic.provider_id,
+                    diagnostic.account_id,
+                    diagnostic.code,
+                    diagnostic.message,
+                    diagnostic.occurred_at
+                FROM source_diagnostics AS diagnostic
+                WHERE diagnostic.provider_id IS NULL
+                   OR diagnostic.account_id IS NULL
+                   OR EXISTS (
+                       SELECT 1
+                       FROM provider_accounts AS account
+                       WHERE account.provider_id = diagnostic.provider_id
+                         AND account.account_id = diagnostic.account_id
+                   )
+                """)
+            try db.execute(sql: "DROP TABLE source_diagnostics")
+            try db.execute(sql: "ALTER TABLE source_diagnostics_v3 RENAME TO source_diagnostics")
+            try db.execute(sql: """
+                CREATE INDEX source_diagnostics_account
+                ON source_diagnostics(provider_id, account_id, occurred_at)
+                """)
+        }
         return migrator
     }
 }

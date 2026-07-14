@@ -124,6 +124,60 @@ final class ProviderConfigurationTests: XCTestCase {
         XCTAssertEqual(result.accounts.first?.executablePath, "~/.local/bin/codex")
     }
 
+    func testDatabaseMigrationRemovesOrphanedAccountDiagnosticsAndAddsCascade() throws {
+        let directory = temporaryDirectory()
+        let account = ProviderAccount(
+            providerID: "mock",
+            accountID: "current",
+            displayName: "Current",
+            isEnabled: true
+        )
+        var database: AppDatabase? = try AppDatabase(directory: directory)
+        try DatabaseProviderConfigurationStore(database: database).save([account])
+        try database?.pool.write { db in
+            try db.execute(sql: "DROP INDEX source_diagnostics_account")
+            try db.execute(sql: "DROP TABLE source_diagnostics")
+            try db.execute(sql: """
+                CREATE TABLE source_diagnostics (
+                    id INTEGER PRIMARY KEY,
+                    provider_id TEXT,
+                    account_id TEXT,
+                    code TEXT NOT NULL,
+                    message TEXT NOT NULL,
+                    occurred_at REAL NOT NULL
+                )
+                """)
+            try db.execute(sql: """
+                CREATE INDEX source_diagnostics_account
+                ON source_diagnostics(provider_id, account_id, occurred_at)
+                """)
+            try db.execute(sql: """
+                INSERT INTO source_diagnostics (
+                    provider_id, account_id, code, message, occurred_at
+                ) VALUES
+                    ('mock', 'current', 'refresh-0', 'Current account failed', 1000),
+                    ('mock', 'deleted', 'refresh-0', 'Deleted account failed', 1001),
+                    (NULL, NULL, 'global-warning', 'Global warning', 1002)
+                """)
+            try db.execute(
+                sql: "DELETE FROM grdb_migrations WHERE identifier = ?",
+                arguments: ["v3-account-diagnostic-lifecycle"]
+            )
+        }
+        database = nil
+
+        let migratedDatabase = try AppDatabase(directory: directory)
+        let diagnostics = DatabaseSourceDiagnosticStore(database: migratedDatabase)
+        XCTAssertEqual(
+            Set(diagnostics.load().map(\.message)),
+            ["Current account failed", "Global warning"]
+        )
+
+        try DatabaseProviderConfigurationStore(database: migratedDatabase).save([])
+
+        XCTAssertEqual(diagnostics.load().map(\.message), ["Global warning"])
+    }
+
     func testDatabaseStoreRoundTripsAccountsAndOrdering() throws {
         let database = try AppDatabase(directory: temporaryDirectory())
         let accounts = [
@@ -181,6 +235,14 @@ final class ProviderConfigurationTests: XCTestCase {
         let database = try AppDatabase(directory: temporaryDirectory())
         let store = DatabaseSourceDiagnosticStore(database: database)
         let occurredAt = Date(timeIntervalSince1970: 1_000)
+        try DatabaseProviderConfigurationStore(database: database).save([
+            ProviderAccount(
+                providerID: "mock",
+                accountID: "one",
+                displayName: "One",
+                isEnabled: true
+            )
+        ])
 
         try store.replaceRefreshDiagnostics(
             providerID: "mock",

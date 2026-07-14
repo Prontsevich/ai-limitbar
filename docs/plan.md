@@ -602,6 +602,12 @@ column and copies any existing Codex value from the legacy
 being destructively removed. Codex app-server and Claude `/usage` CLI share the
 new account field while keeping provider-specific discovery and process clients.
 
+Migration v3 binds account-scoped source diagnostics to their provider account
+with cascading deletion. Existing diagnostics for missing accounts are removed
+during migration, while global diagnostics remain available. An account deletion
+therefore removes its snapshots and diagnostics atomically; late provider or
+connection results for that account are discarded by `AppModel`.
+
 Account display names are globally unique across all saved accounts, including
 disabled accounts, because the menu-bar dashboard uses the account name as its
 primary identifier. Before persistence, AI Limitbar trims leading/trailing

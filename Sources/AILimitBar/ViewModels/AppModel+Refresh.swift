@@ -16,8 +16,9 @@ extension AppModel {
                 providerDisplayName: adapter.displayName,
                 error: error
             )
-            handleFailedSnapshot(snapshot)
-            saveSnapshots()
+            if handleRefreshedSnapshot(snapshot) {
+                saveSnapshots()
+            }
         }
     }
 
@@ -133,6 +134,9 @@ extension AppModel {
     }
 
     func handleFailedSnapshot(_ snapshot: UsageSnapshot) {
+        guard account(providerID: snapshot.providerID, accountID: snapshot.accountID) != nil else {
+            return
+        }
         if existingSnapshot(matching: snapshot) == nil {
             upsert(snapshot)
         }
