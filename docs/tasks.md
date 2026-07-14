@@ -902,9 +902,9 @@ Releases without building from source, while keeping the initial ad-hoc-signed,
 non-notarized distribution path honest about macOS Gatekeeper warnings.
 
 Implementation status (2026-07-14): local Apple Silicon packaging, archive
-round-trip validation, 111 automated tests, and staged-app smoke verification
-are complete. The manual GitHub Actions run and first published release remain
-pending until the implementation is committed and pushed.
+round-trip validation, 111 automated tests, staged-app smoke verification, the
+manual GitHub Actions run, the first published release, and outside-build
+artifact verification are complete.
 
 - [x] Add one reproducible release-packaging script that builds the SwiftPM
   products, stages the complete `AILimitBar.app` bundle (including the bundled
@@ -921,7 +921,7 @@ pending until the implementation is committed and pushed.
   permission to create a GitHub Release and upload the ZIP. Keep the workflow
   free of Apple-signing credentials, tokens, and other secrets in this first
   distribution milestone.
-- [ ] Publish the archive as `AILimitBar-<version>.zip` on the matching GitHub
+- [x] Publish the archive as `AILimitBar-<version>.zip` on the matching GitHub
   Release, with generated or maintained release notes that state the version
   and macOS 26+ / Apple Silicon requirement.
 - [x] Document the tag-to-release procedure and installation path: download the
@@ -931,7 +931,7 @@ pending until the implementation is committed and pushed.
   Developer ID signing or Apple notarization; do not describe this first path
   as trusted, notarized, or warning-free.
 - [x] Add the promised MIT license before the first tagged release.
-- [ ] Verify one published release artifact by downloading it outside the build
+- [x] Verify one published release artifact by downloading it outside the build
   directory, inspecting the archive contents and bundle version, checking the
   ad-hoc code signature, and manually launching it on macOS 26.
 
