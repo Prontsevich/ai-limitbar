@@ -871,7 +871,7 @@ running a model turn, or replacing the existing managed `statusLine` source.
   between account-wide plan bars and machine-local activity attribution, the
   experimental text-compatibility boundary, privacy rules, diagnostics, and
   fallback behavior in `docs/plan.md`, the provider docs, and README.
-- [ ] Manually verify the staged app against an authenticated Claude Code CLI:
+- [x] Manually verify the staged app against an authenticated Claude Code CLI:
   confirm session, all-model weekly, and Fable weekly windows; confirm reset
   times where supplied, the verified session-without-reset behavior, refresh
   scheduling, connection testing, relaunch persistence, format failure recovery,
