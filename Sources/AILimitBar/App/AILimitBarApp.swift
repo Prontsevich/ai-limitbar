@@ -3,24 +3,18 @@ import SwiftUI
 @main
 struct AILimitBarApp: App {
     @StateObject private var appModel: AppModel
+    @StateObject private var menuBarStatusItemController: MenuBarStatusItemController
 
     init() {
         let ollamaClient = OllamaWebPageClientController()
-        _appModel = StateObject(
-            wrappedValue: AppModel(ollamaWebPageClient: ollamaClient)
+        let model = AppModel(ollamaWebPageClient: ollamaClient)
+        _appModel = StateObject(wrappedValue: model)
+        _menuBarStatusItemController = StateObject(
+            wrappedValue: MenuBarStatusItemController(appModel: model)
         )
     }
 
     var body: some Scene {
-        MenuBarExtra {
-            MenuBarPanelView(appModel: appModel)
-        } label: {
-            Label(appModel.menuBarTitle, systemImage: appModel.menuBarSystemImage)
-                .accessibilityLabel("AI Limitbar")
-                .accessibilityValue(appModel.menuBarAccessibilityValue)
-        }
-        .menuBarExtraStyle(.window)
-
         Window(SettingsWindowConfiguration.title, id: SettingsWindowConfiguration.id) {
             SettingsView(appModel: appModel)
                 .windowMinimizeBehavior(.disabled)

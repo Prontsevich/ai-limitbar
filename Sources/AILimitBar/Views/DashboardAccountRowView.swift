@@ -4,6 +4,7 @@ struct DashboardAccountRowView: View {
     @ObservedObject var appModel: AppModel
     let row: AccountSnapshotRow
     let isStale: Bool
+    let onOpenOllamaConnection: (() -> Void)?
 
     @State private var isShowingDetails = false
 
@@ -53,7 +54,11 @@ struct DashboardAccountRowView: View {
             .help("Show account details")
             .accessibilityLabel("Show details for \(presentation.accountName)")
             .popover(isPresented: $isShowingDetails, arrowEdge: .trailing) {
-                AccountDetailsView(appModel: appModel, row: row)
+                AccountDetailsView(
+                    appModel: appModel,
+                    row: row,
+                    onOpenOllamaConnection: onOpenOllamaConnection
+                )
                     .frame(width: 360)
             }
         }

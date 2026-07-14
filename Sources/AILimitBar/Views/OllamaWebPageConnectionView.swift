@@ -97,6 +97,7 @@ struct OllamaWebPageConnectionSheet: View {
 struct OllamaWebPageConnectionWindow: View {
     @Environment(\.dismissWindow) private var dismissWindow
     @ObservedObject var appModel: AppModel
+    var dismiss: (() -> Void)? = nil
 
     var body: some View {
         Group {
@@ -129,7 +130,11 @@ struct OllamaWebPageConnectionWindow: View {
 
     private func closeConnection(for account: ProviderAccount) {
         appModel.clearOllamaConnection(for: account)
-        dismissWindow(id: OllamaConnectionWindowConfiguration.id)
+        if let dismiss {
+            dismiss()
+        } else {
+            dismissWindow(id: OllamaConnectionWindowConfiguration.id)
+        }
     }
 }
 

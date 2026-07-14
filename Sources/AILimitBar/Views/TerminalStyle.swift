@@ -22,14 +22,16 @@ enum TerminalTheme {
         light: NSColor(calibratedRed: 0.18, green: 0.47, blue: 0.24, alpha: 1),
         dark: NSColor(calibratedRed: 0.40, green: 0.70, blue: 0.40, alpha: 1)
     )
-    static let warning = adaptiveColor(
+    static let warningNSColor = adaptiveNSColor(
         light: NSColor(calibratedRed: 0.67, green: 0.36, blue: 0.04, alpha: 1),
         dark: NSColor(calibratedRed: 0.91, green: 0.59, blue: 0.11, alpha: 1)
     )
-    static let error = adaptiveColor(
+    static let warning = Color(nsColor: warningNSColor)
+    static let errorNSColor = adaptiveNSColor(
         light: NSColor(calibratedRed: 0.65, green: 0.16, blue: 0.14, alpha: 1),
         dark: NSColor(calibratedRed: 0.91, green: 0.39, blue: 0.35, alpha: 1)
     )
+    static let error = Color(nsColor: errorNSColor)
 
     static let titleFont = Font.system(size: 14, weight: .bold, design: .monospaced)
     static let legendFont = Font.system(size: 12, weight: .semibold, design: .monospaced)
@@ -40,9 +42,13 @@ enum TerminalTheme {
     static let detailValueFont = Font.system(size: 13, weight: .medium, design: .monospaced)
 
     private static func adaptiveColor(light: NSColor, dark: NSColor) -> Color {
-        Color(nsColor: NSColor(name: nil) { appearance in
+        Color(nsColor: adaptiveNSColor(light: light, dark: dark))
+    }
+
+    private static func adaptiveNSColor(light: NSColor, dark: NSColor) -> NSColor {
+        NSColor(name: nil) { appearance in
             appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? dark : light
-        })
+        }
     }
 }
 

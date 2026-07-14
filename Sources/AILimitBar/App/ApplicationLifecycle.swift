@@ -3,6 +3,12 @@ import SwiftUI
 
 enum ApplicationLifecycle {
     @MainActor
+    private static var directSettingsWindowController: NSWindowController?
+
+    @MainActor
+    private static var directOllamaWindowController: NSWindowController?
+
+    @MainActor
     static func activate() {
         NSApplication.shared.activate()
     }
@@ -24,6 +30,36 @@ enum ApplicationLifecycle {
     }
 
     @MainActor
+    static func openSettings(appModel: AppModel) {
+        if let settingsWindow = visibleSettingsWindow() {
+            activate()
+            settingsWindow.makeKeyAndOrderFront(nil)
+            return
+        }
+
+        let hostingController = NSHostingController(rootView: SettingsView(appModel: appModel))
+        let window = NSWindow(contentViewController: hostingController)
+        window.title = SettingsWindowConfiguration.title
+        window.styleMask = [.titled, .closable, .miniaturizable]
+        window.isReleasedWhenClosed = false
+        window.setContentSize(SettingsWindowConfiguration.preferredSize)
+        window.contentMinSize = SettingsWindowConfiguration.preferredSize
+
+        let controller = NSWindowController(window: window)
+        directSettingsWindowController = controller
+
+        activate()
+        controller.showWindow(nil)
+        if let visibleRect = menuBarPanelVisibleRect() {
+            window.setFrame(
+                SettingsWindowConfiguration.centeredWindowFrame(window.frame, in: visibleRect),
+                display: true
+            )
+        }
+        window.makeKeyAndOrderFront(nil)
+    }
+
+    @MainActor
     static func openOllamaConnection(using openWindow: OpenWindowAction) {
         activate()
 
@@ -36,6 +72,35 @@ enum ApplicationLifecycle {
         DispatchQueue.main.async {
             visibleOllamaConnectionWindow()?.makeKeyAndOrderFront(nil)
         }
+    }
+
+    @MainActor
+    static func openOllamaConnection(appModel: AppModel) {
+        activate()
+
+        if let connectionWindow = visibleOllamaConnectionWindow() {
+            connectionWindow.makeKeyAndOrderFront(nil)
+            return
+        }
+
+        var controller: NSWindowController?
+        let rootView = OllamaWebPageConnectionWindow(
+            appModel: appModel,
+            dismiss: {
+                controller?.close()
+            }
+        )
+        let hostingController = NSHostingController(rootView: rootView)
+        let window = NSWindow(contentViewController: hostingController)
+        window.title = OllamaConnectionWindowConfiguration.title
+        window.styleMask = [.titled, .closable, .miniaturizable]
+        window.isReleasedWhenClosed = false
+        window.setContentSize(OllamaConnectionWindowConfiguration.preferredSize)
+
+        controller = NSWindowController(window: window)
+        directOllamaWindowController = controller
+        controller?.showWindow(nil)
+        window.makeKeyAndOrderFront(nil)
     }
 
     @MainActor

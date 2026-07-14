@@ -1,4 +1,5 @@
 import AILimitBarCore
+import AppKit
 import CoreGraphics
 import XCTest
 @testable import AILimitBar
@@ -104,6 +105,7 @@ final class AppModelTests: XCTestCase {
             storageDirectory: directory
         )
         XCTAssertNotNil(reloaded.accountRefreshIssues[account.id])
+        XCTAssertEqual(reloaded.menuBarIndicatorState, .error)
         XCTAssertNil(reloaded.sourceRefreshStates[account.id]?.lastSuccessfulRefreshAt)
         XCTAssertEqual(
             reloaded.sourceRefreshStates[account.id]?.lastFailedRefreshAt,
@@ -122,6 +124,7 @@ final class AppModelTests: XCTestCase {
             storageDirectory: directory
         )
         XCTAssertNil(cleared.accountRefreshIssues[account.id])
+        XCTAssertEqual(cleared.menuBarIndicatorState, .normal)
         XCTAssertNotNil(cleared.sourceRefreshStates[account.id]?.lastSuccessfulRefreshAt)
     }
 
@@ -141,12 +144,12 @@ final class AppModelTests: XCTestCase {
             await Task.yield()
         }
         XCTAssertFalse(model.accountRefreshIssues.isEmpty)
-        XCTAssertEqual(model.menuBarSystemImage, "exclamationmark.triangle")
+        XCTAssertEqual(model.menuBarIndicatorState, .error)
 
         model.deleteAccount(providerID: account.providerID, accountID: account.accountID)
 
         XCTAssertTrue(model.accountRefreshIssues.isEmpty)
-        XCTAssertEqual(model.menuBarSystemImage, "gauge.with.dots.needle.33percent")
+        XCTAssertEqual(model.menuBarIndicatorState, .normal)
         let database = try AppDatabase(directory: directory)
         XCTAssertTrue(DatabaseSourceDiagnosticStore(database: database).load().isEmpty)
 
@@ -155,7 +158,7 @@ final class AppModelTests: XCTestCase {
             storageDirectory: directory
         )
         XCTAssertTrue(reloaded.accountRefreshIssues.isEmpty)
-        XCTAssertEqual(reloaded.menuBarSystemImage, "gauge.with.dots.needle.33percent")
+        XCTAssertEqual(reloaded.menuBarIndicatorState, .normal)
     }
 
     @MainActor
@@ -234,9 +237,86 @@ final class AppModelTests: XCTestCase {
             storageDirectory: directory
         )
 
-        XCTAssertEqual(model.menuBarTitle, "AI 88%")
-        XCTAssertEqual(model.menuBarSystemImage, "gauge.with.dots.needle.67percent")
-        XCTAssertEqual(model.menuBarAccessibilityValue, "Highest usage is 88 percent")
+        XCTAssertEqual(model.menuBarIndicatorState, .warning)
+        XCTAssertEqual(
+            model.menuBarAccessibilityValue,
+            "Warning: one or more enabled accounts need attention. Highest usage is 88 percent"
+        )
+    }
+
+    @MainActor
+    func testMenuBarIndicatorUsesNeutralIconForNormalState() throws {
+        let account = menuBarAccount(accountID: "normal")
+        let model = try makeMenuBarModel(
+            accounts: [account],
+            snapshots: [menuBarSnapshot(for: account, status: .ok)]
+        )
+
+        XCTAssertEqual(model.menuBarIndicatorState, .normal)
+        XCTAssertEqual(MenuBarStatusItemImageRenderer.baseSystemImageName, "gauge.with.dots.needle.33percent")
+        XCTAssertEqual(model.menuBarAccessibilityValue, "Highest usage is 42 percent")
+    }
+
+    @MainActor
+    func testMenuBarIndicatorUsesRedForErrorAndErrorWinsOverWarning() throws {
+        let warningAccount = menuBarAccount(accountID: "warning")
+        let errorAccount = menuBarAccount(accountID: "error")
+        let model = try makeMenuBarModel(
+            accounts: [warningAccount, errorAccount],
+            snapshots: [
+                menuBarSnapshot(for: warningAccount, status: .warning, usedPercent: 88),
+                menuBarSnapshot(for: errorAccount, status: .error)
+            ]
+        )
+
+        XCTAssertEqual(model.menuBarIndicatorState, .error)
+        XCTAssertTrue(model.menuBarAccessibilityValue.hasPrefix("Error:"))
+    }
+
+    func testMenuBarStatusItemImagesAreNonTemplateAndKeepOneBaseIcon() {
+        let normal = MenuBarStatusItemImageRenderer.image(for: .normal)
+        let warning = MenuBarStatusItemImageRenderer.image(for: .warning)
+        let error = MenuBarStatusItemImageRenderer.image(for: .error)
+
+        for image in [normal, warning, error] {
+            XCTAssertFalse(image.isTemplate)
+            XCTAssertEqual(image.size, NSSize(width: 20, height: 20))
+            XCTAssertNotNil(image.tiffRepresentation)
+        }
+        XCTAssertNotEqual(normal.tiffRepresentation, warning.tiffRepresentation)
+        XCTAssertNotEqual(warning.tiffRepresentation, error.tiffRepresentation)
+    }
+
+    @MainActor
+    func testMenuBarIndicatorIgnoresDisabledAndNonActionableStates() throws {
+        let disabledWarning = menuBarAccount(accountID: "disabled-warning", isEnabled: false)
+        let disabledError = menuBarAccount(accountID: "disabled-error", isEnabled: false)
+        let staleAccount = menuBarAccount(accountID: "stale")
+        let unavailableAccount = menuBarAccount(accountID: "unavailable")
+        let refreshingAccount = menuBarAccount(accountID: "refreshing")
+        let model = try makeMenuBarModel(
+            accounts: [disabledWarning, disabledError, staleAccount, unavailableAccount, refreshingAccount],
+            snapshots: [
+                menuBarSnapshot(for: disabledWarning, status: .warning),
+                menuBarSnapshot(for: disabledError, status: .error),
+                menuBarSnapshot(
+                    for: staleAccount,
+                    status: .ok,
+                    updatedAt: Date(timeIntervalSince1970: 1),
+                    usedPercent: 42
+                ),
+                menuBarSnapshot(for: unavailableAccount, status: .unavailable, usedPercent: nil)
+            ]
+        )
+        model.accountRefreshIssues[disabledError.id] = AccountRefreshIssue(
+            occurredAt: Date(),
+            warnings: ["Disabled account failed"]
+        )
+        model.providerRefreshStatuses[refreshingAccount.id] = .refreshing
+
+        XCTAssertEqual(model.menuBarIndicatorState, .normal)
+        XCTAssertFalse(model.menuBarAccessibilityValue.hasPrefix("Warning:"))
+        XCTAssertFalse(model.menuBarAccessibilityValue.hasPrefix("Error:"))
     }
 
     @MainActor
@@ -678,6 +758,48 @@ final class AppModelTests: XCTestCase {
         } else {
             XCTFail("Expected the Claude /usage refresh to be marked as failed.")
         }
+    }
+
+    @MainActor
+    private func makeMenuBarModel(
+        accounts: [ProviderAccount],
+        snapshots: [UsageSnapshot]
+    ) throws -> AppModel {
+        let model = AppModel(
+            registry: ProviderRegistry(adapters: [ImmediateProviderAdapter(id: "status")]),
+            storageDirectory: try temporaryDirectory()
+        )
+        model.providerAccounts = accounts
+        model.snapshots = snapshots
+        return model
+    }
+
+    private func menuBarAccount(accountID: String, isEnabled: Bool = true) -> ProviderAccount {
+        ProviderAccount(
+            providerID: "status",
+            accountID: accountID,
+            displayName: accountID,
+            isEnabled: isEnabled
+        )
+    }
+
+    private func menuBarSnapshot(
+        for account: ProviderAccount,
+        status: UsageStatus,
+        updatedAt: Date = Date(timeIntervalSince1970: 1_000_000),
+        usedPercent: Double? = 42
+    ) -> UsageSnapshot {
+        UsageSnapshot(
+            providerID: account.providerID,
+            accountID: account.accountID,
+            accountDisplayName: account.displayName,
+            displayName: "Status test",
+            status: status,
+            usedPercent: usedPercent,
+            lastUpdatedAt: updatedAt,
+            confidence: .localEstimate,
+            source: "Status test"
+        )
     }
 
     private func temporaryDirectory() throws -> URL {

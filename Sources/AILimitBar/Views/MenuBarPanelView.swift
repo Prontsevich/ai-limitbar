@@ -3,6 +3,8 @@ import SwiftUI
 struct MenuBarPanelView: View {
     @Environment(\.openWindow) private var openWindow
     @ObservedObject var appModel: AppModel
+    var onOpenSettings: (() -> Void)? = nil
+    var onOpenOllamaConnection: (() -> Void)? = nil
     @AppStorage(DashboardHeightPreset.storageKey)
     private var dashboardHeightPresetRawValue = DashboardHeightPreset.standard.rawValue
 
@@ -88,7 +90,11 @@ struct MenuBarPanelView: View {
     private var footerControls: some View {
         HStack {
             Button {
-                ApplicationLifecycle.openSettings(using: openWindow)
+                if let onOpenSettings {
+                    onOpenSettings()
+                } else {
+                    ApplicationLifecycle.openSettings(using: openWindow)
+                }
             } label: {
                 Text("Settings")
             }
@@ -124,7 +130,8 @@ struct MenuBarPanelView: View {
                 DashboardAccountRowView(
                     appModel: appModel,
                     row: row,
-                    isStale: row.snapshot.map { appModel.isSnapshotStale($0) } ?? false
+                    isStale: row.snapshot.map { appModel.isSnapshotStale($0) } ?? false,
+                    onOpenOllamaConnection: onOpenOllamaConnection
                 )
             }
         }

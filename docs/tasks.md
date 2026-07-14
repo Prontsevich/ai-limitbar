@@ -1024,21 +1024,27 @@ Acceptance:
 Goal: make warning and error state recognizable at the real menu-bar icon size
 without adding visible text or encoding state in tiny gauge-needle variants.
 
-- [ ] Keep one neutral image-only base icon for the `MenuBarExtra` label. Do not
+- [x] Keep one neutral image-only base icon for the `NSStatusItem`. Do not
   add a visible title, percentage, account name, or other status text to the
   menu bar.
-- [ ] Overlay one small circular badge in the icon's upper-right corner: red
+- [x] Overlay one small circular badge in the icon's upper-right corner: red
   when any enabled account has a refresh failure or error snapshot, yellow when
   there is no error and at least one enabled account has a warning snapshot,
   and no badge otherwise. Red takes precedence over yellow.
-- [ ] Ignore disabled accounts when resolving the badge. Refreshing, stale,
+- [x] Ignore disabled accounts when resolving the badge. Refreshing, stale,
   unavailable, no-data, and ordinary Mock state do not create a badge unless
   the account also has an explicit warning or error.
-- [ ] Keep explicit accessibility label and value text for the image-only status
+- [x] Keep explicit accessibility label and value text for the image-only status
   item so badge color is not the sole representation of warning or error state.
-- [ ] Add focused tests for normal, warning, error, mixed-state priority, and
-  disabled-account cases. Manually verify the staged app at the real menu-bar
-  size in Light and Dark appearance, including inactive menu-bar presentation.
+- [x] Add focused tests for normal, warning, error, mixed-state priority, and
+  disabled-account cases.
+- [ ] Manually verify the staged app at the real menu-bar size in Light and Dark
+  appearance, including inactive menu-bar presentation.
+
+Implementation status (2026-07-14): the `NSStatusItem` uses one composite,
+non-template image with a neutral gauge base and a state badge. Enabled-account
+state aggregation, accessibility text, and focused AppModel/renderer tests are
+complete. Staged-app visual verification remains pending.
 
 Acceptance:
 

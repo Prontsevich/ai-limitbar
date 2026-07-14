@@ -1,6 +1,12 @@
 import AILimitBarCore
 import Foundation
 
+enum MenuBarIndicatorState: Equatable {
+    case normal
+    case warning
+    case error
+}
+
 @MainActor
 final class AppModel: ObservableObject {
     @Published var snapshots: [UsageSnapshot] = []
@@ -132,45 +138,41 @@ final class AppModel: ObservableObject {
         ollamaConnectionAccount = nil
     }
 
-    var menuBarTitle: String {
-        let highestUsage = enabledSnapshots
-            .flatMap(\.displayLimitWindows)
-            .compactMap(\.usedPercent)
-            .max()
+    var menuBarIndicatorState: MenuBarIndicatorState {
+        let enabledAccounts = providerAccounts.filter(\.isEnabled)
 
-        guard let highestUsage else {
-            return "AI Limits"
+        if enabledAccounts.contains(where: { account in
+            accountRefreshIssues[account.id] != nil || snapshot(for: account)?.status == .error
+        }) {
+            return .error
         }
-        return "AI \(Int(highestUsage.rounded()))%"
-    }
-
-    var menuBarSystemImage: String {
-        if !accountRefreshIssues.isEmpty {
-            return "exclamationmark.triangle"
+        if enabledAccounts.contains(where: { snapshot(for: $0)?.status == .warning }) {
+            return .warning
         }
-        if enabledSnapshots.contains(where: { $0.status == .error }) {
-            return "exclamationmark.triangle"
-        }
-        if enabledSnapshots.contains(where: { $0.status == .warning }) {
-            return "gauge.with.dots.needle.67percent"
-        }
-        return "gauge.with.dots.needle.33percent"
+        return .normal
     }
 
     var menuBarAccessibilityValue: String {
-        if !accountRefreshIssues.isEmpty {
-            return "One or more account refreshes failed"
-        }
-
         let highestUsage = enabledSnapshots
             .flatMap(\.displayLimitWindows)
             .compactMap(\.usedPercent)
             .max()
 
-        guard let highestUsage else {
-            return hasEnabledAccounts ? "No usage data available" : "No enabled accounts"
+        let usageText: String
+        if let highestUsage {
+            usageText = "Highest usage is \(Int(highestUsage.rounded())) percent"
+        } else {
+            usageText = hasEnabledAccounts ? "No usage data available" : "No enabled accounts"
         }
-        return "Highest usage is \(Int(highestUsage.rounded())) percent"
+
+        switch menuBarIndicatorState {
+        case .normal:
+            return usageText
+        case .warning:
+            return "Warning: one or more enabled accounts need attention. \(usageText)"
+        case .error:
+            return "Error: one or more enabled accounts need attention. \(usageText)"
+        }
     }
 
     func adapter(for providerID: String) -> (any ProviderAdapter)? {

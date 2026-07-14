@@ -6,6 +6,7 @@ struct AccountDetailsView: View {
     @Environment(\.openWindow) private var openWindow
     @ObservedObject var appModel: AppModel
     let row: AccountSnapshotRow
+    let onOpenOllamaConnection: (() -> Void)?
 
     @State private var connectionError: String?
 
@@ -323,7 +324,11 @@ struct AccountDetailsView: View {
             return
         }
         appModel.presentOllamaConnection(for: connectedAccount)
-        ApplicationLifecycle.openOllamaConnection(using: openWindow)
+        if let onOpenOllamaConnection {
+            onOpenOllamaConnection()
+        } else {
+            ApplicationLifecycle.openOllamaConnection(using: openWindow)
+        }
     }
 
     private var connectionErrorBinding: Binding<Bool> {
