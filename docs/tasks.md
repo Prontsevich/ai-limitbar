@@ -1019,32 +1019,96 @@ Acceptance:
 - Research notes and diagnostics contain no credentials, cookies, raw pages,
   private responses, opaque account identifiers, or other browser-session data.
 
-## Milestone 22: Daily Use Polish
+## Milestone 22.1: Menu Bar Status Indicator
 
-Goal: make the menu bar app useful as a daily status tool before starting the
-WidgetKit extension.
+Goal: make warning and error state recognizable at the real menu-bar icon size
+without adding visible text or encoding state in tiny gauge-needle variants.
 
-- [ ] Improve menu bar summary title and icon based on worst account state.
-- [ ] Add option to hide manual-only accounts from the main list.
-- [ ] Add export/debug bundle without secrets.
-- [ ] Add smoke verification for app launch, refresh, settings persistence, and
-  snapshot persistence.
-- [ ] Adapt Ollama-owned settings and sign-in pages in the isolated WebKit view
-  to the effective macOS appearance with a separate visual-only `WKUserScript`.
-  Change only colors, backgrounds, borders, text contrast, and color scheme;
-  preserve page behavior, usage extraction, and the normalized bridge payload.
-- [ ] Apply the Ollama visual stylesheet only to `ollama.com` and
-  `signin.ollama.com`; leave WorkOS, Google, GitHub, and other third-party OAuth
-  pages provider-controlled.
+- [ ] Keep one neutral image-only base icon for the `MenuBarExtra` label. Do not
+  add a visible title, percentage, account name, or other status text to the
+  menu bar.
+- [ ] Overlay one small circular badge in the icon's upper-right corner: red
+  when any enabled account has a refresh failure or error snapshot, yellow when
+  there is no error and at least one enabled account has a warning snapshot,
+  and no badge otherwise. Red takes precedence over yellow.
+- [ ] Ignore disabled accounts when resolving the badge. Refreshing, stale,
+  unavailable, no-data, and ordinary Mock state do not create a badge unless
+  the account also has an explicit warning or error.
+- [ ] Keep explicit accessibility label and value text for the image-only status
+  item so badge color is not the sole representation of warning or error state.
+- [ ] Add focused tests for normal, warning, error, mixed-state priority, and
+  disabled-account cases. Manually verify the staged app at the real menu-bar
+  size in Light and Dark appearance, including inactive menu-bar presentation.
 
 Acceptance:
 
-- The menu bar item surfaces the most important account state at a glance.
-- The panel remains usable with multiple providers and accounts.
-- Debug output helps diagnose issues without leaking credentials or raw provider
-  responses.
-- Ollama-owned pages follow the active appearance without disrupting sign-in,
-  navigation, keyboard focus, form controls, or usage parsing.
+- The neutral base icon remains recognizable and does not change its gauge
+  needle to communicate state.
+- A warning produces one clearly visible yellow badge, an error produces one
+  clearly visible red badge, and red wins when both states exist.
+- Normal state has no badge, and the menu-bar panel itself is unchanged.
+- VoiceOver exposes the same state without depending on badge color.
+
+## Milestone 22.2: Daily-Use Smoke Verification
+
+Goal: provide one repeatable verification command for app launch, refresh, and
+the persistence paths needed for normal daily use.
+
+- [ ] Add one deterministic app-layer integration smoke test that uses a fake
+  provider and disposable storage to create an account, change the refresh
+  schedule, perform a refresh, persist a normalized snapshot, recreate
+  `AppModel`, and verify that the account, settings, and snapshot reload.
+- [ ] Keep `./script/build_and_run.sh --verify` as the public smoke entrypoint.
+  It runs the deterministic integration check, stages the normal debug `.app`
+  bundle, launches it through Launch Services, waits for the `AILimitBar`
+  process, and fails when the process cannot start or exits immediately.
+- [ ] Give the automated smoke path disposable storage. It must not read or
+  write the user's normal Application Support database, Keychain, WebKit data,
+  provider CLIs, or network sources.
+- [ ] Terminate only the smoke-launched process after verification and leave the
+  staged bundle available for manual QA. Keep interactive menu-bar, Settings,
+  focus, and pointer checks documented as manual verification rather than
+  claiming that process launch proves them.
+
+Acceptance:
+
+- One documented command verifies deterministic refresh, Settings persistence,
+  snapshot persistence, bundle staging, and foreground app launch.
+- The command is repeatable and leaves no account, snapshot, refresh status,
+  process, or persistence residue in the user's real app data.
+- A successful process launch is reported separately from manual UI verification.
+
+## Milestone 22.3: Ollama-Owned Web Appearance
+
+Goal: make Ollama-owned settings and sign-in pages follow the effective macOS
+appearance without changing authentication, navigation, or usage extraction.
+
+- [ ] Add a separate visual-only `WKUserScript` for the isolated Ollama WebKit
+  session. It may change only colors, backgrounds, borders, text contrast, and
+  the page `color-scheme`; it must not alter layout, visibility, controls,
+  focus, submission, navigation, or page content.
+- [ ] Apply the visual stylesheet only when the exact HTTPS host is
+  `ollama.com` or `signin.ollama.com`. WorkOS, Google, GitHub, and every other
+  third-party OAuth page remain provider-controlled.
+- [ ] Keep the visual script independent from the existing usage-extraction
+  script and normalized bridge payload. Appearance changes must not trigger,
+  suppress, or rewrite usage extraction.
+- [ ] Apply the current effective Light or Dark appearance when an Ollama-owned
+  page loads and when the effective appearance changes while the page remains
+  open.
+- [ ] Add focused tests for host allowlisting and visual/extraction separation.
+  Manually verify settings, Ollama sign-in, third-party OAuth redirects,
+  keyboard focus, form controls, navigation, and usage parsing in Light and
+  Dark appearance.
+
+Acceptance:
+
+- Ollama-owned settings and sign-in pages remain readable in the active Light
+  or Dark appearance.
+- No visual stylesheet reaches WorkOS, Google, GitHub, or another third-party
+  page.
+- Sign-in, navigation, keyboard focus, form submission, and normalized usage
+  parsing behave exactly as before the visual adaptation.
 
 ## Milestone 23: App Localization And General Settings
 
@@ -1122,9 +1186,10 @@ provider- or account-wide inheritance layers.
   control that creates or removes its override without changing the global
   settings.
 - [ ] Derive `normal`, `warning`, and `critical` state per window from its
-  effective thresholds and `usedPercent`. Surface the worst enabled-account
-  state in the dashboard and menu-bar summary without fabricating state for
-  manual-only, unavailable, or no-data windows.
+  effective thresholds and `usedPercent`. Surface the state in the dashboard
+  and feed the image-only status badge from Milestone 22.1: `Warning` uses the
+  yellow badge and `Critical` uses the red badge, while refresh errors retain
+  red precedence. Do not fabricate state for unavailable or no-data windows.
 - [ ] Add tests for validation, global fallback, override creation/removal,
   stable-key matching, temporary window absence, severity resolution, worst
   account state, and all normal/warning/critical boundaries.
@@ -1140,8 +1205,8 @@ Acceptance:
 - An overridden window retains its configuration across refreshes, relaunches,
   and transient provider responses that omit it.
 - The dashboard accurately shows normal/warning/critical severity from the
-  resolved thresholds, and its summary reflects the worst enabled account
-  without changing the reported usage percentage.
+  resolved thresholds, and the menu-bar badge reflects the worst enabled
+  threshold severity without adding a visible percentage or account label.
 - All new app-owned strings are localized in English and Russian; provider
   labels and identifiers remain provider data rather than translated storage
   keys.

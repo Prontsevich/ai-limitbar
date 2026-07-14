@@ -21,7 +21,7 @@ the number came from and how fresh it is.
 
 The MVP should provide a working macOS menu bar app with:
 
-- A menu bar status item summarizing provider state.
+- An image-only menu bar status item with a compact warning/error badge.
 - A compact provider list with current usage snapshots.
 - Manual refresh.
 - A settings window for enabling providers.
@@ -442,12 +442,14 @@ attempts unattended reauthentication. If AI Limitbar later becomes an Ollama
 request proxy, it can expose its own `local-estimate` counters for observed
 requests, but those must remain labeled as partial and not account-wide.
 
-Deferred polish: a separate, visual-only `WKUserScript` may adapt
-the Ollama-owned settings and sign-in pages to the effective macOS appearance.
-It may change only colors, backgrounds, borders, text contrast, and color
-scheme. It must not alter visibility, layout, controls, focus, submission,
-navigation, usage extraction, or bridge payloads. The stylesheet must not be
-injected into WorkOS, Google, GitHub, or other third-party OAuth pages.
+Milestone 22.3 owns a separate, visual-only `WKUserScript` that adapts the
+Ollama-owned settings and sign-in pages to the effective macOS appearance. It
+may change only colors, backgrounds, borders, text contrast, and color scheme.
+It must not alter visibility, layout, controls, focus, submission, navigation,
+usage extraction, or bridge payloads. The stylesheet is guarded to the exact
+HTTPS hosts `ollama.com` and `signin.ollama.com`; it is never injected into
+WorkOS, Google, GitHub, or other third-party OAuth pages. The visual script and
+the semantic usage-extraction script remain independent.
 
 ### Release Distribution
 
@@ -550,7 +552,7 @@ that the system cannot express.
 `UsageSnapshot` should continue to represent normalized account state, but the
 dashboard needs more than one usage percentage per account. Future snapshot
 versions should add provider-defined limit windows while keeping the existing
-summary fields for compatibility and menu bar title calculations.
+summary fields for compatibility and menu-bar status aggregation.
 
 A limit window should describe one visible quota window, not a hardcoded app
 category. Common examples include a weekly window plus rolling 3-hour, 4-hour,
@@ -682,6 +684,16 @@ by default and are surfaced immediately without retry.
 The menu bar UI should behave like a compact dashboard. Opening the panel should
 let the user assess all enabled accounts quickly and then move on.
 
+The menu-bar status item itself is image-only. It keeps one neutral base icon
+instead of attempting to communicate state through tiny gauge-needle variants.
+One small upper-right badge carries the only visual state: red when an enabled
+account has a refresh failure or error, yellow when there is no error and an
+enabled account has a warning, and absent otherwise. Red takes precedence over
+yellow. The item does not show a percentage, account name, or visible title;
+explicit accessibility text communicates the same state without relying on
+color. Milestone 24 later maps threshold `Warning` to yellow and `Critical` to
+red without changing this icon contract.
+
 The menu-bar dashboard and its account-details popover are an intentional
 product-specific exception to the broader Liquid Glass baseline. They follow the
 approved terminal-fieldset composition in
@@ -784,6 +796,23 @@ duplicating, and unwanted restoration is disabled so a closed window does not
 reappear during launch or Spaces changes. The window remains a normal window,
 not an always-on-top panel.
 
+## Daily-Use Smoke Verification
+
+Milestone 22.2 keeps `./script/build_and_run.sh --verify` as the single public
+smoke command. The command first exercises an app-layer integration scenario
+with a deterministic fake provider and disposable storage: create an account,
+change the refresh schedule, refresh, persist a normalized snapshot, recreate
+`AppModel`, and verify that account configuration, settings, and snapshot state
+reload. It then stages the normal debug `.app`, launches it through Launch
+Services, waits for the app process, and fails if startup does not succeed.
+
+The automated path must not touch the user's normal Application Support
+database, Keychain, isolated WebKit stores, provider CLIs, or network sources.
+It terminates only the process it launched and leaves no test persistence
+residue. Process launch proves startup only; menu-bar interaction, Settings
+focus, pointer behavior, and other GUI details remain explicit manual QA rather
+than being inferred from a running PID.
+
 ## Usage Thresholds
 
 AI Limitbar evaluates usage thresholds per provider-defined limit window, not
@@ -808,10 +837,11 @@ configuration. A provider that cannot supply a stable window identifier must
 not expose a per-window override until its adapter defines one.
 
 When a window has `usedPercent`, its resolved thresholds determine its
-`normal`, `warning`, or `critical` state. The dashboard and menu-bar summary
-use the worst state across enabled accounts while retaining the exact usage
-percentage and the provider's reset information. No state is invented for
-manual-only, unavailable, or no-data windows.
+`normal`, `warning`, or `critical` state. The dashboard retains the exact usage
+percentage and provider reset information. The image-only menu-bar status item
+uses only the compact badge established in Milestone 22.1: `Warning` contributes
+yellow and `Critical` contributes red, with red refresh/error state retaining
+precedence. No threshold state is invented for unavailable or no-data windows.
 
 ## Usage Limit Notifications
 
