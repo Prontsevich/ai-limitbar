@@ -112,9 +112,15 @@ the only indication of state.
 - Normal or successfully refreshed accounts show no extra status copy.
 - A refreshing account communicates progress through its individual Refresh
   control, not a permanent status row.
-- Stale data has a compact visible `Stale` label.
-- Failed refreshes have a compact warning indication; the detailed cause is in
-  the Info popover.
+- Stale data has a compact visible `Stale` label at the start of the account
+  body, before its limit windows.
+- Failed refreshes have a compact warning indication in the same position; the
+  detailed cause is in the Info popover.
+- A diagnostic `Warning` is also shown in this position. A warning caused only
+  by usage filling a known limit window does not add status text.
+- Usage thresholds do not add a dashboard status label. A known limit window
+  continues to show only its name, percentage, meter, and reset label; future
+  thresholds will change the consumed portion's color only.
 - Manual-only, unavailable, and no-data accounts state that condition in the
   account body instead of inventing a progress bar.
 - A successful experimental source remains `OK`; its `Experimental` source

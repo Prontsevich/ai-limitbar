@@ -203,6 +203,24 @@ final class DashboardAccountPresentationTests: XCTestCase {
         XCTAssertEqual(realUsageWarning.statusText, "Warning")
     }
 
+    func testUsageThresholdDoesNotCreateDashboardStatusText() {
+        let presentation = DashboardAccountPresentation(
+            row: makeRow(
+                snapshot: makeSnapshot(
+                    status: .warning,
+                    limitWindows: [
+                        UsageLimitWindow(id: "five-hour", displayName: "5-hour", usedPercent: 100)
+                    ]
+                )
+            ),
+            isStale: false,
+            isGlobalRefresh: false
+        )
+
+        XCTAssertEqual(presentation.windows.first?.usedText, "100% used")
+        XCTAssertNil(presentation.statusText)
+    }
+
     private func makeRow(
         snapshot: UsageSnapshot?,
         sourceMode: ProviderSourceMode = .claudeStatusLine,

@@ -86,7 +86,10 @@ struct DashboardAccountPresentation: Equatable {
         case .normal, .refreshing, .stale, .failed, .warning:
             visibleWindows
         }
-        statusText = Self.statusText(for: resolvedState)
+        statusText = Self.statusText(
+            for: resolvedState,
+            limitWindows: snapshot?.displayLimitWindows ?? []
+        )
         bodyMessage = Self.bodyMessage(
             for: resolvedState,
             snapshot: snapshot,
@@ -127,14 +130,17 @@ struct DashboardAccountPresentation: Equatable {
         return !(row.account.sourceMode.isExperimental && snapshot.status == .ok)
     }
 
-    private static func statusText(for state: DashboardAccountState) -> String? {
+    private static func statusText(
+        for state: DashboardAccountState,
+        limitWindows: [UsageLimitWindow]
+    ) -> String? {
         switch state {
         case .failed:
             "Refresh failed"
         case .stale:
             "Stale"
         case .warning:
-            "Warning"
+            limitWindows.contains { ($0.usedPercent ?? 0) >= 85 } ? nil : "Warning"
         case .normal, .refreshing, .manual, .unavailable, .noData:
             nil
         }

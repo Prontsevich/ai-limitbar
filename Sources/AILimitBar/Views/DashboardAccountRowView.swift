@@ -61,6 +61,13 @@ struct DashboardAccountRowView: View {
 
     @ViewBuilder
     private var accountContent: some View {
+        if let statusText = presentation.statusText {
+            Label(statusText, systemImage: statusSymbol)
+                .font(TerminalTheme.captionFont)
+                .foregroundStyle(statusColor)
+                .accessibilityLabel(statusText)
+        }
+
         if !presentation.windows.isEmpty {
             ForEach(presentation.windows) { window in
                 LimitWindowProgressRow(window: window, tint: progressTint)
@@ -78,13 +85,6 @@ struct DashboardAccountRowView: View {
                 .foregroundStyle(messageColor)
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
-        }
-
-        if let statusText = presentation.statusText {
-            Label(statusText, systemImage: statusSymbol)
-                .font(TerminalTheme.captionFont)
-                .foregroundStyle(statusColor)
-                .accessibilityLabel(statusText)
         }
     }
 
