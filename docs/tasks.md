@@ -901,37 +901,43 @@ Goal: let people download and run a tested AI Limitbar `.app` from GitHub
 Releases without building from source, while keeping the initial ad-hoc-signed,
 non-notarized distribution path honest about macOS Gatekeeper warnings.
 
-- [ ] Add one reproducible release-packaging script that builds the SwiftPM
+Implementation status (2026-07-14): local Apple Silicon packaging, archive
+round-trip validation, 111 automated tests, and staged-app smoke verification
+are complete. The manual GitHub Actions run and first published release remain
+pending until the implementation is committed and pushed.
+
+- [x] Add one reproducible release-packaging script that builds the SwiftPM
   products, stages the complete `AILimitBar.app` bundle (including the bundled
   Claude Code helper and localized resources), signs the bundle ad-hoc, and
   creates `AILimitBar-<version>.zip` with `ditto --keepParent`.
-- [ ] Give the staged bundle explicit `CFBundleShortVersionString` and
+- [x] Give the staged bundle explicit `CFBundleShortVersionString` and
   `CFBundleVersion` values derived from the release version, without changing
   the existing local build-and-run workflow.
-- [ ] Add a GitHub Actions release workflow triggered by a version tag. It must
-  use a macOS/Xcode runner compatible with the project SwiftPM and macOS 26
-  baseline, run `swift test`, create the release ZIP, and verify the app bundle
+- [x] Add a GitHub Actions release workflow with a manual package-validation
+  path and a version-tag publication path. Use the Apple Silicon `macos-26`
+  runner, run `swift test`, create the release ZIP, and verify the app bundle
   before publication.
-- [ ] Configure the workflow with the minimum required `contents: write`
+- [x] Configure only the publication job with the required `contents: write`
   permission to create a GitHub Release and upload the ZIP. Keep the workflow
   free of Apple-signing credentials, tokens, and other secrets in this first
   distribution milestone.
 - [ ] Publish the archive as `AILimitBar-<version>.zip` on the matching GitHub
   Release, with generated or maintained release notes that state the version
-  and macOS 26+ requirement.
-- [ ] Document the tag-to-release procedure and installation path: download the
+  and macOS 26+ / Apple Silicon requirement.
+- [x] Document the tag-to-release procedure and installation path: download the
   ZIP, unpack it, move `AILimitBar.app` to Applications, and use the standard
   macOS Gatekeeper recovery action on first launch when required.
-- [ ] State plainly in release documentation that ad-hoc signing is not
+- [x] State plainly in release documentation that ad-hoc signing is not
   Developer ID signing or Apple notarization; do not describe this first path
   as trusted, notarized, or warning-free.
+- [x] Add the promised MIT license before the first tagged release.
 - [ ] Verify one published release artifact by downloading it outside the build
   directory, inspecting the archive contents and bundle version, checking the
   ad-hoc code signature, and manually launching it on macOS 26.
 
 Acceptance:
 
-- Pushing one version tag creates a GitHub Release with exactly one
+- Pushing one version tag creates a GitHub Release with exactly one custom
   `AILimitBar-<version>.zip` application archive and no source build is needed
   by the downloader.
 - The archive expands directly to `AILimitBar.app`, whose main executable,

@@ -447,16 +447,28 @@ injected into WorkOS, Google, GitHub, or other third-party OAuth pages.
 ### Release Distribution
 
 Milestone 20 establishes a GitHub Release path for people who want the app
-without building from source. A version tag must produce one
+without building from source. The first release targets Apple Silicon on macOS
+26 or later and uses the stable bundle identifier
+`io.github.Prontsevich.AILimitBar`. A version tag must produce one
 `AILimitBar-<version>.zip` that expands directly to `AILimitBar.app`. The ZIP
 is created with `ditto --keepParent` so Finder preserves the application-bundle
 shape and macOS metadata.
 
-The release workflow runs on a macOS/Xcode runner compatible with the project
-baseline, runs the test suite, stages the app and bundled helper, applies an
-ad-hoc code signature, verifies the resulting bundle, then uploads the ZIP to
-the matching GitHub Release. The version tag supplies both the archive name and
-the app bundle version metadata.
+One shared staging script owns the app-bundle shape used by local development
+and release packaging. It copies the app executable, the bundled Claude Code
+helper, and production SwiftPM resource bundles while excluding test bundles.
+The release packaging script builds `arm64` in release configuration, supplies
+both app bundle version keys, signs nested executables and the outer bundle
+ad-hoc, verifies the signature and metadata, then validates a round trip through
+the ZIP archive.
+
+The GitHub Actions workflow runs its package job on `macos-26` with read-only
+repository contents permission. A manual dispatch produces a temporary Actions
+artifact for pre-release validation. A `vMAJOR.MINOR.PATCH` tag pointing to a
+commit contained in `main` unlocks a separate job with `contents: write`; that
+job publishes the already verified ZIP through GitHub CLI with generated notes.
+The version tag supplies both the archive name and app bundle version metadata.
+The first planned tag is `v0.1.0` and creates `AILimitBar-0.1.0.zip`.
 
 This first distribution path deliberately has no Developer ID certificate,
 notarization credential, or Apple signing secret. It makes downloading simple,

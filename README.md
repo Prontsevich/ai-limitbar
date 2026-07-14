@@ -35,7 +35,21 @@ Experimental sources are opt-in. A successful experimental read is presented as
 
 → See [`docs/providers/`](docs/providers/) for implementation details.
 
-## 🚀 Quick Start
+## 📦 Download
+
+**Requirements:** macOS 26+ on Apple Silicon
+
+Download `AILimitBar-<version>.zip` from the
+[latest GitHub Release](https://github.com/Prontsevich/ai-limitbar/releases/latest),
+unpack it, and move `AILimitBar.app` to Applications.
+
+Release builds are ad-hoc signed and are not notarized by Apple. On first
+launch, macOS may block the app because the developer cannot be verified. If
+you trust this repository and its release, try opening the app once, then use
+**System Settings → Privacy & Security → Open Anyway**. See Apple's
+[Gatekeeper instructions](https://support.apple.com/guide/mac-help/open-an-app-by-overriding-security-settings-mh40617/mac).
+
+## 🛠️ Development
 
 **Requirements:** macOS 26+, Xcode 26+ (Swift 6.2)
 
@@ -52,6 +66,21 @@ swift test                 # Test
 | `--logs` | Show live app logs |
 | `--telemetry` | Enable telemetry output |
 
+Create a locally validated Apple Silicon release archive with:
+
+```zsh
+./script/package_release.sh 0.1.0
+```
+
+The `Release` GitHub Actions workflow can be run manually to validate a package
+before publication. A tag in `vMAJOR.MINOR.PATCH` format publishes the matching
+archive automatically. Release tags must point to commits contained in `main`:
+
+```zsh
+git tag -a v0.1.0 -m "AI Limitbar 0.1.0"
+git push origin v0.1.0
+```
+
 ## 🎨 Platform Direction
 
 AI Limitbar is a modern-only macOS app targeting macOS 26 Tahoe or later.
@@ -65,7 +94,7 @@ AI Limitbar is a modern-only macOS app targeting macOS 26 Tahoe or later.
 | Document | Description |
 | --- | --- |
 | [`docs/plan.md`](docs/plan.md) | Full product plan, provider research, architecture |
-| [`docs/tasks.md`](docs/tasks.md) | Milestone tracker (24 milestones, 16 done) |
+| [`docs/tasks.md`](docs/tasks.md) | Milestone tracker (27 milestones, 19 done) |
 | [`docs/dashboard-design.md`](docs/dashboard-design.md) | Terminal-fieldset dashboard design contract |
 | [`docs/settings-design.md`](docs/settings-design.md) | Settings window lifecycle and visual contract |
 | [`docs/design-qa.md`](docs/design-qa.md) | Dashboard visual QA findings and fixes |
@@ -75,8 +104,8 @@ AI Limitbar is a modern-only macOS app targeting macOS 26 Tahoe or later.
 
 **Done ✅** — Milestones 0–18: app skeleton, persistence, provider research, Claude Code, refresh coordination, account model, dashboard redesign, settings master-detail, modern macOS baseline, Ollama web source, Codex app-server, SQLite migration, terminal dashboard, and Settings lifecycle/redesign.
 
-**Backlog 📋** — Milestones 19–25: Claude `/usage` CLI, provider/account readiness, daily-use polish, localization (EN+RU), per-limit thresholds, usage notifications, dashboard themes, and WidgetKit.
+**Backlog 📋** — Milestones 19–26: Claude `/usage` CLI, GitHub Release distribution, provider/account readiness, daily-use polish, localization (EN+RU), per-limit thresholds, usage notifications, dashboard themes, and WidgetKit.
 
 ## 📄 License
 
-MIT. A `LICENSE` file will be added before the first tagged release.
+MIT. See [`LICENSE`](LICENSE).
