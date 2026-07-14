@@ -218,6 +218,7 @@ public struct ProcessClaudeUsageCLIClient: ClaudeUsageCLIClient {
     private let timeout: TimeInterval
     private let responseLimit: Int
     private let environment: @Sendable () -> [String: String]
+    private let workingDirectoryURL: URL
 
     public init(
         locator: ClaudeExecutableLocator = ClaudeExecutableLocator(),
@@ -225,12 +226,16 @@ public struct ProcessClaudeUsageCLIClient: ClaudeUsageCLIClient {
         responseLimit: Int = 1_048_576,
         environment: @escaping @Sendable () -> [String: String] = {
             ProcessInfo.processInfo.environment
-        }
+        },
+        workingDirectoryURL: URL? = nil
     ) {
         self.locator = locator
         self.timeout = timeout
         self.responseLimit = responseLimit
         self.environment = environment
+        self.workingDirectoryURL = (workingDirectoryURL ?? ProviderCLIProcessIsolation.defaultWorkingDirectoryURL())
+            .standardizedFileURL
+            .resolvingSymlinksInPath()
     }
 
     public func fetchUsage(executablePath: String?) async throws -> ClaudeUsageCLIEnvelope {
@@ -273,6 +278,11 @@ public struct ProcessClaudeUsageCLIClient: ClaudeUsageCLIClient {
             session.terminate()
         }
 
+        do {
+            try ProviderCLIProcessIsolation.prepareWorkingDirectory(at: workingDirectoryURL)
+        } catch {
+            throw ClaudeUsageCLIClientError.processLaunchFailed
+        }
         process.executableURL = executableURL
         process.arguments = [
             "--safe-mode",
@@ -284,10 +294,14 @@ public struct ProcessClaudeUsageCLIClient: ClaudeUsageCLIClient {
             "",
             "--no-session-persistence"
         ]
+        process.currentDirectoryURL = workingDirectoryURL
         process.standardInput = FileHandle.nullDevice
         process.standardOutput = output
         process.standardError = FileHandle.nullDevice
-        var processEnvironment = environment()
+        var processEnvironment = ProviderCLIProcessIsolation.isolatedEnvironment(
+            from: environment(),
+            workingDirectoryURL: workingDirectoryURL
+        )
         processEnvironment["TZ"] = "UTC"
         processEnvironment["LC_ALL"] = "en_US.UTF-8"
         processEnvironment["LANG"] = "en_US.UTF-8"

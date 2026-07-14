@@ -15,6 +15,11 @@ identified `codex` rate-limit bucket, its `primary` window, and its optional
 as experimental because the local CLI protocol may change; a successful read is
 still presented as `OK`.
 
+The child runs from AI Limitbar's dedicated private temporary directory rather
+than inheriting the app launch directory. `PWD` points to that directory, while
+inherited `OLDPWD` and `INIT_CWD` values are removed to avoid incidental access
+to protected user folders during scheduled refresh.
+
 Leave `Codex executable` blank to use automatic discovery from the shell PATH
 and standard local install locations, or select a specific executable for that
 account. AI Limitbar does not open a terminal, drive `/status` through a PTY,

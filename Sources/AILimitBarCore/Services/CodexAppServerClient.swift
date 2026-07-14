@@ -179,15 +179,25 @@ public struct ProcessCodexAppServerClient: CodexAppServerClient {
     private let locator: CodexExecutableLocator
     private let timeout: TimeInterval
     private let responseLimit: Int
+    private let environment: @Sendable () -> [String: String]
+    private let workingDirectoryURL: URL
 
     public init(
         locator: CodexExecutableLocator = CodexExecutableLocator(),
         timeout: TimeInterval = 15,
-        responseLimit: Int = 1_048_576
+        responseLimit: Int = 1_048_576,
+        environment: @escaping @Sendable () -> [String: String] = {
+            ProcessInfo.processInfo.environment
+        },
+        workingDirectoryURL: URL? = nil
     ) {
         self.locator = locator
         self.timeout = timeout
         self.responseLimit = responseLimit
+        self.environment = environment
+        self.workingDirectoryURL = (workingDirectoryURL ?? ProviderCLIProcessIsolation.defaultWorkingDirectoryURL())
+            .standardizedFileURL
+            .resolvingSymlinksInPath()
     }
 
     public func fetchRateLimits(executablePath: String?) async throws -> CodexRateLimitsPayload {
@@ -231,8 +241,18 @@ public struct ProcessCodexAppServerClient: CodexAppServerClient {
         let process = Process()
         let input = Pipe()
         let output = Pipe()
+        do {
+            try ProviderCLIProcessIsolation.prepareWorkingDirectory(at: workingDirectoryURL)
+        } catch {
+            throw CodexAppServerClientError.processLaunchFailed
+        }
         process.executableURL = executableURL
         process.arguments = ["app-server", "--listen", "stdio://"]
+        process.currentDirectoryURL = workingDirectoryURL
+        process.environment = ProviderCLIProcessIsolation.isolatedEnvironment(
+            from: environment(),
+            workingDirectoryURL: workingDirectoryURL
+        )
         process.standardInput = input
         process.standardOutput = output
         process.standardError = FileHandle.nullDevice

@@ -34,6 +34,11 @@ terminates the child. Stderr is discarded, and raw stdout is decoded in memory
 only. A response is accepted only when it is a successful result with zero
 turns, zero model tokens, and zero model cost.
 
+The child runs from AI Limitbar's dedicated private temporary directory rather
+than inheriting the app launch directory. `PWD` points to that directory, while
+inherited `OLDPWD` and `INIT_CWD` values are removed to avoid incidental access
+to protected user folders during scheduled refresh.
+
 ## Parsed Data
 
 The parser recognizes only:

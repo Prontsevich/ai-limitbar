@@ -35,6 +35,8 @@ final class ClaudeUsageCLIClientTests: XCTestCase {
     }
 
     func testProcessClientUsesSafeArgumentsLocaleAndDecodesEnvelope() async throws {
+        let workingDirectoryURL = URL(fileURLWithPath: "/private/tmp", isDirectory: true)
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
         let executableURL = try temporaryExecutable(body: """
         #!/bin/sh
         [ "$#" -eq 8 ] || exit 31
@@ -49,18 +51,29 @@ final class ClaudeUsageCLIClientTests: XCTestCase {
         [ "$TZ" = "UTC" ] || exit 40
         [ "$LC_ALL" = "en_US.UTF-8" ] || exit 41
         [ "$LANG" = "en_US.UTF-8" ] || exit 42
-        printf '%s' '{"type":"result","subtype":"success","is_error":false,"result":"Current session: 1% used\\nCurrent week (all models): 2% used · resets Jul 20 at 4pm (UTC)","num_turns":0,"total_cost_usd":0,"usage":{"input_tokens":0,"output_tokens":0,"cache_creation_input_tokens":0,"cache_read_input_tokens":0},"modelUsage":{}}'
+        printf '{"type":"result","subtype":"success","is_error":false,"result":"%s","num_turns":0,"total_cost_usd":0,"usage":{"input_tokens":0,"output_tokens":0,"cache_creation_input_tokens":0,"cache_read_input_tokens":0},"modelUsage":{}}' "$(pwd -P)"
         """)
         let client = ProcessClaudeUsageCLIClient(
             timeout: 2,
-            environment: { ["PATH": "/usr/bin", "HOME": "/tmp"] }
+            environment: {
+                [
+                    "PATH": "/usr/bin",
+                    "HOME": "/tmp",
+                    "EXPECTED_WORKING_DIRECTORY": workingDirectoryURL.path,
+                    "PWD": "/Users/example/Documents",
+                    "OLDPWD": "/Users/example/Downloads",
+                    "INIT_CWD": "/Users/example/Music"
+                ]
+            },
+            workingDirectoryURL: workingDirectoryURL
         )
 
         let envelope = try await client.fetchUsage(executablePath: executableURL.path)
 
         XCTAssertEqual(envelope.numTurns, 0)
         XCTAssertEqual(envelope.usage.totalTokens, 0)
-        XCTAssertTrue(envelope.result.contains("Current week (all models)"))
+        XCTAssertEqual(envelope.result, workingDirectoryURL.path)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: workingDirectoryURL.path))
     }
 
     func testNonZeroInferenceMetadataIsRejected() async throws {

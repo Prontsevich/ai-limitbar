@@ -58,6 +58,11 @@ authoritative. Claude Code can write an AI Limitbar-owned managed database
 snapshot as an explicit local estimate; the remaining provider paths are manual-confidence
 fallbacks.
 
+Short-lived Codex and Claude CLI processes run from a dedicated private
+temporary directory. AI Limitbar normalizes `PWD` to that directory and removes
+inherited `OLDPWD` and `INIT_CWD` hints so scheduled refresh cannot accidentally
+start a provider CLI in Documents, Downloads, Music, or another user workspace.
+
 ## Non-Goals For MVP
 
 - Perfect real-time quota accuracy for every provider.
