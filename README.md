@@ -79,6 +79,15 @@ WidgetKit.
 See [`CONTRIBUTING.md`](CONTRIBUTING.md) for build instructions, development
 setup, and release procedures.
 
+## Support
+
+If you find AI Limitbar useful, consider supporting its development.
+All contributions go toward the **Apple Developer Program** subscription
+($99/year) — enabling notarized builds and a smoother install experience
+for everyone.
+
+[![Boosty](https://img.shields.io/badge/Boosty-Support-FF6B00?logo=boosty&logoColor=white)](https://boosty.to/sergey.pro)
+
 ## License
 
 MIT. See [`LICENSE`](LICENSE).
