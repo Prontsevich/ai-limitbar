@@ -5,7 +5,7 @@ Guidance for AI coding agents working in this repository.
 ## Project Overview
 
 AI Limitbar is a macOS menu-bar-only app (`LSUIElement`) for viewing normalized
-AI provider usage snapshots. Built with SwiftUI on Swift 6.2 / macOS 26 Tahoe.
+AI provider usage snapshots. Built with SwiftUI on Swift 6.2 / macOS 15+.
 
 ## Build & Test
 
@@ -73,12 +73,15 @@ AILimitBarClaudeStatusLine (helper)
 ## Working Agreement
 
 - Treat the live code and `Package.swift` as the source of truth for the current
-  implementation, `docs/plan.md` for architecture decisions, and
-  `docs/tasks.md` for milestone scope and completion state.
-- Before implementation, read the relevant milestone checklist and any linked
-  design or provider document.
-- Update documentation alongside implementation when behavior, architecture, or
-  milestone status changes. Do not defer documentation to a later cleanup pass.
+  implementation, `docs/plan.md` for architecture decisions, the private
+  [AI Limitbar GitHub Project](https://github.com/users/Prontsevich/projects/1)
+  for active task status and priority, and `docs/tasks.md` for milestone scope
+  and completed-history evidence.
+- Before implementation, read the linked GitHub issue, the relevant milestone
+  scope, and any linked design or provider document.
+- Update the linked GitHub issue and documentation alongside implementation when
+  behavior, architecture, or milestone status changes. Do not defer either to a
+  later cleanup pass.
 - Verify changes in proportion to their scope. Run `swift build` and `swift test`
   for code changes; use the staged `.app` bundle for UI, lifecycle, or provider
   integration checks. Do not mark manual verification complete unless it was
@@ -104,7 +107,7 @@ Common scopes: `storage`, `codex`, `dashboard`, `ollama`, `claude`, `settings`,
 
 ## Constraints
 
-- **macOS 26+ only.** Do not add compatibility fallbacks for older macOS.
+- **macOS 15+ only.** Do not add compatibility fallbacks for older macOS.
 - **SwiftUI-first.** Use system controls before custom components. The
   terminal-fieldset visual system is the product-specific composition.
 - **Privacy-first.** Never put credentials, tokens, cookies, browser session
@@ -120,7 +123,8 @@ Common scopes: `storage`, `codex`, `dashboard`, `ollama`, `claude`, `settings`,
 ## Documentation
 
 - `docs/plan.md` — Full product plan, provider research, architecture decisions
-- `docs/tasks.md` — Authoritative milestone tracker and current completion state
+- `docs/tasks.md` — Milestone scope, acceptance criteria, and completed-history
+  evidence; active status is tracked in GitHub Projects
 - `docs/dashboard-design.md` — Terminal-fieldset dashboard design contract
 - `docs/settings-design.md` — Settings window lifecycle and visual contract
 - `docs/design-qa.md` — Dashboard visual QA findings and fixes
