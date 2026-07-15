@@ -29,7 +29,7 @@ jobs:
     timeout-minutes: 30
     outputs:
       version: ${{ steps.version.outputs.version }}
-      archive: ${{ steps.version.outputs.archive }}
+      artifact: ${{ steps.version.outputs.artifact }}
 
     steps:
       - name: Check out source
@@ -61,7 +61,7 @@ jobs:
           fi
 
           echo "version=$version" >>"$GITHUB_OUTPUT"
-          echo "archive=AILimitBar-$version.zip" >>"$GITHUB_OUTPUT"
+          echo "artifact=AILimitBar-$version-packages" >>"$GITHUB_OUTPUT"
 
       - name: Report toolchain
         run: |
@@ -72,16 +72,20 @@ jobs:
       - name: Run tests
         run: swift test
 
-      - name: Build release archive
-        run: ./script/package_release.sh "${{ steps.version.outputs.version }}"
+      - name: Build release archives
+        run: |
+          ./script/package_release.sh "${{ steps.version.outputs.version }}" arm64
+          ./script/package_release.sh "${{ steps.version.outputs.version }}" x86_64
 
       - name: Upload package artifact
         uses: actions/upload-artifact@v7
         with:
-          path: dist/${{ steps.version.outputs.archive }}
+          name: ${{ steps.version.outputs.artifact }}
+          path: |
+            dist/AILimitBar-${{ steps.version.outputs.version }}-arm64.zip
+            dist/AILimitBar-${{ steps.version.outputs.version }}-x86_64.zip
           if-no-files-found: error
           retention-days: 14
-          archive: false
 
   release:
     name: Publish GitHub Release
@@ -95,9 +99,8 @@ jobs:
       - name: Download verified package
         uses: actions/download-artifact@v8
         with:
-          name: ${{ needs.package.outputs.archive }}
+          name: ${{ needs.package.outputs.artifact }}
           path: dist
-          skip-decompress: true
 
       - name: Publish release
         env:
@@ -105,16 +108,20 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG_NAME: ${{ github.ref_name }}
           VERSION: ${{ needs.package.outputs.version }}
-          ARCHIVE: ${{ needs.package.outputs.archive }}
           RELEASE_NOTES: |
-            Requires macOS 26 or later on Apple Silicon.
+            Requires macOS 15 or later.
+
+            Download the `-arm64.zip` archive for Apple Silicon Macs or the
+            `-x86_64.zip` archive for Intel Macs.
 
             Download the ZIP, move AILimitBar.app to Applications, and open it.
             This build is ad-hoc signed and is not notarized by Apple. If macOS
             blocks the first launch, use System Settings > Privacy & Security >
             Open Anyway only if you trust this GitHub release.
         run: |
-          gh release create "$TAG_NAME" "dist/$ARCHIVE" \
+          gh release create "$TAG_NAME" \
+            "dist/AILimitBar-$VERSION-arm64.zip" \
+            "dist/AILimitBar-$VERSION-x86_64.zip" \
             --verify-tag \
             --generate-notes \
             --title "AI Limitbar $VERSION" \

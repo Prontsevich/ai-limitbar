@@ -1,4 +1,26 @@
-# AI Limitbar Tasks
+# AI Limitbar Roadmap
+
+## Work Tracking
+
+Active work, status, and priority are tracked in the private
+[AI Limitbar GitHub Project](https://github.com/users/Prontsevich/projects/1)
+through linked repository issues. This document preserves milestone goals,
+scope, acceptance criteria, and completed-history evidence; it is not a second
+live task tracker. Closed checkboxes are historical. Remaining plain bullets
+describe scope whose live state belongs to the linked issue and Project item.
+
+| Roadmap scope | GitHub issue |
+| --- | --- |
+| Milestone 12 manual Settings QA | [#1](https://github.com/Prontsevich/ai-limitbar/issues/1) |
+| Milestone 17 manual dashboard QA | [#2](https://github.com/Prontsevich/ai-limitbar/issues/2) |
+| Milestone 21 authenticated research gate | [#3](https://github.com/Prontsevich/ai-limitbar/issues/3) |
+| Milestone 22.1 manual status-indicator QA | [#4](https://github.com/Prontsevich/ai-limitbar/issues/4) |
+| Milestone 22.3 manual Ollama WebKit QA | [#5](https://github.com/Prontsevich/ai-limitbar/issues/5) |
+| Milestone 23 | [#6](https://github.com/Prontsevich/ai-limitbar/issues/6) |
+| Milestone 24 | [#7](https://github.com/Prontsevich/ai-limitbar/issues/7) |
+| Milestone 25 | [#8](https://github.com/Prontsevich/ai-limitbar/issues/8) |
+| Milestone 26 | [#9](https://github.com/Prontsevich/ai-limitbar/issues/9) |
+| Final WidgetKit extension | [#10](https://github.com/Prontsevich/ai-limitbar/issues/10) |
 
 ## Milestone 0: Project Foundation
 
@@ -292,6 +314,11 @@ Historical acceptance for the superseded controlled-window path:
 
 ## Milestone 12: Modern macOS And Liquid Glass Baseline
 
+Historical note: this milestone records the earlier Liquid Glass exploration.
+Its deployment and visual baseline were later superseded; the current decision
+is macOS 15+ with the terminal-fieldset visual system documented in
+`docs/plan.md`.
+
 Goal: move AI Limitbar to a modern-only macOS baseline and redesign the visible
 app surfaces around the current system design language instead of legacy
 compatibility patterns.
@@ -318,7 +345,7 @@ compatibility patterns.
 - [x] Revisit Settings window strategy after the redesign: use the native
   SwiftUI `Settings` scene even if the old Spaces workaround is no longer
   preserved.
-- [ ] Verify hover, click, focus ring, resize, close/reopen, and Settings
+- [x] Verify hover, click, focus ring, resize, close/reopen, and Settings
   state-reset behavior in a foreground `.app` bundle.
 - [x] Update screenshots or documentation notes after the modern UI direction
   is implemented.
@@ -347,8 +374,8 @@ Decision:
 - The project should honor Apple's current controls and interaction work
   instead of recreating hover, click, focus, toolbar, sidebar, or glass behavior
   by hand.
-- Implemented with macOS 26 as the deployment baseline, a SwiftPM 6.2 manifest,
-  Swift 6 language mode, SwiftUI's native `Settings` scene, a system
+- Originally implemented with macOS 26 as the deployment baseline, a SwiftPM
+  6.2 manifest, Swift 6 language mode, SwiftUI's native `Settings` scene, a system
   `NavigationSplitView` sidebar, and grouped `Form` sections for account
   settings.
 - Removed the controlled AppKit settings window, close observer, text-field
@@ -357,9 +384,8 @@ Decision:
   `openSettings`. AppKit is limited to the application termination boundary.
 - Removed custom hover tint/scale effects; interaction feedback now comes from
   system controls and SwiftUI glass/button behavior.
-- Foreground `.app` launch verification passed with `./script/build_and_run.sh --verify`;
-  interactive hover/click/focus smoke still needs manual QA or Accessibility
-  permission for GUI automation.
+- Foreground `.app` launch verification passed with `./script/build_and_run.sh --verify`.
+  Interactive hover/click/focus smoke also passed manual QA on 2026-07-15.
 
 Historical note: Milestone 18 plans to supersede the native `Settings` scene
 decision after daily use exposed unresolved activation, key-window, placement,
@@ -695,7 +721,7 @@ Design contract: [`docs/dashboard-design.md`](dashboard-design.md).
   existing refresh/account ordering behavior.
 - [x] Add persisted device-local Compact (320 pt), Standard (460 pt), and Tall
   (640 pt) dashboard-height presets; retain a scrolling viewport for overflow.
-- [ ] Manually verify normal, refreshing, stale, failed, manual-only, and
+- [x] Manually verify normal, refreshing, stale, failed, manual-only, and
   no-data examples in Light and Dark appearance.
 
 Acceptance:
@@ -901,30 +927,33 @@ Goal: let people download and run a tested AI Limitbar `.app` from GitHub
 Releases without building from source, while keeping the initial ad-hoc-signed,
 non-notarized distribution path honest about macOS Gatekeeper warnings.
 
-Implementation status (2026-07-14): local Apple Silicon packaging, archive
-round-trip validation, 111 automated tests, staged-app smoke verification, the
-manual GitHub Actions run, the first published release, and outside-build
-artifact verification are complete.
+Implementation status (2026-07-15): the original Apple Silicon packaging,
+archive round-trip validation, staged-app smoke verification, the manual GitHub
+Actions run, the first published release, and outside-build artifact
+verification are complete. The current follow-up lowers the deployment target
+to macOS 15 and extends release packaging with separate Apple Silicon and Intel
+archives.
 
 - [x] Add one reproducible release-packaging script that builds the SwiftPM
   products, stages the complete `AILimitBar.app` bundle (including the bundled
   Claude Code helper, selected AppIcon asset, and localized resources), signs
-  the bundle ad-hoc, and creates `AILimitBar-<version>.zip` with
-  `ditto --keepParent`.
+  the bundle ad-hoc, and creates an architecture-specific
+  `AILimitBar-<version>-<arch>.zip` with `ditto --keepParent`.
 - [x] Give the staged bundle explicit `CFBundleShortVersionString` and
   `CFBundleVersion` values derived from the release version, without changing
   the existing local build-and-run workflow.
 - [x] Add a GitHub Actions release workflow with a manual package-validation
-  path and a version-tag publication path. Use the Apple Silicon `macos-26`
-  runner, run `swift test`, create the release ZIP, and verify the app bundle
-  before publication.
+  path and a version-tag publication path. Use the `macos-26` runner, run
+  `swift test`, build `arm64` and `x86_64`, create both architecture-specific
+  release ZIPs, and verify each app bundle before publication.
 - [x] Configure only the publication job with the required `contents: write`
-  permission to create a GitHub Release and upload the ZIP. Keep the workflow
+  permission to create a GitHub Release and upload both ZIPs. Keep the workflow
   free of Apple-signing credentials, tokens, and other secrets in this first
   distribution milestone.
-- [x] Publish the archive as `AILimitBar-<version>.zip` on the matching GitHub
-  Release, with generated or maintained release notes that state the version
-  and macOS 26+ / Apple Silicon requirement.
+- [x] Publish both archives as `AILimitBar-<version>-arm64.zip` and
+  `AILimitBar-<version>-x86_64.zip` on the matching GitHub Release, with
+  generated or maintained release notes that state the version and macOS 15+
+  requirement plus the architecture mapping.
 - [x] Document the tag-to-release procedure and installation path: download the
   ZIP, unpack it, move `AILimitBar.app` to Applications, and use the standard
   macOS Gatekeeper recovery action on first launch when required.
@@ -934,13 +963,13 @@ artifact verification are complete.
 - [x] Add the promised MIT license before the first tagged release.
 - [x] Verify one published release artifact by downloading it outside the build
   directory, inspecting the archive contents and bundle version, checking the
-  ad-hoc code signature, and manually launching it on macOS 26.
+  ad-hoc code signature, and manually launching the original macOS 26 build.
 
 Acceptance:
 
-- Pushing one version tag creates a GitHub Release with exactly one custom
-  `AILimitBar-<version>.zip` application archive and no source build is needed
-  by the downloader.
+- Pushing one version tag creates a GitHub Release with exactly two custom
+  application archives, `AILimitBar-<version>-arm64.zip` and
+  `AILimitBar-<version>-x86_64.zip`; no source build is needed by the downloader.
 - The archive expands directly to `AILimitBar.app`, whose main executable,
   bundled helper, resources, and version metadata are present and valid.
 - The workflow fails before publication when tests, staging, archive creation,
@@ -961,42 +990,42 @@ web sources.
   unavailable provider APIs.
 - [x] Add provider capability metadata for manual, local snapshot, live, and
   delayed modes.
-- [ ] Run an authenticated multi-account web-source research gate for Claude and
+- Run an authenticated multi-account web-source research gate for Claude and
   OpenAI Codex before adding either provider to the existing Ollama WebKit
   implementation. Treat Claude and Codex as independent feasibility decisions;
   success for one provider must not imply support for the other.
-- [ ] For each provider and available account type, verify the actual usage
+- For each provider and available account type, verify the actual usage
   surface, resolved URL and navigation flow, visible plan-limit and credit data,
   reset semantics, localization behavior, and whether the page exposes useful
   account-wide values beyond the existing Claude `statusLine` / `/usage` CLI and
   Codex app-server sources.
-- [ ] Verify interactive authentication inside an AI Limitbar-owned `WKWebView`,
+- Verify interactive authentication inside an AI Limitbar-owned `WKWebView`,
   including the login methods available to the test account, MFA or passkey
   behavior when encountered, expected OAuth/SSO redirects, session restoration
   after relaunch, explicit reconnect, and clean failure when embedded sign-in is
   rejected or challenged.
-- [ ] Verify that two saved accounts of the same provider can use distinct
+- Verify that two saved accounts of the same provider can use distinct
   persistent `WKWebsiteDataStore` identifiers without sharing authentication,
   navigation state, extracted values, or reconnect lifecycle. Never import or
   reuse a session from Safari, Chrome, Codex, Claude Desktop, or another app.
-- [ ] Inspect candidate data shapes without committing to an extractor first.
+- Inspect candidate data shapes without committing to an extractor first.
   Prefer, in order, a documented provider API, a documented structured local
   interface, and semantic DOM extraction. Treat an internal/private JSON request
   as a separate architecture and privacy decision rather than an automatic
   fallback when DOM parsing is inconvenient.
-- [ ] Use a minimal non-production WebKit probe when necessary to validate real
+- Use a minimal non-production WebKit probe when necessary to validate real
   macOS behavior. Do not add a production source mode, generalize the Ollama
   controller, or retain a speculative parser until the provider passes the
   research gate.
-- [ ] Keep research artifacts privacy-safe: do not record passwords, tokens,
+- Keep research artifacts privacy-safe: do not record passwords, tokens,
   cookies, browser storage, raw HTML, complete network responses, profile data,
   opaque account identifiers, or unredacted screenshots. Persist only sanitized
   findings needed to reproduce the capability decision.
-- [ ] Record one evidence-backed outcome for each provider: `documented-interface`,
+- Record one evidence-backed outcome for each provider: `documented-interface`,
   `semantic-dom`, `private-integration-decision`, `embedded-auth-blocked`,
   `no-additional-value`, or `not-feasible`. Document supported account types,
   missing coverage, compatibility risks, and the manual/current-source fallback.
-- [ ] If a provider passes the gate, create a separate implementation milestone
+- If a provider passes the gate, create a separate implementation milestone
   with its confirmed URL, authentication boundary, extraction method, typed
   payload, navigation allowlist, reconnect behavior, multi-account contract,
   fixtures, and manual verification plan. Do not silently expand Milestone 21
@@ -1039,13 +1068,13 @@ without adding visible text or encoding state in tiny gauge-needle variants.
   item so badge color is not the sole representation of warning or error state.
 - [x] Add focused tests for normal, warning, error, mixed-state priority, and
   disabled-account cases.
-- [ ] Manually verify the staged app at the real menu-bar size in Light and Dark
+- [x] Manually verify the staged app at the real menu-bar size in Light and Dark
   appearance, including inactive menu-bar presentation.
 
 Implementation status (2026-07-14): the `NSStatusItem` uses one composite,
 non-template image with a neutral gauge base and a state badge. Enabled-account
 state aggregation, accessibility text, and focused AppModel/renderer tests are
-complete. Staged-app visual verification remains pending.
+complete. Staged-app visual verification passed manual QA on 2026-07-15.
 
 Acceptance:
 
@@ -1112,7 +1141,7 @@ appearance without changing authentication, navigation, or usage extraction.
   page loads and when the effective appearance changes while the page remains
   open.
 - [x] Add focused tests for host allowlisting and visual/extraction separation.
-- [ ] Manually verify settings, Ollama sign-in, third-party OAuth redirects,
+- [x] Manually verify settings, Ollama sign-in, third-party OAuth redirects,
   keyboard focus, form controls, navigation, and usage parsing in Light and
   Dark appearance.
 
@@ -1121,7 +1150,7 @@ uses an isolated WebKit client content world and an exact-origin guard for
 `https://ollama.com` and `https://signin.ollama.com`. Its adaptive Radix color
 tokens follow `prefers-color-scheme`; the separate settings-only usage bridge is
 unchanged. `swift build`, `swift test`, and `./script/build_and_run.sh --verify`
-passed. Authenticated interactive visual verification remains pending.
+passed. Authenticated interactive visual verification passed on 2026-07-15.
 
 Acceptance:
 
@@ -1201,33 +1230,33 @@ Acceptance:
 Goal: ship an English-first app with Russian localization and a compact
 Settings organization where cross-account preferences live in General.
 
-- [ ] Declare English as the Swift package's default localization and add
+- Declare English as the Swift package's default localization and add
   English and Russian localized app resources. Ensure the custom app-bundle
   script stages the resources in `AILimitBar.app` instead of copying only
   binaries.
-- [ ] Add a durable `AppLanguage` preference with `System Default`, `English`,
+- Add a durable `AppLanguage` preference with `System Default`, `English`,
   and `Russian` choices. Render the native language `Picker` in a new General
   Settings section and apply a selection immediately to the menu bar panel,
   Settings window, alerts, accessibility text, and formatted values without a
   restart.
-- [ ] Replace the current Settings navigation with General, Accounts, and
+- Replace the current Settings navigation with General, Accounts, and
   Provider Setup. Move the refresh-schedule and dashboard-height controls and
   their explanatory copy into General; remove Refresh as a top-level Settings
   section without changing either persisted preference or refresh behavior.
-- [ ] Localize all app-owned, user-facing UI text, including dashboard labels,
+- Localize all app-owned, user-facing UI text, including dashboard labels,
   Settings, buttons, alerts, tooltips, accessibility labels and values, empty
   states, status text, and app-generated warnings or recovery instructions.
-- [ ] Resolve dynamic app-owned strings at presentation time using the selected
+- Resolve dynamic app-owned strings at presentation time using the selected
   locale. Do not persist translated output or translate provider IDs, raw
   provider content, account names, JSON keys, file paths, or other technical
   identifiers.
-- [ ] Replace hardcoded formatter locales with the effective app locale so
+- Replace hardcoded formatter locales with the effective app locale so
   dates, relative dates, numbers, and percentages follow the selected language.
-- [ ] Add automated checks for English/Russian key parity, English fallback,
+- Add automated checks for English/Russian key parity, English fallback,
   language-preference persistence, immediate locale updates, and preservation
   of the refresh schedule. Manually verify the staged app in English and
   Russian, including long Settings labels and all dashboard states.
-- [ ] Document the language choices, the System Default behavior, and the
+- Document the language choices, the System Default behavior, and the
   localization maintenance rule: every new app-owned user-facing string must
   ship with both English and Russian translations.
 
@@ -1251,35 +1280,35 @@ Goal: let users define global warning and critical usage thresholds, then
 override the pair for individual provider-defined limit windows without adding
 provider- or account-wide inheritance layers.
 
-- [ ] Add durable global `Warning` and `Critical` integer percentage defaults
+- Add durable global `Warning` and `Critical` integer percentage defaults
   (`75` and `90` on a fresh install). Validate `1...100` values and require
   `Warning < Critical` at every write boundary.
-- [ ] Add a versioned storage migration and focused store API for per-window
+- Add a versioned storage migration and focused store API for per-window
   overrides. Key each override by the saved account identifier and a stable
   provider-owned limit-window identifier; never by a localized label, display
   order, or a reset timestamp.
-- [ ] Resolve effective thresholds as either the global pair or one complete
+- Resolve effective thresholds as either the global pair or one complete
   per-window pair. Do not introduce provider-wide or account-wide defaults.
   New windows use global values, and overrides survive a temporarily missing
   snapshot window.
-- [ ] Require adapters to expose a stable identifier before their windows can
+- Require adapters to expose a stable identifier before their windows can
   be individually configured. Keep an existing override visible and clearly
   marked when its window is not present in the latest snapshot; do not create
   overrides for unknown windows.
-- [ ] Add a localized Thresholds section to General for global defaults, and a
+- Add a localized Thresholds section to General for global defaults, and a
   localized Limits section in the selected account's Settings detail. Each
   known window must show its effective values and a `Use global thresholds`
   control that creates or removes its override without changing the global
   settings.
-- [ ] Derive `normal`, `warning`, and `critical` state per window from its
+- Derive `normal`, `warning`, and `critical` state per window from its
   effective thresholds and `usedPercent`. Surface the state in the dashboard
   and feed the image-only status badge from Milestone 22.1: `Warning` uses the
   yellow badge and `Critical` uses the red badge, while refresh errors retain
   red precedence. Do not fabricate state for unavailable or no-data windows.
-- [ ] Add tests for validation, global fallback, override creation/removal,
+- Add tests for validation, global fallback, override creation/removal,
   stable-key matching, temporary window absence, severity resolution, worst
   account state, and all normal/warning/critical boundaries.
-- [ ] Manually verify English and Russian Settings flows, per-window dashboard
+- Manually verify English and Russian Settings flows, per-window dashboard
   severity, and menu-bar behavior with multiple accounts and limit windows.
 
 Acceptance:
@@ -1303,48 +1332,48 @@ Goal: deliver actionable, user-controlled macOS local notifications for newly
 observed warning and critical threshold crossings without prompting on launch,
 spamming during refreshes, or treating a configuration change as a crossing.
 
-- [ ] Add a localized `Usage notifications` preference in General. It is off
+- Add a localized `Usage notifications` preference in General. It is off
   on a fresh install; only an explicit attempt to enable it may request macOS
   notification permission. Show the current authorization state and an `Open
   Notification Settings` recovery action when permission is denied or
   restricted. Do not repeatedly request permission or attempt to bypass Focus
   and system notification policy.
-- [ ] Introduce a testable `UsageNotificationCoordinator` behind a local
+- Introduce a testable `UsageNotificationCoordinator` behind a local
   notification client. It consumes resolved per-window severity only after a
   successful usable snapshot is available; it must not fetch providers,
   change provider configuration, or derive usage values itself.
-- [ ] Persist non-sensitive delivery state through GRDB, keyed by the saved
+- Persist non-sensitive delivery state through GRDB, keyed by the saved
   account identifier and stable provider-owned limit-window identifier. Store
   enough information to distinguish a silent baseline, the provider reset
   cycle when available, the highest level already delivered in that cycle, and
   the last usable severity. Never persist raw provider payloads, credentials,
   opaque account identifiers, or notification body text.
-- [ ] Establish a silent baseline for a newly enabled notification preference,
+- Establish a silent baseline for a newly enabled notification preference,
   a newly discovered window, and a window returning after unavailable or
   no-data samples. Notify only for an observed `normal → warning` or
   `normal/warning → critical` transition in the same usable reset cycle. If
   both levels are crossed in one update, notify only for `Critical`.
-- [ ] Re-arm a window only after its usable usage falls below the effective
+- Re-arm a window only after its usable usage falls below the effective
   warning threshold or the provider reports a newer reset cycle. A threshold
   edit updates visible severity immediately, but neither it nor app launch,
   permission approval, a stale snapshot, an error, or a missing window sends a
   notification.
-- [ ] Coalesce all crossings discovered by one refresh into at most one local
+- Coalesce all crossings discovered by one refresh into at most one local
   notification, with `Critical` taking precedence. For one affected window,
   use localized account, limit-window, level, and percentage text; for several,
   use a localized severity summary and count. Selecting the notification brings
   AI Limitbar forward and opens the dashboard focused on the affected account
   when one account is involved.
-- [ ] Present alerts while AI Limitbar is active according to the user's macOS
+- Present alerts while AI Limitbar is active according to the user's macOS
   notification settings. Respect system delivery, preview, sound, Focus, and
   notification-center retention behavior; the app must not add custom bypasses
   or urgent interruption levels.
-- [ ] Add tests with a fake notification client for authorization states,
+- Add tests with a fake notification client for authorization states,
   no-launch prompt, silent baselines, warning and critical crossings,
   simultaneous crossings, per-refresh coalescing, re-arming, reset-cycle
   changes, relaunch deduplication, threshold edits, unavailable/no-data gaps,
   persistence migration, and notification selection routing.
-- [ ] Manually verify English and Russian flows: enable/deny/re-enable in
+- Manually verify English and Russian flows: enable/deny/re-enable in
   General, foreground and background delivery, multiple accounts and windows,
   alert selection, refresh/relaunch deduplication, and a new provider reset
   cycle.
@@ -1372,15 +1401,15 @@ Goal: let people choose an app appearance and a reusable dashboard palette
 without weakening the terminal-fieldset visual system or turning severity into
 a full-panel tint.
 
-- [ ] Add a durable app-appearance choice: `System`, `Light`, or `Dark`. It
+- Add a durable app-appearance choice: `System`, `Light`, or `Dark`. It
   changes the app's effective color scheme immediately; native Settings
   controls remain native macOS controls rather than receiving custom chrome.
-- [ ] Store individual light and dark dashboard palettes, including curated
+- Store individual light and dark dashboard palettes, including curated
   presets and user-created palettes, then persist separate `lightPaletteID` and
   `darkPaletteID` selections. Resolve the active palette from the effective app
   appearance and apply it consistently to the menu-bar dashboard and its
   matching account-details popover.
-- [ ] Add `Import Theme…` and `Export Theme…` for portable JSON theme files.
+- Add `Import Theme…` and `Export Theme…` for portable JSON theme files.
   An import must contain at least one complete `light` or `dark` palette; copy
   the missing selection from the matching built-in `Default` palette for the
   import preview. `Apply` persists only the imported palette variants, selects
@@ -1388,34 +1417,34 @@ a full-panel tint.
   the source file. `Cancel` changes neither the palette library nor current
   selections; import never changes the user's selected `System` / `Light` /
   `Dark` app appearance.
-- [ ] Model palette values as named, Codable sRGB color tokens rather than
+- Model palette values as named, Codable sRGB color tokens rather than
   serializing platform color objects or assigning colors directly inside views.
   Custom tokens include dashboard background, fieldset surface and border,
   primary and secondary text, plus the four progress colors below.
-- [ ] Provide exactly four configurable progress-bar colors: `Free` for the
+- Provide exactly four configurable progress-bar colors: `Free` for the
   unused portion/track, `Used` for consumed usage below the warning threshold,
   `Warning` for consumed usage from the effective warning threshold up to the
   critical threshold, and `Critical` for consumed usage at or above the
   effective critical threshold.
-- [ ] Keep the `Free` portion constant while deriving only the consumed portion
+- Keep the `Free` portion constant while deriving only the consumed portion
   from the per-window severity resolved by Milestone 24. Do not introduce a
   fifth track color or recolor the dashboard, account panel, or popover
   background when a threshold is crossed.
-- [ ] Use the same `Warning` or `Critical` token for a compact status marker on
+- Use the same `Warning` or `Critical` token for a compact status marker on
   the affected limit window. Keep the percentage and a textual/accessibility
   state available so color is never the sole threshold signal.
-- [ ] Add an `Appearance` section to General with preset selection, custom
+- Add an `Appearance` section to General with preset selection, custom
   color controls, separate Light Theme and Dark Theme pickers, a live compact
   preview with `Apply` / `Cancel`, and a reset-to-Default action. Keep the
   General, Accounts, and Provider Setup workflows compact and unchanged.
-- [ ] Store the appearance preference through the app's GRDB settings layer;
+- Store the appearance preference through the app's GRDB settings layer;
   add a versioned migration and use defaults for existing installations.
-- [ ] Add tests for default values, Codable color round-tripping, storage
+- Add tests for default values, Codable color round-tripping, storage
   migration, light-only and dark-only theme imports, rejection of an import
   with no complete palette, per-appearance palette resolution, import preview
   apply/cancel behavior, reset behavior, and all normal/warning/critical
   progress-color boundaries.
-- [ ] Manually verify the staged app in System, Light, and Dark appearance with
+- Manually verify the staged app in System, Light, and Dark appearance with
   every preset and a custom palette, including dashboard, details popover,
   native Settings controls, keyboard focus, and accessibility values.
 
@@ -1442,15 +1471,16 @@ Acceptance:
 
 ## Later
 
-- [ ] Add Linear backlog if the project grows beyond local docs.
+GitHub Projects supersede the prospective Linear backlog. Do not add a second
+task tracker without explicitly revisiting this decision.
 
 ## Final: WidgetKit Extension
 
-- [ ] Add WidgetKit extension.
-- [ ] Read snapshots from the App Group container.
-- [ ] Render account-aware snapshot summaries.
-- [ ] Respect stale, unavailable, manual, and error states.
-- [ ] Keep all provider refresh, auth, and parsing inside the app, not the
+- Add WidgetKit extension.
+- Read snapshots from the App Group container.
+- Render account-aware snapshot summaries.
+- Respect stale, unavailable, manual, and error states.
+- Keep all provider refresh, auth, and parsing inside the app, not the
   widget.
 
 ## MVP Verification

@@ -3,7 +3,7 @@ set -euo pipefail
 
 APP_NAME="AILimitBar"
 BUNDLE_ID="io.github.Prontsevich.AILimitBar"
-MIN_SYSTEM_VERSION="26.0"
+MIN_SYSTEM_VERSION="15.0"
 HELPER_NAME="AILimitBarClaudeStatusLine"
 
 CONFIGURATION="debug"
@@ -147,9 +147,9 @@ if [[ -n "$VERSION" ]]; then
 fi
 
 /usr/bin/plutil -lint "$INFO_PLIST" >/dev/null
-/usr/bin/codesign --force --sign - --timestamp=none "$APP_BINARY"
 /usr/bin/codesign --force --sign - --timestamp=none "$HELPER_BINARY"
-/usr/bin/codesign --force --sign - --timestamp=none "$APP_BUNDLE"
+/usr/bin/codesign --force --sign - --timestamp=none "$APP_BINARY"
+/usr/bin/codesign --force --deep --sign - --timestamp=none "$APP_BUNDLE"
 /usr/bin/codesign --verify --deep --strict "$APP_BUNDLE"
 
 echo "Staged $APP_BUNDLE"

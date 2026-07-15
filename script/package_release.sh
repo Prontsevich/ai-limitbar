@@ -2,32 +2,47 @@
 set -euo pipefail
 
 usage() {
-  echo "usage: $0 MAJOR.MINOR.PATCH" >&2
+  echo "usage: $0 MAJOR.MINOR.PATCH arm64|x86_64" >&2
 }
 
-if [[ $# -ne 1 ]]; then
+if [[ $# -ne 2 ]]; then
   usage
   exit 2
 fi
 
 VERSION="$1"
+ARCHITECTURE="$2"
 if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   echo "error: version must use MAJOR.MINOR.PATCH with numeric components" >&2
   exit 2
 fi
 
+case "$ARCHITECTURE" in
+  arm64|x86_64)
+    ;;
+  *)
+    usage
+    exit 2
+    ;;
+esac
+
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP_NAME="AILimitBar"
 HELPER_NAME="AILimitBarClaudeStatusLine"
 EXPECTED_BUNDLE_ID="io.github.Prontsevich.AILimitBar"
-EXPECTED_ARCHITECTURE="arm64"
 APP_BUNDLE="$ROOT_DIR/dist/$APP_NAME.app"
-ARCHIVE="$ROOT_DIR/dist/$APP_NAME-$VERSION.zip"
+ARCHIVE="$ROOT_DIR/dist/$APP_NAME-$VERSION-$ARCHITECTURE.zip"
+TEMP_DIRECTORY=""
+
+cleanup() {
+  [[ -z "$TEMP_DIRECTORY" ]] || rm -rf "$TEMP_DIRECTORY"
+}
+trap cleanup EXIT
 
 "$ROOT_DIR/script/stage_app_bundle.sh" \
   --configuration release \
   --version "$VERSION" \
-  --arch "$EXPECTED_ARCHITECTURE"
+  --arch "$ARCHITECTURE"
 
 assert_equal() {
   local expected="$1"
@@ -62,11 +77,11 @@ validate_app_bundle() {
   assert_equal "$EXPECTED_BUNDLE_ID" "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$bundle_info")" "bundle identifier"
   assert_equal "$VERSION" "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$bundle_info")" "short version"
   assert_equal "$VERSION" "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$bundle_info")" "bundle version"
-  assert_equal "26.0" "$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' "$bundle_info")" "minimum system version"
+  assert_equal "15.0" "$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' "$bundle_info")" "minimum system version"
   assert_equal "AppIcon" "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIconFile' "$bundle_info")" "app icon file"
   assert_equal "AppIcon" "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIconName' "$bundle_info")" "app icon name"
-  assert_equal "$EXPECTED_ARCHITECTURE" "$(/usr/bin/lipo -archs "$bundle_binary")" "app architecture"
-  assert_equal "$EXPECTED_ARCHITECTURE" "$(/usr/bin/lipo -archs "$bundle_helper")" "helper architecture"
+  assert_equal "$ARCHITECTURE" "$(/usr/bin/lipo -archs "$bundle_binary")" "app architecture"
+  assert_equal "$ARCHITECTURE" "$(/usr/bin/lipo -archs "$bundle_helper")" "helper architecture"
 
   /usr/bin/codesign --verify --deep --strict "$bundle"
 }
@@ -78,10 +93,6 @@ rm -f "$ARCHIVE"
 [[ -s "$ARCHIVE" ]] || { echo "error: release archive was not created" >&2; exit 1; }
 
 TEMP_DIRECTORY="$(mktemp -d "${TMPDIR:-/tmp}/AILimitBar-release.XXXXXX")"
-cleanup() {
-  rm -rf "$TEMP_DIRECTORY"
-}
-trap cleanup EXIT
 
 /usr/bin/ditto -x -k "$ARCHIVE" "$TEMP_DIRECTORY"
 EXTRACTED_APP="$TEMP_DIRECTORY/$APP_NAME.app"

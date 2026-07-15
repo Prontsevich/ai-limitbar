@@ -63,6 +63,14 @@ temporary directory. AI Limitbar normalizes `PWD` to that directory and removes
 inherited `OLDPWD` and `INIT_CWD` hints so scheduled refresh cannot accidentally
 start a provider CLI in Documents, Downloads, Music, or another user workspace.
 
+## Work Tracking
+
+The private [AI Limitbar GitHub Project](https://github.com/users/Prontsevich/projects/1)
+is the source of truth for active work, priorities, and status. Each active item
+is a repository issue and should be linked to its implementation PR. The
+roadmap in `docs/tasks.md` preserves product scope, acceptance criteria, and
+completed-history evidence rather than duplicating active task state.
+
 ## Non-Goals For MVP
 
 - Perfect real-time quota accuracy for every provider.
@@ -71,7 +79,7 @@ start a provider CLI in Documents, Downloads, Music, or another user workspace.
   experimental provider mode.
 - Cross-device usage reconciliation.
 - Team administration dashboards.
-- Linear backlog setup.
+- A second backlog system outside GitHub Projects.
 
 ## Product Principles
 
@@ -82,28 +90,26 @@ start a provider CLI in Documents, Downloads, Music, or another user workspace.
   or fetch provider data directly.
 - Treat provider integrations as replaceable adapters.
 - Design for a small, glanceable menu bar experience before adding richer views.
-- Target modern macOS technology and current system UI patterns instead of
-  preserving old OS compatibility.
-- Prefer standard SwiftUI controls and structures because they already carry
-  the current Liquid Glass appearance, pointer behavior, focus behavior, and
-  accessibility.
+- Target macOS 15+ technology and current system UI patterns instead of
+  preserving older OS compatibility.
+- Prefer standard SwiftUI controls and structures for pointer behavior, focus
+  behavior, keyboard interaction, and accessibility.
 
 ## Platform Baseline
 
-AI Limitbar is a modern-only macOS app. The project targets macOS 26 Tahoe as
-the current Liquid Glass-capable baseline and should not shape UI architecture
-around macOS 14-era compatibility.
+AI Limitbar is a modern-only macOS app. The project targets macOS 15 Sequoia as
+the minimum supported baseline. This preserves the current SwiftUI window
+behavior without compatibility branches for older releases. The app does not
+depend on Liquid Glass; the product-specific terminal-fieldset visual system
+remains the dashboard and Settings design baseline.
 
 Modern-only means:
 
-- The SwiftPM manifest uses SwiftPM 6.2, macOS 26, and Swift 6 language mode.
+- The SwiftPM manifest uses SwiftPM 6.2, macOS 15, and Swift 6 language mode.
 - The deployment target can move forward when current SwiftUI/macOS APIs make
   the app simpler, more native, or more visually correct.
 - Standard system controls, sidebars, toolbars, sheets, focus handling, pointer
   states, and keyboard behavior are preferred over hand-built replacements.
-- Liquid Glass is the design baseline. Standard SwiftUI controls should provide
-  most of that behavior directly; custom glass should be reserved for
-  product-specific compositions, not for recreating system controls.
 - SwiftUI scenes and system controls are preferred for UI and windowing. AppKit
   is limited to narrow application activation and termination boundaries where
   the menu-bar-only `LSUIElement` lifecycle needs explicit platform cooperation;
@@ -454,29 +460,33 @@ the semantic usage-extraction script remain independent.
 ### Release Distribution
 
 Milestone 20 establishes a GitHub Release path for people who want the app
-without building from source. The first release targets Apple Silicon on macOS
-26 or later and uses the stable bundle identifier
-`io.github.Prontsevich.AILimitBar`. A version tag must produce one
-`AILimitBar-<version>.zip` that expands directly to `AILimitBar.app`. The ZIP
-is created with `ditto --keepParent` so Finder preserves the application-bundle
-shape and macOS metadata.
+without building from source. The current release target is macOS 15 or later
+on Apple Silicon or Intel and uses the stable bundle identifier
+`io.github.Prontsevich.AILimitBar`. A version tag must produce two
+architecture-specific assets, `AILimitBar-<version>-arm64.zip` and
+`AILimitBar-<version>-x86_64.zip`, each expanding directly to
+`AILimitBar.app`. Each ZIP is created with `ditto --keepParent` so Finder
+preserves the application-bundle shape and macOS metadata.
 
 One shared staging script owns the app-bundle shape used by local development
 and release packaging. It copies the app executable, the bundled Claude Code
 helper, compiles the selected `AppIcon` asset catalog into the bundle, and
 copies production SwiftPM resource bundles while excluding test bundles.
-The release packaging script builds `arm64` in release configuration, supplies
+The release packaging script builds one selected architecture at a time in
+release configuration, stages the app and helper as thin binaries, supplies
 both app bundle version keys, signs nested executables and the outer bundle
-ad-hoc, verifies the signature and metadata, then validates a round trip through
-the ZIP archive.
+ad-hoc, verifies the signature and metadata, then validates a round trip
+through that architecture-specific ZIP archive.
 
 The GitHub Actions workflow runs its package job on `macos-26` with read-only
-repository contents permission. A manual dispatch produces a temporary Actions
-artifact for pre-release validation. A `vMAJOR.MINOR.PATCH` tag pointing to a
-commit contained in `main` unlocks a separate job with `contents: write`; that
-job publishes the already verified ZIP through GitHub CLI with generated notes.
-The version tag supplies both the archive name and app bundle version metadata.
-The first published tag is `v0.1.0`, which created `AILimitBar-0.1.0.zip`.
+repository contents permission and builds both supported architectures.
+A manual dispatch produces a temporary Actions artifact containing both
+architecture-specific ZIPs for pre-release validation. A
+`vMAJOR.MINOR.PATCH` tag pointing to a commit contained in `main` unlocks a
+separate job with `contents: write`; that job publishes both already verified
+ZIPs through GitHub CLI with generated notes. The version tag supplies both
+archive names and app bundle version metadata. The first published tag is
+`v0.1.0`, which created the original Apple Silicon archive.
 
 ### About AI Limitbar
 

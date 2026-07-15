@@ -2,7 +2,7 @@
 
 ## Build & Test
 
-**Requirements:** macOS 26+, Xcode 26+ (Swift 6.2)
+**Requirements:** macOS 15+, Xcode 26+ (Swift 6.2)
 
 ```zsh
 swift build                # Build all targets
@@ -29,10 +29,11 @@ the process check and must be performed manually.
 
 ## Release Packaging
 
-Create a locally validated Apple Silicon release archive:
+Create locally validated architecture-specific release archives:
 
 ```zsh
-./script/package_release.sh 0.2.0
+./script/package_release.sh 0.2.0 arm64
+./script/package_release.sh 0.2.0 x86_64
 ```
 
 The `Release` GitHub Actions workflow can be run manually to validate a package

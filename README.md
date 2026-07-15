@@ -4,7 +4,7 @@
 > all your limits in one compact place.
 
 [![Swift 6.2](https://img.shields.io/badge/Swift-6.2-F05138?logo=swift&logoColor=white)](https://swift.org)
-[![macOS 26+](https://img.shields.io/badge/macOS-26%2B-000000?logo=apple&logoColor=white)](https://www.apple.com/macos)
+[![macOS 15+](https://img.shields.io/badge/macOS-15%2B-000000?logo=apple&logoColor=white)](https://www.apple.com/macos)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](#license)
 
 ## Why
@@ -41,11 +41,15 @@ the `Experimental` label is informational, not a warning.
 
 ## Download
 
-**Requirements:** macOS 26+ on Apple Silicon
+**Requirements:** macOS 15+ on Apple Silicon or Intel
 
-Download `AILimitBar-<version>.zip` from the
-[latest GitHub Release](https://github.com/Prontsevich/ai-limitbar/releases/latest),
-unpack it, and move `AILimitBar.app` to Applications.
+Download the matching archive from the
+[latest GitHub Release](https://github.com/Prontsevich/ai-limitbar/releases/latest):
+
+- `AILimitBar-<version>-arm64.zip` for Apple Silicon Macs
+- `AILimitBar-<version>-x86_64.zip` for Intel Macs
+
+Unpack the archive and move `AILimitBar.app` to Applications.
 
 Release builds are ad-hoc signed and are not notarized by Apple. On first
 launch, macOS may block the app because the developer cannot be verified. If
@@ -69,7 +73,8 @@ WidgetKit.
 | Document | Description |
 | --- | --- |
 | [`docs/plan.md`](docs/plan.md) | Product plan, provider research, architecture |
-| [`docs/tasks.md`](docs/tasks.md) | Milestone tracker |
+| [GitHub Project](https://github.com/users/Prontsevich/projects/1) | Active backlog and status (private) |
+| [`docs/tasks.md`](docs/tasks.md) | Roadmap scope, acceptance criteria, and completed-history evidence |
 | [`docs/dashboard-design.md`](docs/dashboard-design.md) | Dashboard design contract |
 | [`docs/settings-design.md`](docs/settings-design.md) | Settings design contract |
 | [`docs/providers/`](docs/providers/) | Per-provider implementation notes |
