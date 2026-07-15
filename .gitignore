@@ -1,4 +1,5 @@
 .build/
 dist/
 outputs/
+.swiftpm/
 .DS_Store
