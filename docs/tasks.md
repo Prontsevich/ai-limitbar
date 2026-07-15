@@ -1170,6 +1170,32 @@ Acceptance:
 - GitHub and Boosty open through the system link handler; no support or release
   URL is persisted with user data.
 
+## Milestone 22.5: Feedback And Contact Channels
+
+Goal: make direct feedback and bug reporting discoverable from the About window
+without adding user data, in-app messaging, or a provider-facing support flow.
+
+- [x] Add static accessible links for GitHub issue reporting, direct e-mail, and
+  Telegram beside the existing repository and Boosty links.
+- [x] Keep all contact destinations public and app-owned; opening a link uses
+  the system handler and never stores a message, recipient, or contact state.
+- [x] Increase the fixed About window only enough to keep every feedback and
+  support action visible without scrolling.
+- [x] Document the three feedback paths in README and add URL regression tests.
+- [x] Manually verify all feedback/support links from a staged app and confirm
+  the About layout remains readable in Light and Dark appearance.
+
+Implementation status (2026-07-15): `swift build`, 133-test `swift test`, the
+staged-app `--verify` smoke check, and manual feedback/support UI verification
+passed.
+
+Acceptance:
+
+- A person can report an issue, compose an e-mail, or start a Telegram message
+  directly from About, with no account or app-state dependency.
+- The feedback links remain readable and reachable without scrolling or clipping
+  in both system appearances.
+
 ## Milestone 23: App Localization And General Settings
 
 Goal: ship an English-first app with Russian localization and a compact

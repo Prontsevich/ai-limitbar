@@ -38,5 +38,8 @@ struct AboutBuildInformation: Equatable {
 
 enum AboutLinks {
     static let github = URL(string: "https://github.com/Prontsevich/ai-limitbar")!
+    static let issue = URL(string: "https://github.com/Prontsevich/ai-limitbar/issues/new")!
+    static let email = URL(string: "mailto:prontsevich@gmail.com")!
+    static let telegram = URL(string: "https://t.me/s_prontsevich")!
     static let boosty = URL(string: "https://boosty.to/sergey.pro")!
 }

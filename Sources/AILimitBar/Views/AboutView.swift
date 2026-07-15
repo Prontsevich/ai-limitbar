@@ -35,6 +35,30 @@ struct AboutView: View {
                     accessibilityLabel: "Open AI Limitbar on GitHub"
                 )
 
+                Text("Feedback")
+                    .font(TerminalTheme.detailLabelFont)
+                    .foregroundStyle(TerminalTheme.secondary)
+
+                HStack(spacing: 8) {
+                    externalLink(
+                        "Report an issue",
+                        destination: AboutLinks.issue,
+                        accessibilityLabel: "Report an AI Limitbar issue on GitHub"
+                    )
+
+                    externalLink(
+                        "Email",
+                        destination: AboutLinks.email,
+                        accessibilityLabel: "Email the AI Limitbar developer"
+                    )
+
+                    externalLink(
+                        "Telegram",
+                        destination: AboutLinks.telegram,
+                        accessibilityLabel: "Message the AI Limitbar developer on Telegram"
+                    )
+                }
+
                 Text("If AI Limitbar is useful, thank you for supporting its development.")
                     .font(TerminalTheme.captionFont)
                     .foregroundStyle(TerminalTheme.secondary)

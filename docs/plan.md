@@ -490,9 +490,9 @@ The release bundle supplies `CFBundleShortVersionString` and `CFBundleVersion`,
 which are displayed as `Version <version> (build <build>)`. Local staged builds
 without both values display `Development build`; the About surface does not
 invent version metadata or change the existing staging/release version policy.
-Its two static system links point to the GitHub repository and the existing
-Boosty support page. The About window remains English until Milestone 23 adds
-app localization.
+Its static system links point to the GitHub repository, a new GitHub issue,
+direct e-mail, Telegram, and the existing Boosty support page. The About window
+remains English until Milestone 23 adds app localization.
 
 This first distribution path deliberately has no Developer ID certificate,
 notarization credential, or Apple signing secret. It makes downloading simple,

@@ -79,7 +79,12 @@ WidgetKit.
 See [`CONTRIBUTING.md`](CONTRIBUTING.md) for build instructions, development
 setup, and release procedures.
 
-## Support
+## Feedback And Support
+
+Report bugs and feature ideas through
+[GitHub Issues](https://github.com/Prontsevich/ai-limitbar/issues/new), send
+direct feedback to [prontsevich@gmail.com](mailto:prontsevich@gmail.com), or
+message [@s_prontsevich](https://t.me/s_prontsevich) on Telegram.
 
 If you find AI Limitbar useful, consider supporting its development.
 All contributions go toward the **Apple Developer Program** subscription

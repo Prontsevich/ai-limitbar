@@ -32,6 +32,18 @@ final class AboutInformationTests: XCTestCase {
             "https://github.com/Prontsevich/ai-limitbar"
         )
         XCTAssertEqual(
+            AboutLinks.issue.absoluteString,
+            "https://github.com/Prontsevich/ai-limitbar/issues/new"
+        )
+        XCTAssertEqual(
+            AboutLinks.email.absoluteString,
+            "mailto:prontsevich@gmail.com"
+        )
+        XCTAssertEqual(
+            AboutLinks.telegram.absoluteString,
+            "https://t.me/s_prontsevich"
+        )
+        XCTAssertEqual(
             AboutLinks.boosty.absoluteString,
             "https://boosty.to/sergey.pro"
         )
