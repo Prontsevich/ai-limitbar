@@ -35,6 +35,20 @@ final class ClaudeUsageCLIParserTests: XCTestCase {
         XCTAssertEqual(windows.map(\.id), ["session", "weekly-all", "weekly-sonnet-4-5"])
     }
 
+    func testModelWindowMayOmitResetTime() throws {
+        let windows = try ClaudeUsageCLIParser.parse(
+            """
+            Current session: 1% used
+            Current week (all models): 2% used · resets Jul 20 at 4pm (UTC)
+            Current week (Fable): 0% used
+            """,
+            now: utcDate(year: 2026, month: 7, day: 13, hour: 12)
+        )
+
+        XCTAssertEqual(windows.map(\.id), ["session", "weekly-all", "weekly-fable"])
+        XCTAssertNil(windows[2].resetAt)
+    }
+
     func testResetWithoutMinutesAndYearRollsForward() throws {
         let windows = try ClaudeUsageCLIParser.parse(
             """

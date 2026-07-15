@@ -157,10 +157,8 @@ public enum ClaudeUsageCLIParser {
                 throw ClaudeUsageCLIParserError.invalidReset(displayName)
             }
             resetAt = parsedReset
-        } else if case .session = kind {
-            resetAt = nil
         } else {
-            throw ClaudeUsageCLIParserError.invalidWindow(displayName)
+            resetAt = nil
         }
 
         return WindowDraft(
