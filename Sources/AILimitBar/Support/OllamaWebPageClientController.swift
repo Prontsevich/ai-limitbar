@@ -76,6 +76,7 @@ private final class OllamaWebPageSession: NSObject, WKNavigationDelegate {
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = WKWebsiteDataStore(forIdentifier: dataStoreID)
         let userContentController = WKUserContentController()
+        userContentController.addUserScript(OllamaWebPageAppearanceScript.userScript())
         userContentController.addUserScript(
             WKUserScript(
                 source: Self.usageUserScript,
@@ -90,7 +91,7 @@ private final class OllamaWebPageSession: NSObject, WKNavigationDelegate {
         super.init()
 
         messageHandler.owner = self
-        userContentController.add(messageHandler, name: "ollamaUsage")
+        userContentController.add(messageHandler, name: OllamaWebPageUsageExtractionPolicy.messageHandlerName)
         webView.navigationDelegate = self
     }
 
@@ -136,7 +137,7 @@ private final class OllamaWebPageSession: NSObject, WKNavigationDelegate {
     }
 
     func handleScriptMessage(_ message: WKScriptMessage) {
-        guard message.name == "ollamaUsage",
+        guard message.name == OllamaWebPageUsageExtractionPolicy.messageHandlerName,
               let body = message.body as? String,
               let data = body.data(using: .utf8)
         else {
@@ -263,7 +264,7 @@ private final class OllamaWebPageSession: NSObject, WKNavigationDelegate {
     private func extractUsageFromSettingsPage() {
         guard continuation != nil,
               let url = webView.url,
-              OllamaWebPageNavigationPolicy.isSettingsURL(url)
+              OllamaWebPageUsageExtractionPolicy.allowsExtraction(from: url)
         else { return }
 
         webView.evaluateJavaScript(Self.usageUserScript) { [weak self] _, error in
@@ -281,7 +282,7 @@ private final class OllamaWebPageSession: NSObject, WKNavigationDelegate {
 
     private static let usageUserScript = #"""
     (() => {
-      if (window.location.origin !== "https://ollama.com" || window.location.pathname !== "/settings") {
+      if (window.location.origin !== "\#(OllamaWebPageUsageExtractionPolicy.settingsOrigin)" || window.location.pathname !== "\#(OllamaWebPageUsageExtractionPolicy.settingsPath)") {
         return;
       }
 
@@ -402,7 +403,7 @@ private final class OllamaWebPageSession: NSObject, WKNavigationDelegate {
         if (!session && !weekly) return false;
 
         delivered = true;
-        window.webkit.messageHandlers.ollamaUsage.postMessage(JSON.stringify({ session, weekly }));
+        window.webkit.messageHandlers.\#(OllamaWebPageUsageExtractionPolicy.messageHandlerName).postMessage(JSON.stringify({ session, weekly }));
         return true;
       };
 
@@ -415,6 +416,151 @@ private final class OllamaWebPageSession: NSObject, WKNavigationDelegate {
       }
     })();
     """#
+}
+
+enum OllamaWebPageAppearancePolicy {
+    static let allowedOrigins: Set<String> = [
+        "https://ollama.com",
+        "https://signin.ollama.com"
+    ]
+
+    static func allowsVisualStyling(_ url: URL) -> Bool {
+        guard url.scheme?.lowercased() == "https",
+              let host = url.host?.lowercased(),
+              url.port == nil || url.port == 443
+        else { return false }
+
+        return allowedOrigins.contains("https://\(host)")
+    }
+}
+
+enum OllamaWebPageAppearanceScript {
+    static let styleElementID = "ai-limitbar-ollama-appearance"
+    static let injectionTime: WKUserScriptInjectionTime = .atDocumentStart
+    static let isForMainFrameOnly = true
+    static let usesDefaultClientWorld = true
+
+    static let source = #"""
+    (() => {
+      const allowedOrigins = new Set(["https://ollama.com", "https://signin.ollama.com"]);
+      if (!allowedOrigins.has(window.location.origin)) return;
+
+      const styleID = "ai-limitbar-ollama-appearance";
+      if (document.getElementById(styleID)) return;
+
+      const style = document.createElement("style");
+      style.id = styleID;
+      style.textContent = `
+        :root,
+        :root .radix-themes {
+          color-scheme: light !important;
+          --gray-1: #ffffff !important;
+          --gray-2: #f9f9fb !important;
+          --gray-3: #f0f0f3 !important;
+          --gray-4: #e8e8ec !important;
+          --gray-5: #e0e1e6 !important;
+          --gray-6: #d9d9df !important;
+          --gray-7: #cdced6 !important;
+          --gray-8: #b9bbc6 !important;
+          --gray-9: #8b8d98 !important;
+          --gray-10: #7e808a !important;
+          --gray-11: #60646c !important;
+          --gray-12: #1c2024 !important;
+          --gray-a1: rgb(0 0 0 / 0.012) !important;
+          --gray-a2: rgb(0 0 0 / 0.027) !important;
+          --gray-a3: rgb(0 0 0 / 0.047) !important;
+          --gray-a4: rgb(0 0 0 / 0.071) !important;
+          --gray-a5: rgb(0 0 0 / 0.090) !important;
+          --gray-a6: rgb(0 0 0 / 0.114) !important;
+          --gray-a7: rgb(0 0 0 / 0.153) !important;
+          --gray-a8: rgb(0 0 0 / 0.255) !important;
+          --gray-a9: rgb(0 0 0 / 0.447) !important;
+          --gray-a10: rgb(0 0 0 / 0.506) !important;
+          --gray-a11: rgb(0 0 0 / 0.624) !important;
+          --gray-a12: rgb(0 0 0 / 0.890) !important;
+          --color-background: var(--gray-1) !important;
+          --color-panel: var(--gray-1) !important;
+          --color-surface: var(--gray-2) !important;
+          --color-overlay: var(--gray-2) !important;
+          --branded-page-background: var(--gray-1) !important;
+        }
+
+        :root,
+        :root body,
+        :root .radix-themes {
+          background-color: var(--color-background) !important;
+          color: var(--gray-12) !important;
+        }
+
+        :root .radix-themes .rt-BaseCard,
+        :root .radix-themes .rt-TextFieldRoot,
+        :root .radix-themes .rt-BaseButton.rt-variant-surface {
+          background-color: var(--color-surface) !important;
+          color: var(--gray-12) !important;
+        }
+
+        @media (prefers-color-scheme: dark) {
+          :root,
+          :root .radix-themes {
+            color-scheme: dark !important;
+            --gray-1: #111113 !important;
+            --gray-2: #19191b !important;
+            --gray-3: #222225 !important;
+            --gray-4: #2a2a2e !important;
+            --gray-5: #313136 !important;
+            --gray-6: #3a3a40 !important;
+            --gray-7: #4a4a52 !important;
+            --gray-8: #5c5c66 !important;
+            --gray-9: #6e6e78 !important;
+            --gray-10: #7c7c86 !important;
+            --gray-11: #b5b5bd !important;
+            --gray-12: #eeeef0 !important;
+            --gray-a1: rgb(255 255 255 / 0.030) !important;
+            --gray-a2: rgb(255 255 255 / 0.060) !important;
+            --gray-a3: rgb(255 255 255 / 0.090) !important;
+            --gray-a4: rgb(255 255 255 / 0.120) !important;
+            --gray-a5: rgb(255 255 255 / 0.150) !important;
+            --gray-a6: rgb(255 255 255 / 0.190) !important;
+            --gray-a7: rgb(255 255 255 / 0.250) !important;
+            --gray-a8: rgb(255 255 255 / 0.330) !important;
+            --gray-a9: rgb(255 255 255 / 0.440) !important;
+            --gray-a10: rgb(255 255 255 / 0.520) !important;
+            --gray-a11: rgb(255 255 255 / 0.740) !important;
+            --gray-a12: rgb(255 255 255 / 0.930) !important;
+            --color-background: var(--gray-1) !important;
+            --color-panel: var(--gray-1) !important;
+            --color-surface: var(--gray-2) !important;
+            --color-overlay: var(--gray-2) !important;
+            --branded-page-background: var(--gray-1) !important;
+          }
+        }
+      `;
+      (document.head || document.documentElement).appendChild(style);
+    })();
+    """#
+
+    @MainActor
+    static func userScript() -> WKUserScript {
+        WKUserScript(
+            source: source,
+            injectionTime: injectionTime,
+            forMainFrameOnly: isForMainFrameOnly,
+            in: .defaultClient
+        )
+    }
+}
+
+enum OllamaWebPageUsageExtractionPolicy {
+    static let settingsOrigin = "https://ollama.com"
+    static let settingsPath = "/settings"
+    static let messageHandlerName = "ollamaUsage"
+
+    static func allowsExtraction(from url: URL) -> Bool {
+        url.scheme == "https" &&
+            url.host?.lowercased() == "ollama.com" &&
+            (url.port == nil || url.port == 443) &&
+            url.path == settingsPath
+    }
 }
 
 private final class WeakScriptMessageHandler: NSObject, WKScriptMessageHandler {

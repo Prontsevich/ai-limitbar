@@ -1098,23 +1098,30 @@ Acceptance:
 Goal: make Ollama-owned settings and sign-in pages follow the effective macOS
 appearance without changing authentication, navigation, or usage extraction.
 
-- [ ] Add a separate visual-only `WKUserScript` for the isolated Ollama WebKit
+- [x] Add a separate visual-only `WKUserScript` for the isolated Ollama WebKit
   session. It may change only colors, backgrounds, borders, text contrast, and
   the page `color-scheme`; it must not alter layout, visibility, controls,
   focus, submission, navigation, or page content.
-- [ ] Apply the visual stylesheet only when the exact HTTPS host is
+- [x] Apply the visual stylesheet only when the exact HTTPS host is
   `ollama.com` or `signin.ollama.com`. WorkOS, Google, GitHub, and every other
   third-party OAuth page remain provider-controlled.
-- [ ] Keep the visual script independent from the existing usage-extraction
+- [x] Keep the visual script independent from the existing usage-extraction
   script and normalized bridge payload. Appearance changes must not trigger,
   suppress, or rewrite usage extraction.
-- [ ] Apply the current effective Light or Dark appearance when an Ollama-owned
+- [x] Apply the current effective Light or Dark appearance when an Ollama-owned
   page loads and when the effective appearance changes while the page remains
   open.
-- [ ] Add focused tests for host allowlisting and visual/extraction separation.
-  Manually verify settings, Ollama sign-in, third-party OAuth redirects,
+- [x] Add focused tests for host allowlisting and visual/extraction separation.
+- [ ] Manually verify settings, Ollama sign-in, third-party OAuth redirects,
   keyboard focus, form controls, navigation, and usage parsing in Light and
   Dark appearance.
+
+Implementation status (2026-07-15): a main-frame, document-start visual script
+uses an isolated WebKit client content world and an exact-origin guard for
+`https://ollama.com` and `https://signin.ollama.com`. Its adaptive Radix color
+tokens follow `prefers-color-scheme`; the separate settings-only usage bridge is
+unchanged. `swift build`, `swift test`, and `./script/build_and_run.sh --verify`
+passed. Authenticated interactive visual verification remains pending.
 
 Acceptance:
 

@@ -31,6 +31,22 @@ confidence. The page structure is undocumented and may change, but a successful
 read is presented as `OK`; model request counts, extra-usage balance, and
 billing values are intentionally excluded.
 
+## Appearance
+
+The isolated WebKit session installs a separate visual-only script in its main
+frame at document start. The script runs in WebKit's client content world and
+adds adaptive Radix and WorkOS page-background color tokens only when the page
+origin is exactly `https://ollama.com` or `https://signin.ollama.com`. It follows the effective
+macOS Light or Dark appearance through `prefers-color-scheme`, including while
+an Ollama-owned page remains open.
+
+The script changes only color scheme, colors, backgrounds, and border contrast.
+It does not change layout, visibility, controls, focus, form submission,
+navigation, page content, or page event handling. It creates no message handler
+and does not inspect or modify the settings-page usage payload. WorkOS, Google,
+GitHub, regional Google Account endpoints, and every other third-party OAuth
+page receive no stylesheet or DOM mutation.
+
 `Reconnect` is available when the session expires or the page structure
 changes. Scheduled refreshes never foreground the login view or attempt
 unattended reauthentication. A failed refresh keeps the last valid snapshot and
