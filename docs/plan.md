@@ -65,11 +65,18 @@ start a provider CLI in Documents, Downloads, Music, or another user workspace.
 
 ## Work Tracking
 
-The private [AI Limitbar GitHub Project](https://github.com/users/Prontsevich/projects/1)
-is the source of truth for active work, priorities, and status. Each active item
-is a repository issue and should be linked to its implementation PR. The
-roadmap in `docs/tasks.md` preserves product scope, acceptance criteria, and
-completed-history evidence rather than duplicating active task state.
+The private Linear workspace is the source of truth for active strategy,
+priorities, project documents, status, and execution context. Each active item
+is a Linear issue. Its implementation pull request is attached from the private
+issue side after the PR exists, without copying private planning context or
+issue identifiers into public GitHub issues, branches, commits, or pull
+requests.
+
+The roadmap in `docs/tasks.md` preserves product scope, acceptance criteria, and
+completed-history evidence rather than duplicating active task state. GitHub
+Releases are the public changelog. Their notes are derived from completed work,
+merged pull requests, and commits after private planning context is removed;
+Linear project updates are for current status, not published release history.
 
 ## Non-Goals For MVP
 
@@ -79,7 +86,7 @@ completed-history evidence rather than duplicating active task state.
   experimental provider mode.
 - Cross-device usage reconciliation.
 - Team administration dashboards.
-- A second backlog system outside GitHub Projects.
+- A second backlog system outside Linear.
 
 ## Product Principles
 
@@ -511,6 +518,14 @@ the internet. Release notes and installation instructions must say so plainly.
 Developer ID signing, notarization, stapling, and clean-Mac validation are a
 future enhancement to this same pipeline, not an implication of ad-hoc signing.
 
+Trusted direct distribution is gated by an active Apple Developer Program
+membership and verified access to the final Developer ID, Team ID, bundle
+identifier, and capability configuration. Research and entitlement inventory
+may happen before that gate, but production signing, notarization, protected CI
+credentials, final clean-Mac validation, and WidgetKit App Group registration
+must not begin until the gate is complete. Certificates, private keys, payment
+information, and notarization credentials never belong in Git, Linear, or logs.
+
 ### Multi-Account Authenticated Web Research
 
 Milestone 21 includes an evidence-first research gate for possible Claude and
@@ -667,8 +682,9 @@ Keychain and Ollama browser sessions remain in their per-account
 ### Future WidgetKit sharing
 
 Provisional App Group identifier: `group.com.lestroy.ai-limitbar`. This must be
-verified against the final Apple Developer Team and bundle identifiers before
-signing a WidgetKit build.
+verified against the final Apple Developer Team and bundle identifiers after
+the Apple Developer Program membership gate is complete and before registering
+the App Group or signing a WidgetKit build.
 
 Widget constraints:
 
@@ -845,106 +861,20 @@ available for manual QA. Process launch proves startup only; menu-bar
 interaction, Settings focus, pointer behavior, and other GUI details remain
 explicit manual QA rather than being inferred from a running PID.
 
-## Usage Thresholds
+## Planned Product Constraints
 
-AI Limitbar evaluates usage thresholds per provider-defined limit window, not
-per provider or per account as a whole. The initial policy has two integer
-percentage levels: `Warning` and `Critical`. Fresh installs use `75%` and
-`90%`, respectively. Every configured value must be in `1...100`, and
-`Warning` must be strictly lower than `Critical`.
+Detailed future scope is private in Linear. The public constraints that remain
+stable are:
 
-General owns the durable global defaults. Each known limit window in an
-account's settings has a `Use global thresholds` control. Turning it off
-stores a complete `Warning`/`Critical` pair for that account-window; turning it
-back on removes the override and immediately restores the effective global
-pair. There is intentionally no third inheritance layer for a provider or an
-entire account. A newly discovered window uses the global defaults until the
-user explicitly creates its override.
-
-Overrides are keyed by the account identifier and the provider-owned stable
-limit-window identifier, never by a localized display label or by a window's
-position in a snapshot. They remain intact while that window is temporarily
-absent from a snapshot, so a transient provider response cannot erase user
-configuration. A provider that cannot supply a stable window identifier must
-not expose a per-window override until its adapter defines one.
-
-When a window has `usedPercent`, its resolved thresholds determine its
-`normal`, `warning`, or `critical` state. The dashboard retains the exact usage
-percentage and provider reset information. The image-only menu-bar status item
-uses only the compact badge established in Milestone 22.1: `Warning` contributes
-yellow and `Critical` contributes red, with red refresh/error state retaining
-precedence. No threshold state is invented for unavailable or no-data windows.
-
-## Usage Limit Notifications
-
-Local notifications are an opt-in consequence of the per-window threshold
-state, not a provider integration or a second refresh mechanism. General
-offers a durable `Usage notifications` control that is off on a fresh install.
-macOS permission is requested only after the person explicitly enables it, and
-the UI reports denied or restricted permission with an action to open system
-notification settings. AI Limitbar respects macOS delivery, previews, sound,
-Focus, and retention policy rather than attempting to bypass them.
-
-After every successful usable snapshot, a `UsageNotificationCoordinator`
-compares resolved severity with persisted non-sensitive delivery state. State
-is keyed by the saved account identifier and stable provider-owned limit-window
-identifier; it records a silent baseline, the reset cycle when one is known,
-the highest alert delivered in that cycle, and the last usable severity. Raw
-provider payloads, credentials, opaque identifiers, and notification body text
-are never stored as notification state.
-
-A new preference, newly discovered window, or window following unavailable or
-no-data samples establishes its baseline silently. Alerts require an observed
-transition within the same usable reset cycle: `normal → warning` produces a
-Warning alert, while `normal/warning → critical` produces a Critical alert. A
-single update that crosses both produces only Critical. A window becomes armed
-again only after falling below the effective Warning threshold or after the
-provider reports a newer reset cycle. Changing thresholds, granting permission,
-launching the app, stale data, a failed refresh, or a missing window must never
-by itself produce an alert.
-
-Crossings found by one refresh are coalesced into at most one notification;
-Critical takes precedence. A one-window alert names the account, limit window,
-severity, and percentage. A multi-window alert reports the highest severity
-and count. Selecting an alert activates AI Limitbar and opens the dashboard
-focused on the affected account when the event concerns one account.
-
-## Dashboard Appearance And Themes
-
-Appearance has two independent layers. The app appearance is `System`, `Light`,
-or `Dark` and controls the effective macOS color scheme immediately. Dashboard
-appearance keeps separate `lightPaletteID` and `darkPaletteID` selections, so
-System follows the corresponding macOS mode while an explicit Light or Dark
-choice uses its matching selection. Standard controls in Settings retain their
-native macOS presentation; custom colors apply only to the product-specific
-dashboard and its matching account-details popover.
-
-A palette is an independently selectable light or dark variant, either a
-curated preset or a user-created item. Each palette uses named, serializable
-sRGB tokens: dashboard background, fieldset surface and border, primary and
-secondary text, and four progress-bar colors. The progress tokens are `Free`
-for the unused portion, `Used` for the consumed portion below Warning,
-`Warning` for the consumed portion from Warning to Critical, and `Critical` for
-the consumed portion at or above Critical. The `Free` color is the track, so
-there is no separate fifth track color.
-
-Themes are importable and exportable as JSON. An import may provide a complete
-light palette, a complete dark palette, or both; at least one is required. The
-import preview resolves a missing mode to the corresponding built-in Default
-palette. On `Apply`, only provided palette variants are saved to GRDB, and the
-two selected palette IDs become the imported or Default variants shown in the
-preview. On `Cancel`, neither the palette library nor selections change. The
-app does not keep a live dependency on the source file, auto-generate an
-inverse palette, or change the user's selected app-appearance mode during
-import.
-
-Thresholds never tint the entire dashboard, an account panel, or the details
-popover. They change only the consumed segment of the affected progress bar and
-a compact marker for that limit window. The percent and an explicit textual and
-accessibility state remain present, so color is an enhancement rather than the
-sole severity signal. The palette is stored through the versioned GRDB settings
-layer and resolves into shared view tokens instead of scattered per-view color
-literals.
+- Localization must preserve provider data, account names, technical
+  identifiers, and stored values while translating app-owned presentation.
+- Thresholds and notifications must operate on provider-defined limit windows,
+  remain opt-in where system permission is involved, and never fabricate state
+  from unavailable data.
+- Appearance customization must preserve textual and accessibility status; color
+  cannot be the sole warning or critical signal.
+- A WidgetKit extension must be passive, read only normalized shared snapshots,
+  and keep provider refresh, authentication, and parsing in the main app.
 
 The app is intentionally menu-bar-only. Local development, debugging, logging,
 telemetry, and verification should all run the same staged `LSUIElement` app
@@ -952,50 +882,6 @@ bundle so lifecycle behavior does not change between development modes. AppKit
 is permitted at narrow application-lifecycle boundaries for explicit activation
 and normal termination; it should not own a window, Settings content, or feature
 state.
-
-## Localization And Language Preferences
-
-English is the complete default language. Russian is the first additional
-language, but the app must not force users to adopt the macOS system language:
-General provides a persistent language choice of System Default, English, or
-Russian.
-
-The selected language applies immediately to every app-owned presentation
-surface, including the menu-bar panel, Settings, alerts, help text,
-accessibility labels and values, dates, relative dates, numbers, and
-percentages. System Default follows the active macOS locale; English and
-Russian explicitly override it inside AI Limitbar without changing global
-system settings.
-
-The SwiftPM package declares English as its default localization and carries
-both English and Russian resources into the staged `AILimitBar.app` bundle.
-The custom build script must verify that those resources are copied alongside
-the executable and helper before signing the app.
-
-UI literals and dynamically assembled app-owned messages must be localized at
-presentation time. Domain and persisted data remain locale-neutral: provider
-IDs, user-created account names, JSON keys, file paths, raw provider content,
-and other technical identifiers are never translated or rewritten. Provider
-adapters should expose structured states and values where possible so the UI
-can render localized status, warnings, and recovery copy without persisting a
-translated string.
-
-Every new app-owned user-facing string requires English and Russian entries,
-with automated key-parity and fallback checks. Locale-sensitive formatters must
-use the effective app locale; no view may hardcode an English or US formatter
-locale.
-
-## Widget Direction
-
-WidgetKit should be added only after the app produces reliable snapshots.
-
-The widget should:
-
-- Read snapshots from shared storage.
-- Show a compact provider summary.
-- Avoid direct network calls.
-- Show stale data clearly.
-- Deep-link back into the menu bar app/settings when action is needed.
 
 ## Open Questions
 

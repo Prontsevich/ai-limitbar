@@ -73,15 +73,27 @@ AILimitBarClaudeStatusLine (helper)
 ## Working Agreement
 
 - Treat the live code and `Package.swift` as the source of truth for the current
-  implementation, `docs/plan.md` for architecture decisions, the private
-  [AI Limitbar GitHub Project](https://github.com/users/Prontsevich/projects/1)
-  for active task status and priority, and `docs/tasks.md` for milestone scope
-  and completed-history evidence.
-- Before implementation, read the linked GitHub issue, the relevant milestone
-  scope, and any linked design or provider document.
-- Update the linked GitHub issue and documentation alongside implementation when
-  behavior, architecture, or milestone status changes. Do not defer either to a
-  later cleanup pass.
+  implementation, `docs/plan.md` for current architecture and settled public
+  contracts, the private Linear workspace for active strategy, priorities,
+  project documents, and issues, and `docs/tasks.md` for completed-history
+  evidence.
+- When Linear is connected, read the team document `AI Limitbar — Working Guide`
+  before selecting, creating, or starting work. Then read the relevant Project
+  document, issue, and any linked design or provider document.
+- Use the Linear lifecycle consistently: new ideas start in `Triage`, confirmed
+  unscheduled work moves to `Backlog`, only the next 3–5 ready issues belong in
+  `Todo`, active implementation moves through `In Progress` and `In Review`,
+  and `Done` requires completed verification rather than implementation alone.
+- An issue labeled `Requires Apple Developer Program` must remain unassigned in
+  `Backlog`, without an estimate or target date, until the team-level Apple
+  Developer Program membership gate is `Done`. A Project existing in Linear is
+  not permission to start gated work.
+- Update the linked Linear issue and documentation alongside implementation
+  when behavior, architecture, or milestone status changes. Do not defer either
+  to a later cleanup pass.
+- Keep private Linear issue identifiers and URLs out of branch names, commits,
+  public GitHub issues, and pull requests. Attach a public pull request URL from
+  the private Linear issue instead.
 - Verify changes in proportion to their scope. Run `swift build` and `swift test`
   for code changes; use the staged `.app` bundle for UI, lifecycle, or provider
   integration checks. Do not mark manual verification complete unless it was
@@ -122,9 +134,10 @@ Common scopes: `storage`, `codex`, `dashboard`, `ollama`, `claude`, `settings`,
 
 ## Documentation
 
-- `docs/plan.md` — Full product plan, provider research, architecture decisions
-- `docs/tasks.md` — Milestone scope, acceptance criteria, and completed-history
-  evidence; active status is tracked in GitHub Projects
+- `docs/plan.md` — Current architecture, provider evidence, and settled public
+  contracts
+- `docs/tasks.md` — Completed milestone scope, acceptance criteria, and
+  verification history; active and future scope is tracked privately in Linear
 - `docs/dashboard-design.md` — Terminal-fieldset dashboard design contract
 - `docs/settings-design.md` — Settings window lifecycle and visual contract
 - `docs/design-qa.md` — Dashboard visual QA findings and fixes

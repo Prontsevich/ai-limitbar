@@ -1,0 +1,68 @@
+name: Bug report
+description: Report a reproducible problem in AI Limitbar
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve AI Limitbar.
+
+        This issue is public. Do not include API keys, tokens, cookies, raw provider responses, private account identifiers, sensitive URLs, personal data, or unredacted screenshots and logs.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: Describe the observed behavior and what you expected instead.
+      placeholder: AI Limitbar showed… I expected…
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Provide the smallest reliable sequence. Redact private provider and account data.
+      placeholder: |
+        1. Open…
+        2. Select…
+        3. Observe…
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: AI Limitbar version
+      placeholder: 0.2.0 or Development build
+    validations:
+      required: true
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version and Mac architecture
+      placeholder: macOS 15.5, Apple Silicon
+    validations:
+      required: true
+  - type: dropdown
+    id: provider
+    attributes:
+      label: Provider
+      options:
+        - Not provider-specific
+        - OpenAI Codex
+        - Claude Code
+        - Ollama Cloud
+        - Mock or manual source
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Sanitized diagnostics or screenshots
+      description: Include only what is necessary. Remove secrets, account details, raw responses, and personal information.
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy check
+      options:
+        - label: I checked that this public issue contains no credentials, tokens, cookies, raw provider responses, private account identifiers, or personal data.
+          required: true

@@ -61,15 +61,15 @@ available. The findings and fixes remain valid.
 ## Full-View Comparison Evidence
 
 The two implementation screenshots made the P1 and P2 findings above visible.
-The revised build has not yet been captured in the same state, so the post-fix
-full-view comparison cannot be completed.
+Post-fix staged-app verification was completed manually on 2026-07-15. The
+temporary comparison captures were not retained in the repository.
 
 ## Focused Region Comparison Evidence
 
 The account legend and control strip, the outlined meter, and the details
-refresh row were inspected in the supplied screenshots. The code now directly
-addresses their geometry and semantic color mapping, but no post-fix native
-capture is available for visual confirmation.
+refresh row were inspected in the supplied screenshots and in the staged app.
+The code addresses their geometry and semantic color mapping; the final native
+captures were temporary and are not available in the repository.
 
 ## Comparison History
 
@@ -84,12 +84,13 @@ capture is available for visual confirmation.
    revealed the obscured fieldset corner and experimental-source warning state;
    the corresponding layout and status-policy fixes were implemented.
 6. A later product decision added persisted Compact, Standard, and Tall
-   dashboard viewport presets; code, Settings copy, and the design contract were
-   updated, but no native post-fix capture is available yet.
+   dashboard viewport presets; code, Settings copy, the design contract, and
+   staged-app manual verification were completed on 2026-07-15.
 7. Computer Use still cannot inspect `AILimitBar`, its bundle identifier, or
    `SystemUIServer`; every attempt ends with
    `Computer Use server error -10005: timeoutReached`.
 
 ## Final Result
 
-blocked
+passed — manual Light/Dark staged-app verification completed on 2026-07-15;
+the public QA record is [GitHub issue #2](https://github.com/Prontsevich/ai-limitbar/issues/2).

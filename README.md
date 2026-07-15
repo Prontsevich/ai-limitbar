@@ -64,20 +64,28 @@ model, dashboard redesign, settings, Ollama web source, Codex app-server, SQLite
 migration, terminal dashboard, Settings redesign, Claude `/usage` CLI, and
 GitHub Release distribution.
 
-**Backlog 📋** — Provider/account readiness, daily-use polish, localization
-(EN+RU), per-limit thresholds, usage notifications, dashboard themes, and
-WidgetKit.
+**Planned directions 📋** — localization, additional provider research,
+per-limit thresholds, notifications, dashboard appearance, trusted macOS
+distribution, and a passive WidgetKit extension.
 
 ## Documentation
 
 | Document | Description |
 | --- | --- |
 | [`docs/plan.md`](docs/plan.md) | Product plan, provider research, architecture |
-| [GitHub Project](https://github.com/users/Prontsevich/projects/1) | Active backlog and status (private) |
 | [`docs/tasks.md`](docs/tasks.md) | Roadmap scope, acceptance criteria, and completed-history evidence |
 | [`docs/dashboard-design.md`](docs/dashboard-design.md) | Dashboard design contract |
 | [`docs/settings-design.md`](docs/settings-design.md) | Settings design contract |
 | [`docs/providers/`](docs/providers/) | Per-provider implementation notes |
+
+Private strategy, priorities, project documents, and implementation tasks are
+managed in Linear. GitHub is the public surface for source code, pull requests,
+releases, and user-reported bugs or feature requests. Private Linear issue IDs
+and planning discussions are not copied into public branches, commits, issues,
+or pull requests.
+
+GitHub Releases are the public changelog. Release notes are assembled from
+merged pull requests and completed work, with private planning details removed.
 
 ## Contributing
 
@@ -86,15 +94,15 @@ setup, and release procedures.
 
 ## Feedback And Support
 
-Report bugs and feature ideas through
-[GitHub Issues](https://github.com/Prontsevich/ai-limitbar/issues/new), send
+Report bugs and feature ideas through the public
+[GitHub issue forms](https://github.com/Prontsevich/ai-limitbar/issues/new/choose), send
 direct feedback to [prontsevich@gmail.com](mailto:prontsevich@gmail.com), or
 message [@s_prontsevich](https://t.me/s_prontsevich) on Telegram.
 
 If you find AI Limitbar useful, consider supporting its development.
-All contributions go toward the **Apple Developer Program** subscription
-($99/year) — enabling notarized builds and a smoother install experience
-for everyone.
+All contributions go toward **Apple Developer Program membership** — enabling
+Developer ID signing, notarized builds, and a smoother install experience for
+everyone.
 
 [![Boosty](https://img.shields.io/badge/Boosty-Support-FF6B00?logo=boosty&logoColor=white)](https://boosty.to/sergey.pro)
 
