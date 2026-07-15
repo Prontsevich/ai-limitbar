@@ -22,6 +22,9 @@ final class MenuBarStatusItemController: NSObject, ObservableObject {
                     guard let appModel else { return }
                     ApplicationLifecycle.openSettings(appModel: appModel)
                 },
+                onOpenAbout: {
+                    ApplicationLifecycle.openAbout()
+                },
                 onOpenOllamaConnection: { [weak appModel] in
                     guard let appModel else { return }
                     ApplicationLifecycle.openOllamaConnection(appModel: appModel)

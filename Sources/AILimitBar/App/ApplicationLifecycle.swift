@@ -9,6 +9,9 @@ enum ApplicationLifecycle {
     private static var directOllamaWindowController: NSWindowController?
 
     @MainActor
+    private static var directAboutWindowController: NSWindowController?
+
+    @MainActor
     static func activate() {
         NSApplication.shared.activate()
     }
@@ -100,6 +103,49 @@ enum ApplicationLifecycle {
         controller = NSWindowController(window: window)
         directOllamaWindowController = controller
         controller?.showWindow(nil)
+        window.makeKeyAndOrderFront(nil)
+    }
+
+    @MainActor
+    static func openAbout() {
+        let targetVisibleRect = menuBarPanelVisibleRect()
+        activate()
+
+        if let controller = directAboutWindowController, let window = controller.window {
+            let wasVisible = window.isVisible
+            controller.showWindow(nil)
+            if !wasVisible, let targetVisibleRect {
+                window.setFrame(
+                    AboutWindowConfiguration.centeredWindowFrame(
+                        window.frame,
+                        in: targetVisibleRect
+                    ),
+                    display: true
+                )
+            }
+            window.makeKeyAndOrderFront(nil)
+            return
+        }
+
+        let hostingController = NSHostingController(rootView: AboutView())
+        let window = NSWindow(contentViewController: hostingController)
+        window.title = AboutWindowConfiguration.title
+        window.styleMask = [.titled, .closable]
+        window.isReleasedWhenClosed = false
+        window.isRestorable = false
+        window.setContentSize(AboutWindowConfiguration.preferredSize)
+        window.contentMinSize = AboutWindowConfiguration.preferredSize
+        window.contentMaxSize = AboutWindowConfiguration.preferredSize
+
+        let controller = NSWindowController(window: window)
+        directAboutWindowController = controller
+        controller.showWindow(nil)
+        if let targetVisibleRect {
+            window.setFrame(
+                AboutWindowConfiguration.centeredWindowFrame(window.frame, in: targetVisibleRect),
+                display: true
+            )
+        }
         window.makeKeyAndOrderFront(nil)
     }
 

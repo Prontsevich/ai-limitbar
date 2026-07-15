@@ -476,7 +476,23 @@ artifact for pre-release validation. A `vMAJOR.MINOR.PATCH` tag pointing to a
 commit contained in `main` unlocks a separate job with `contents: write`; that
 job publishes the already verified ZIP through GitHub CLI with generated notes.
 The version tag supplies both the archive name and app bundle version metadata.
-The first planned tag is `v0.1.0` and creates `AILimitBar-0.1.0.zip`.
+The first published tag is `v0.1.0`, which created `AILimitBar-0.1.0.zip`.
+
+### About AI Limitbar
+
+Milestone 22.4 adds a compact `About` action beside `Settings` in the menu-bar
+panel footer. It opens one fixed-size, non-restoring `About AI Limitbar` window
+on the display that received the menu-bar action. The window is independent of
+account, provider, refresh, diagnostic, and persistence state; it shows the
+bundled app icon, `AI Limitbar`, release metadata, and project links only.
+
+The release bundle supplies `CFBundleShortVersionString` and `CFBundleVersion`,
+which are displayed as `Version <version> (build <build>)`. Local staged builds
+without both values display `Development build`; the About surface does not
+invent version metadata or change the existing staging/release version policy.
+Its two static system links point to the GitHub repository and the existing
+Boosty support page. The About window remains English until Milestone 23 adds
+app localization.
 
 This first distribution path deliberately has no Developer ID certificate,
 notarization credential, or Apple signing secret. It makes downloading simple,

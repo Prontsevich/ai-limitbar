@@ -4,6 +4,7 @@ struct MenuBarPanelView: View {
     @Environment(\.openWindow) private var openWindow
     @ObservedObject var appModel: AppModel
     var onOpenSettings: (() -> Void)? = nil
+    var onOpenAbout: (() -> Void)? = nil
     var onOpenOllamaConnection: (() -> Void)? = nil
     @AppStorage(DashboardHeightPreset.storageKey)
     private var dashboardHeightPresetRawValue = DashboardHeightPreset.standard.rawValue
@@ -88,7 +89,7 @@ struct MenuBarPanelView: View {
     }
 
     private var footerControls: some View {
-        HStack {
+        HStack(spacing: 8) {
             Button {
                 if let onOpenSettings {
                     onOpenSettings()
@@ -99,6 +100,19 @@ struct MenuBarPanelView: View {
                 Text("Settings")
             }
             .buttonStyle(TerminalTextButtonStyle())
+
+            Button {
+                if let onOpenAbout {
+                    onOpenAbout()
+                } else {
+                    ApplicationLifecycle.openAbout()
+                }
+            } label: {
+                Text("About")
+            }
+            .buttonStyle(TerminalTextButtonStyle())
+            .help("About AI Limitbar")
+            .accessibilityLabel("About AI Limitbar")
 
             Spacer()
 

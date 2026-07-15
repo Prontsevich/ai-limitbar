@@ -1132,6 +1132,44 @@ Acceptance:
 - Sign-in, navigation, keyboard focus, form submission, and normalized usage
   parsing behave exactly as before the visual adaptation.
 
+## Milestone 22.4: About AI Limitbar
+
+Goal: provide a compact, discoverable source of app identity, build metadata,
+and project-support links without expanding Settings or touching provider data.
+
+- [x] Add an `About` text action beside `Settings` in the menu-bar panel footer.
+  Keep the existing compact terminal text-action style, `Quit` alignment, and an
+  explicit `About AI Limitbar` help/accessibility label.
+- [x] Present one fixed-size, non-restoring `About AI Limitbar` utility window.
+  It activates the `LSUIElement` app, reuses and foregrounds an open window,
+  centers a newly reopened window on the display that received the menu-bar
+  action, and leaves only the native Close control available.
+- [x] Show the bundled app icon, app name, and `Version <version> (build
+  <build>)` from `CFBundleShortVersionString` / `CFBundleVersion`. If either
+  release value is absent, show `Development build` rather than an empty or
+  misleading version.
+- [x] Add static, accessible external links to the GitHub project and the
+  existing Boosty support page. Keep the README Boosty badge unchanged.
+- [x] Keep About independent of `AppModel`, provider state, SQLite, Keychain,
+  diagnostics, and persisted preferences.
+- [x] Add unit coverage for release/development build text and both link URLs.
+- [x] Manually verify the staged app: footer layout, accessibility, first open,
+  repeated open, close/reopen, version fallback, and both external links.
+
+Implementation status (2026-07-15): `swift build`, 133-test `swift test`, the
+staged-app `--verify` smoke check, local release-package metadata validation,
+and manual About UI verification passed.
+
+Acceptance:
+
+- A user can open About directly from the menu-bar panel without opening
+  Settings, and repeated activation never produces duplicate About windows.
+- The window reliably identifies a release build or the local development
+  fallback, contains no account or provider information, and does not return at
+  app launch after it is closed.
+- GitHub and Boosty open through the system link handler; no support or release
+  URL is persisted with user data.
+
 ## Milestone 23: App Localization And General Settings
 
 Goal: ship an English-first app with Russian localization and a compact

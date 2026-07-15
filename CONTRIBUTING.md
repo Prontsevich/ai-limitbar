@@ -32,7 +32,7 @@ the process check and must be performed manually.
 Create a locally validated Apple Silicon release archive:
 
 ```zsh
-./script/package_release.sh 0.1.0
+./script/package_release.sh 0.2.0
 ```
 
 The `Release` GitHub Actions workflow can be run manually to validate a package
@@ -40,8 +40,8 @@ before publication. A tag in `vMAJOR.MINOR.PATCH` format publishes the matching
 archive automatically. Release tags must point to commits contained in `main`:
 
 ```zsh
-git tag -a v0.1.0 -m "AI Limitbar 0.1.0"
-git push origin v0.1.0
+git tag -a v0.2.0 -m "AI Limitbar 0.2.0"
+git push origin v0.2.0
 ```
 
 ## Architecture
