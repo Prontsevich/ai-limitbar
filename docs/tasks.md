@@ -908,8 +908,9 @@ artifact verification are complete.
 
 - [x] Add one reproducible release-packaging script that builds the SwiftPM
   products, stages the complete `AILimitBar.app` bundle (including the bundled
-  Claude Code helper and localized resources), signs the bundle ad-hoc, and
-  creates `AILimitBar-<version>.zip` with `ditto --keepParent`.
+  Claude Code helper, selected AppIcon asset, and localized resources), signs
+  the bundle ad-hoc, and creates `AILimitBar-<version>.zip` with
+  `ditto --keepParent`.
 - [x] Give the staged bundle explicit `CFBundleShortVersionString` and
   `CFBundleVersion` values derived from the release version, without changing
   the existing local build-and-run workflow.

@@ -44,9 +44,11 @@ validate_app_bundle() {
   local bundle_info="$bundle/Contents/Info.plist"
   local bundle_binary="$bundle/Contents/MacOS/$APP_NAME"
   local bundle_helper="$bundle/Contents/Helpers/$HELPER_NAME"
+  local bundle_icon="$bundle/Contents/Resources/AppIcon.icns"
 
   [[ -x "$bundle_binary" ]] || { echo "error: missing app executable" >&2; exit 1; }
   [[ -x "$bundle_helper" ]] || { echo "error: missing helper executable" >&2; exit 1; }
+  [[ -s "$bundle_icon" ]] || { echo "error: missing compiled app icon" >&2; exit 1; }
   [[ -d "$bundle/Contents/Resources/GRDB_GRDB.bundle" ]] || {
     echo "error: missing GRDB production resource bundle" >&2
     exit 1
@@ -61,6 +63,8 @@ validate_app_bundle() {
   assert_equal "$VERSION" "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$bundle_info")" "short version"
   assert_equal "$VERSION" "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$bundle_info")" "bundle version"
   assert_equal "26.0" "$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' "$bundle_info")" "minimum system version"
+  assert_equal "AppIcon" "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIconFile' "$bundle_info")" "app icon file"
+  assert_equal "AppIcon" "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIconName' "$bundle_info")" "app icon name"
   assert_equal "$EXPECTED_ARCHITECTURE" "$(/usr/bin/lipo -archs "$bundle_binary")" "app architecture"
   assert_equal "$EXPECTED_ARCHITECTURE" "$(/usr/bin/lipo -archs "$bundle_helper")" "helper architecture"
 

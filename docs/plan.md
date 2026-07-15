@@ -463,7 +463,8 @@ shape and macOS metadata.
 
 One shared staging script owns the app-bundle shape used by local development
 and release packaging. It copies the app executable, the bundled Claude Code
-helper, and production SwiftPM resource bundles while excluding test bundles.
+helper, compiles the selected `AppIcon` asset catalog into the bundle, and
+copies production SwiftPM resource bundles while excluding test bundles.
 The release packaging script builds `arm64` in release configuration, supplies
 both app bundle version keys, signs nested executables and the outer bundle
 ad-hoc, verifies the signature and metadata, then validates a round trip through

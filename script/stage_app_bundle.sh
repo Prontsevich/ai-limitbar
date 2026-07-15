@@ -71,6 +71,7 @@ APP_HELPERS="$APP_CONTENTS/Helpers"
 HELPER_BINARY="$APP_HELPERS/$HELPER_NAME"
 APP_RESOURCES="$APP_CONTENTS/Resources"
 INFO_PLIST="$APP_CONTENTS/Info.plist"
+ASSET_CATALOG="$ROOT_DIR/Resources/Assets.xcassets"
 
 BUILD_ARGS=(--configuration "$CONFIGURATION")
 if [[ -n "$ARCHITECTURE" ]]; then
@@ -84,6 +85,7 @@ BUILD_HELPER="$BUILD_DIRECTORY/$HELPER_NAME"
 
 [[ -x "$BUILD_BINARY" ]] || { echo "error: missing app executable at $BUILD_BINARY" >&2; exit 1; }
 [[ -x "$BUILD_HELPER" ]] || { echo "error: missing helper executable at $BUILD_HELPER" >&2; exit 1; }
+[[ -d "$ASSET_CATALOG" ]] || { echo "error: missing app asset catalog at $ASSET_CATALOG" >&2; exit 1; }
 
 rm -rf "$APP_BUNDLE"
 mkdir -p "$APP_MACOS" "$APP_HELPERS" "$APP_RESOURCES"
@@ -102,6 +104,16 @@ for resource_bundle in "$BUILD_DIRECTORY"/*.bundle; do
   /usr/bin/ditto "$resource_bundle" "$APP_RESOURCES/$resource_name"
 done
 shopt -u nullglob
+
+ASSET_INFO_PLIST="$(mktemp "${TMPDIR:-/tmp}/AILimitBar-assets.XXXXXX")"
+xcrun actool \
+  --compile "$APP_RESOURCES" \
+  --platform macosx \
+  --minimum-deployment-target "$MIN_SYSTEM_VERSION" \
+  --app-icon AppIcon \
+  --output-partial-info-plist "$ASSET_INFO_PLIST" \
+  --output-format human-readable-text \
+  "$ASSET_CATALOG"
 
 cat >"$INFO_PLIST" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -125,6 +137,9 @@ cat >"$INFO_PLIST" <<PLIST
 </dict>
 </plist>
 PLIST
+
+/usr/libexec/PlistBuddy -c "Merge $ASSET_INFO_PLIST" "$INFO_PLIST"
+rm -f "$ASSET_INFO_PLIST"
 
 if [[ -n "$VERSION" ]]; then
   /usr/libexec/PlistBuddy -c "Add :CFBundleShortVersionString string $VERSION" "$INFO_PLIST"
