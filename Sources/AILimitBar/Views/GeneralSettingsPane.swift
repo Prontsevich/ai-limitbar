@@ -1,7 +1,7 @@
 import AILimitBarCore
 import SwiftUI
 
-struct RefreshSettingsPane: View {
+struct GeneralSettingsPane: View {
     @ObservedObject var appModel: AppModel
     @ObservedObject var appLanguagePreference: AppLanguagePreference
     @Environment(\.locale) private var locale
@@ -10,6 +10,15 @@ struct RefreshSettingsPane: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("GENERAL")
+                    .font(TerminalTheme.titleFont)
+                    .foregroundStyle(TerminalTheme.primary)
+                Text("Configure preferences that apply across AI Limitbar accounts.")
+                    .font(TerminalTheme.bodyFont)
+                    .foregroundStyle(TerminalTheme.secondary)
+            }
+
             TerminalFieldset(
                 title: AppStrings.Settings.Language.title.localized(locale: locale)
             ) {
@@ -35,15 +44,6 @@ struct RefreshSettingsPane: View {
                 }
 
                 Text(AppStrings.Settings.Language.description.resource(locale: locale))
-                    .font(TerminalTheme.bodyFont)
-                    .foregroundStyle(TerminalTheme.secondary)
-            }
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text("REFRESH")
-                    .font(TerminalTheme.titleFont)
-                    .foregroundStyle(TerminalTheme.primary)
-                Text("Choose how often AI Limitbar refreshes enabled accounts.")
                     .font(TerminalTheme.bodyFont)
                     .foregroundStyle(TerminalTheme.secondary)
             }

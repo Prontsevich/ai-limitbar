@@ -5,6 +5,7 @@ import XCTest
 @MainActor
 final class AppLanguageTests: XCTestCase {
     func testLanguagesUseStableStorageValues() {
+        XCTAssertEqual(AppLanguage.storageKey, "app-language")
         XCTAssertEqual(AppLanguage.systemDefault.rawValue, "system")
         XCTAssertEqual(AppLanguage.english.rawValue, "en")
         XCTAssertEqual(AppLanguage.russian.rawValue, "ru")

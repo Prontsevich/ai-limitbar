@@ -17,21 +17,18 @@ for navigation, choices, selection, and actions. The earlier hybrid of native
 blue segmented controls, grouped Form cards, and terminal fieldsets is not an
 accepted presentation.
 
-The milestone preserves the current Accounts, Refresh, and Provider Setup
-information architecture. It does not introduce General, localization, usage
-thresholds, notifications, theme editing, provider credentials, or persistence
-changes that belong to later milestones.
+The current Settings information architecture is General, Accounts, and Provider
+Setup. General collects the shared, cross-account preferences; Accounts and
+Provider Setup keep their current responsibilities. This reorganization does not
+change account editing, provider source behavior, usage thresholds,
+notifications, theme editing, credentials, or persistence contracts.
 
-The current Refresh pane includes the refresh schedule and a device-local
-Dashboard height picker with `Compact` (320 pt), `Standard` (460 pt), and `Tall`
-(640 pt) viewport presets. Milestone 23 moves both controls into
-General; Milestone 18 preserves their behavior and stored values.
-
-The current Refresh pane also contains a `LANGUAGE` fieldset for the device-local
-System Default, English, and Russian preference. It updates the effective app
-locale immediately without changing account, provider, or refresh data. The
-future General destination will move this control together with the other shared
-preferences.
+General contains the device-local System Default, English, and Russian language
+preference, the refresh schedule, and Dashboard height picker with `Compact`
+(320 pt), `Standard` (460 pt), and `Tall` (640 pt) viewport presets. The
+language preference updates the effective app locale immediately without changing
+account, provider, or refresh data. The refresh and dashboard controls preserve
+their existing stored values and behavior.
 
 ## Outcome
 
@@ -105,12 +102,13 @@ dashboard cards.
 
 ## Layout
 
-The existing segmented top-level navigation remains for this milestone. Accounts
-continues to use a local master-detail workspace.
+The segmented top-level navigation contains General, Accounts, and Provider
+Setup. Accounts continues to use a local master-detail workspace and remains
+the selected section when Settings opens or reopens.
 
 ```text
 ┌─ AI Limitbar Settings ─────────────────────────────────────┐
-│        [ Accounts ]  [ Refresh ]  [ Provider Setup ]       │
+│        [ General ]  [ Accounts ]  [ Provider Setup ]       │
 ├──────────────────┬─────────────────────────────────────────┤
 │ ACCOUNTS         │ claude-main                    [Enabled]│
 │                  │                                         │
@@ -177,7 +175,8 @@ controls appear below it without changing the surrounding fieldset layout.
 - Recreating general text-editing controls, file panels, or dialogs. Terminal
   selectors and action buttons are intentional product-specific controls.
 - Implementing a literal terminal, ASCII controls, or terminal escape colors.
-- Moving Refresh into General before the localization milestone.
+- Changing refresh, dashboard-height, language-preference, provider, or account
+  persistence contracts.
 - Adding custom theme import, export, editing, or palette persistence.
 
 ## Validation
@@ -189,8 +188,8 @@ controls appear below it without changing the surrounding fieldset layout.
 - Move between Spaces and confirm a closed Settings window does not reappear.
 - Confirm active selection accent, keyboard focus, Return/Escape, and dirty-draft
   confirmation behavior.
-- Switch among System Default, English, and Russian while Settings and the
-  menu-bar panel are open; confirm the selected language survives close/reopen
-  and app relaunch without changing provider or account values.
+- Verify General exposes language, refresh schedule, and Dashboard height; each
+  selection survives close/reopen and app relaunch without changing provider or
+  account values.
 - Exercise every existing account and provider action in Light and Dark
   appearance.

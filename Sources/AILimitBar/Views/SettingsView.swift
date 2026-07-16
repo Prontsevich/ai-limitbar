@@ -76,16 +76,16 @@ struct SettingsView: View {
     @ViewBuilder
     private var sectionContent: some View {
         switch workspace.selection {
+        case .general:
+            GeneralSettingsPane(
+                appModel: appModel,
+                appLanguagePreference: appLanguagePreference
+            )
         case .accounts:
             AccountsSettingsPane(
                 appModel: appModel,
                 editorSession: $workspace.editorSession,
                 onRequestAccountSelection: requestAccountSelection
-            )
-        case .refresh:
-            RefreshSettingsPane(
-                appModel: appModel,
-                appLanguagePreference: appLanguagePreference
             )
         case .providerSetup:
             ProviderSetupSettingsPane(appModel: appModel)
@@ -176,16 +176,16 @@ enum AccountEditorMode: Equatable {
 }
 
 enum SettingsSection: String, CaseIterable, Hashable, Identifiable {
+    case general
     case accounts
-    case refresh
     case providerSetup
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
+        case .general: "General"
         case .accounts: "Accounts"
-        case .refresh: "Refresh"
         case .providerSetup: "Provider Setup"
         }
     }

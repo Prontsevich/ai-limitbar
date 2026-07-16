@@ -562,6 +562,17 @@ final class AppModelTests: XCTestCase {
         XCTAssertFalse(workspace.isShowingDiscardConfirmation)
     }
 
+    func testSettingsSectionsUseGeneralAccountsProviderSetupOrder() {
+        XCTAssertEqual(
+            SettingsSection.allCases,
+            [.general, .accounts, .providerSetup]
+        )
+        XCTAssertEqual(
+            SettingsSection.allCases.map(\.title),
+            ["General", "Accounts", "Provider Setup"]
+        )
+    }
+
     func testSettingsWindowDefaultSizeUsesPreferredSizeWhenItFits() {
         let size = SettingsWindowConfiguration.defaultSize(
             contentSize: CGSize(width: 840, height: 560),

@@ -756,13 +756,13 @@ and a capped scrolling viewport so extra accounts never enlarge the popover or
 break adjacent borders.
 
 The dashboard viewport is a device-local preference rather than account or
-provider data. The current Refresh Settings pane offers `Compact` (320 pt),
+provider data. The current General Settings pane offers `Compact` (320 pt),
 `Standard` (460 pt), and `Tall` (640 pt) viewport presets stored in
 `UserDefaults`. A preset sets the visible dashboard viewport height and longer
-account lists scroll within it. Its `LANGUAGE` fieldset stores an app-owned
-System Default, English, or Russian choice in `UserDefaults`; it does not alter
-account/provider data. The planned General section will move the language,
-refresh, and dashboard-height controls together.
+account lists scroll within it. General also contains the app-owned `LANGUAGE`
+fieldset for the System Default, English, or Russian choice in `UserDefaults`;
+it does not alter account/provider data. Language, refresh, and dashboard-height
+controls are grouped there as shared preferences.
 
 Dashboard rows should:
 
@@ -790,11 +790,10 @@ The settings UI should support:
 
 - A singleton native SwiftUI Settings window opened through an explicit app
   action that activates the menu-bar-only process and calls `openWindow(id:)`.
-- A compact terminal segmented navigation control for Accounts, Refresh, and
+- A compact terminal segmented navigation control for General, Accounts, and
   Provider Setup instead of a permanent top tile bar or navigation sidebar.
-- A Refresh section for schedule, dashboard-height, and temporary language
-  preference controls. The planned General section will consolidate those
-  shared preferences; thresholds and appearance choices remain future work.
+- A General section for language, refresh schedule, and dashboard-height
+  preferences. Thresholds and appearance choices remain future work.
 - An Accounts master-detail layout with an account-name-first list, provider as
   secondary text, footer add/delete controls, and selected-account detail pane.
 - Enabling/disabling providers.
