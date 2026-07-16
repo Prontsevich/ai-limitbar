@@ -3,24 +3,35 @@ import SwiftUI
 @main
 struct AILimitBarApp: App {
     @StateObject private var appModel: AppModel
+    @StateObject private var appLanguagePreference: AppLanguagePreference
     @StateObject private var menuBarStatusItemController: MenuBarStatusItemController
 
     init() {
         let ollamaClient = OllamaWebPageClientController()
         let launchOptions = AppLaunchOptions()
+        let languagePreference = AppLanguagePreference()
         let model = AppModel(
             ollamaWebPageClient: ollamaClient,
             storageDirectory: launchOptions.storageDirectory
         )
         _appModel = StateObject(wrappedValue: model)
+        _appLanguagePreference = StateObject(wrappedValue: languagePreference)
         _menuBarStatusItemController = StateObject(
-            wrappedValue: MenuBarStatusItemController(appModel: model)
+            wrappedValue: MenuBarStatusItemController(
+                appModel: model,
+                appLanguagePreference: languagePreference
+            )
         )
     }
 
     var body: some Scene {
         Window(SettingsWindowConfiguration.title, id: SettingsWindowConfiguration.id) {
-            SettingsView(appModel: appModel)
+            AppLocaleScope(languagePreference: appLanguagePreference) {
+                SettingsView(
+                    appModel: appModel,
+                    appLanguagePreference: appLanguagePreference
+                )
+            }
                 .windowMinimizeBehavior(.disabled)
                 .windowResizeBehavior(.disabled)
                 .windowFullScreenBehavior(.disabled)
@@ -38,7 +49,9 @@ struct AILimitBarApp: App {
         }
 
         Window(OllamaConnectionWindowConfiguration.title, id: OllamaConnectionWindowConfiguration.id) {
-            OllamaWebPageConnectionWindow(appModel: appModel)
+            AppLocaleScope(languagePreference: appLanguagePreference) {
+                OllamaWebPageConnectionWindow(appModel: appModel)
+            }
                 .windowMinimizeBehavior(.disabled)
                 .windowResizeBehavior(.disabled)
                 .windowFullScreenBehavior(.disabled)

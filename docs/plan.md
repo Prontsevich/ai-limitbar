@@ -759,8 +759,10 @@ The dashboard viewport is a device-local preference rather than account or
 provider data. The current Refresh Settings pane offers `Compact` (320 pt),
 `Standard` (460 pt), and `Tall` (640 pt) viewport presets stored in
 `UserDefaults`. A preset sets the visible dashboard viewport height and longer
-account lists scroll within it. Milestone 23 moves this control with the refresh
-schedule into General.
+account lists scroll within it. Its `LANGUAGE` fieldset stores an app-owned
+System Default, English, or Russian choice in `UserDefaults`; it does not alter
+account/provider data. The planned General section will move the language,
+refresh, and dashboard-height controls together.
 
 Dashboard rows should:
 
@@ -790,9 +792,9 @@ The settings UI should support:
   action that activates the menu-bar-only process and calls `openWindow(id:)`.
 - A compact terminal segmented navigation control for Accounts, Refresh, and
   Provider Setup instead of a permanent top tile bar or navigation sidebar.
-- A Refresh section for schedule and dashboard-height preferences. The planned
-  General section, language, thresholds, and appearance choices remain in
-  Milestone 23.
+- A Refresh section for schedule, dashboard-height, and temporary language
+  preference controls. The planned General section will consolidate those
+  shared preferences; thresholds and appearance choices remain future work.
 - An Accounts master-detail layout with an account-name-first list, provider as
   secondary text, footer add/delete controls, and selected-account detail pane.
 - Enabling/disabling providers.
@@ -875,6 +877,12 @@ stable are:
   script places both `en.lproj` and `ru.lproj` directly in
   `AILimitBar.app/Contents/Resources` so normal SwiftUI and Foundation lookup
   work from the shipped app.
+- `AppLanguage` stores only `system`, `en`, or `ru` in `UserDefaults`. System
+  Default follows the current system locale, while explicit English and Russian
+  use their corresponding locales. One app-wide preference object injects the
+  effective locale into the menu-bar panel, Settings, and utility-window SwiftUI
+  roots so an already-open surface updates without relaunching or recreating
+  provider state.
 - Localization must preserve provider data, account names, technical
   identifiers, and stored values while translating app-owned presentation.
 - Thresholds and notifications must operate on provider-defined limit windows,

@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @ObservedObject var appModel: AppModel
+    @ObservedObject var appLanguagePreference: AppLanguagePreference
     @State private var workspace = SettingsWorkspaceState()
     @State private var workspaceGeneration = UUID()
 
@@ -82,7 +83,10 @@ struct SettingsView: View {
                 onRequestAccountSelection: requestAccountSelection
             )
         case .refresh:
-            RefreshSettingsPane(appModel: appModel)
+            RefreshSettingsPane(
+                appModel: appModel,
+                appLanguagePreference: appLanguagePreference
+            )
         case .providerSetup:
             ProviderSetupSettingsPane(appModel: appModel)
         }

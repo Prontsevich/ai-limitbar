@@ -27,6 +27,12 @@ Dashboard height picker with `Compact` (320 pt), `Standard` (460 pt), and `Tall`
 (640 pt) viewport presets. Milestone 23 moves both controls into
 General; Milestone 18 preserves their behavior and stored values.
 
+The current Refresh pane also contains a `LANGUAGE` fieldset for the device-local
+System Default, English, and Russian preference. It updates the effective app
+locale immediately without changing account, provider, or refresh data. The
+future General destination will move this control together with the other shared
+preferences.
+
 ## Outcome
 
 An explicit Settings action should always produce one active, key Settings
@@ -183,5 +189,8 @@ controls appear below it without changing the surrounding fieldset layout.
 - Move between Spaces and confirm a closed Settings window does not reappear.
 - Confirm active selection accent, keyboard focus, Return/Escape, and dirty-draft
   confirmation behavior.
+- Switch among System Default, English, and Russian while Settings and the
+  menu-bar panel are open; confirm the selected language survives close/reopen
+  and app relaunch without changing provider or account values.
 - Exercise every existing account and provider action in Light and Dark
   appearance.

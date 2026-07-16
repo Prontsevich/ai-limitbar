@@ -36,3 +36,21 @@
 
 /* Accessibility value while the menu bar refresh is active */
 "menu_bar.refreshing" = "Refreshing";
+
+/* App language option for English */
+"settings.language.choice.english" = "English";
+
+/* App language option for Russian */
+"settings.language.choice.russian" = "Russian";
+
+/* App language option that follows the current system locale */
+"settings.language.choice.system_default" = "System Default";
+
+/* Description below the app language selector */
+"settings.language.description" = "Choose the language used by AI Limitbar.";
+
+/* Accessibility label for the app language selector */
+"settings.language.selection" = "App language";
+
+/* Terminal fieldset title for the app language preference */
+"settings.language.title" = "LANGUAGE";

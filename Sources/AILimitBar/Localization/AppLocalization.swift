@@ -151,4 +151,50 @@ enum AppStrings {
             comment: "Tooltip while an account refresh is active"
         )
     }
+
+    enum Settings {
+        enum Language {
+            static let title = AppString(
+                "settings.language.title",
+                defaultValue: "LANGUAGE",
+                comment: "Terminal fieldset title for the app language preference"
+            )
+            static let selection = AppString(
+                "settings.language.selection",
+                defaultValue: "App language",
+                comment: "Accessibility label for the app language selector"
+            )
+            static let description = AppString(
+                "settings.language.description",
+                defaultValue: "Choose the language used by AI Limitbar.",
+                comment: "Description below the app language selector"
+            )
+            static let systemDefault = AppString(
+                "settings.language.choice.system_default",
+                defaultValue: "System Default",
+                comment: "App language option that follows the current system locale"
+            )
+            static let english = AppString(
+                "settings.language.choice.english",
+                defaultValue: "English",
+                comment: "App language option for English"
+            )
+            static let russian = AppString(
+                "settings.language.choice.russian",
+                defaultValue: "Russian",
+                comment: "App language option for Russian"
+            )
+
+            static func option(for language: AppLanguage) -> AppString {
+                switch language {
+                case .systemDefault:
+                    systemDefault
+                case .english:
+                    english
+                case .russian:
+                    russian
+                }
+            }
+        }
+    }
 }

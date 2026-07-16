@@ -1,12 +1,11 @@
 import SwiftUI
 
 struct MenuBarPanelView: View {
-    @Environment(\.openWindow) private var openWindow
     @Environment(\.locale) private var locale
     @ObservedObject var appModel: AppModel
-    var onOpenSettings: (() -> Void)? = nil
-    var onOpenAbout: (() -> Void)? = nil
-    var onOpenOllamaConnection: (() -> Void)? = nil
+    let onOpenSettings: () -> Void
+    let onOpenAbout: () -> Void
+    let onOpenOllamaConnection: () -> Void
     @AppStorage(DashboardHeightPreset.storageKey)
     private var dashboardHeightPresetRawValue = DashboardHeightPreset.standard.rawValue
 
@@ -96,22 +95,14 @@ struct MenuBarPanelView: View {
     private var footerControls: some View {
         HStack(spacing: 8) {
             Button {
-                if let onOpenSettings {
-                    onOpenSettings()
-                } else {
-                    ApplicationLifecycle.openSettings(using: openWindow)
-                }
+                onOpenSettings()
             } label: {
                 Text(AppStrings.MenuBar.settings.resource(locale: locale))
             }
             .buttonStyle(TerminalTextButtonStyle())
 
             Button {
-                if let onOpenAbout {
-                    onOpenAbout()
-                } else {
-                    ApplicationLifecycle.openAbout()
-                }
+                onOpenAbout()
             } label: {
                 Text(AppStrings.MenuBar.about.resource(locale: locale))
             }

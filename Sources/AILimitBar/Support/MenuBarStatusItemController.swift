@@ -5,31 +5,42 @@ import SwiftUI
 @MainActor
 final class MenuBarStatusItemController: NSObject, ObservableObject {
     private let appModel: AppModel
+    private let appLanguagePreference: AppLanguagePreference
     private let statusItem: NSStatusItem
     private let popover: NSPopover
-    private let hostingController: NSHostingController<MenuBarPanelView>
+    private let hostingController: NSHostingController<AppLocaleScope<MenuBarPanelView>>
     private var modelObservation: AnyCancellable?
     private var appearanceObservation: NSKeyValueObservation?
 
-    init(appModel: AppModel) {
+    init(appModel: AppModel, appLanguagePreference: AppLanguagePreference) {
         self.appModel = appModel
+        self.appLanguagePreference = appLanguagePreference
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         popover = NSPopover()
         hostingController = NSHostingController(
-            rootView: MenuBarPanelView(
-                appModel: appModel,
-                onOpenSettings: { [weak appModel] in
-                    guard let appModel else { return }
-                    ApplicationLifecycle.openSettings(appModel: appModel)
-                },
-                onOpenAbout: {
-                    ApplicationLifecycle.openAbout()
-                },
-                onOpenOllamaConnection: { [weak appModel] in
-                    guard let appModel else { return }
-                    ApplicationLifecycle.openOllamaConnection(appModel: appModel)
-                }
-            )
+            rootView: AppLocaleScope(languagePreference: appLanguagePreference) {
+                MenuBarPanelView(
+                    appModel: appModel,
+                    onOpenSettings: { [weak appModel, weak appLanguagePreference] in
+                        guard let appModel, let appLanguagePreference else { return }
+                        ApplicationLifecycle.openSettings(
+                            appModel: appModel,
+                            appLanguagePreference: appLanguagePreference
+                        )
+                    },
+                    onOpenAbout: { [weak appLanguagePreference] in
+                        guard let appLanguagePreference else { return }
+                        ApplicationLifecycle.openAbout(appLanguagePreference: appLanguagePreference)
+                    },
+                    onOpenOllamaConnection: { [weak appModel, weak appLanguagePreference] in
+                        guard let appModel, let appLanguagePreference else { return }
+                        ApplicationLifecycle.openOllamaConnection(
+                            appModel: appModel,
+                            appLanguagePreference: appLanguagePreference
+                        )
+                    }
+                )
+            }
         )
         super.init()
         configureStatusItem()

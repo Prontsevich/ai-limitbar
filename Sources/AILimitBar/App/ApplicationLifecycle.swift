@@ -33,14 +33,24 @@ enum ApplicationLifecycle {
     }
 
     @MainActor
-    static func openSettings(appModel: AppModel) {
+    static func openSettings(
+        appModel: AppModel,
+        appLanguagePreference: AppLanguagePreference
+    ) {
         if let settingsWindow = visibleSettingsWindow() {
             activate()
             settingsWindow.makeKeyAndOrderFront(nil)
             return
         }
 
-        let hostingController = NSHostingController(rootView: SettingsView(appModel: appModel))
+        let hostingController = NSHostingController(
+            rootView: AppLocaleScope(languagePreference: appLanguagePreference) {
+                SettingsView(
+                    appModel: appModel,
+                    appLanguagePreference: appLanguagePreference
+                )
+            }
+        )
         let window = NSWindow(contentViewController: hostingController)
         window.title = SettingsWindowConfiguration.title
         window.styleMask = [.titled, .closable, .miniaturizable]
@@ -78,7 +88,10 @@ enum ApplicationLifecycle {
     }
 
     @MainActor
-    static func openOllamaConnection(appModel: AppModel) {
+    static func openOllamaConnection(
+        appModel: AppModel,
+        appLanguagePreference: AppLanguagePreference
+    ) {
         activate()
 
         if let connectionWindow = visibleOllamaConnectionWindow() {
@@ -87,12 +100,14 @@ enum ApplicationLifecycle {
         }
 
         var controller: NSWindowController?
-        let rootView = OllamaWebPageConnectionWindow(
-            appModel: appModel,
-            dismiss: {
-                controller?.close()
-            }
-        )
+        let rootView = AppLocaleScope(languagePreference: appLanguagePreference) {
+            OllamaWebPageConnectionWindow(
+                appModel: appModel,
+                dismiss: {
+                    controller?.close()
+                }
+            )
+        }
         let hostingController = NSHostingController(rootView: rootView)
         let window = NSWindow(contentViewController: hostingController)
         window.title = OllamaConnectionWindowConfiguration.title
@@ -107,7 +122,7 @@ enum ApplicationLifecycle {
     }
 
     @MainActor
-    static func openAbout() {
+    static func openAbout(appLanguagePreference: AppLanguagePreference) {
         let targetVisibleRect = menuBarPanelVisibleRect()
         activate()
 
@@ -127,7 +142,11 @@ enum ApplicationLifecycle {
             return
         }
 
-        let hostingController = NSHostingController(rootView: AboutView())
+        let hostingController = NSHostingController(
+            rootView: AppLocaleScope(languagePreference: appLanguagePreference) {
+                AboutView()
+            }
+        )
         let window = NSWindow(contentViewController: hostingController)
         window.title = AboutWindowConfiguration.title
         window.styleMask = [.titled, .closable]
