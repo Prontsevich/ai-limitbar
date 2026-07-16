@@ -866,6 +866,15 @@ explicit manual QA rather than being inferred from a running PID.
 Detailed future scope is private in Linear. The public constraints that remain
 stable are:
 
+- App-owned presentation strings use semantic `surface.section.element` keys in
+  the English and Russian `Localizable.strings` tables under
+  `Sources/AILimitBar/Resources`. Each key carries its English fallback in code
+  and English/Russian table values; a missing Russian value therefore remains
+  readable English instead of exposing a technical key. The package default
+  localization and staged bundle development region are English, and the staging
+  script places both `en.lproj` and `ru.lproj` directly in
+  `AILimitBar.app/Contents/Resources` so normal SwiftUI and Foundation lookup
+  work from the shipped app.
 - Localization must preserve provider data, account names, technical
   identifiers, and stored values while translating app-owned presentation.
 - Thresholds and notifications must operate on provider-defined limit windows,

@@ -1,0 +1,38 @@
+/* Terminal fieldset title for the account list */
+"menu_bar.accounts.title" = "АККАУНТЫ";
+
+/* Menu bar footer action */
+"menu_bar.action.about" = "О приложении";
+
+/* Tooltip and accessibility label for the About action */
+"menu_bar.action.about_ai_limitbar" = "О AI Limitbar";
+
+/* Menu bar footer action */
+"menu_bar.action.quit" = "Выйти";
+
+/* Menu bar footer action */
+"menu_bar.action.settings" = "Настройки";
+
+/* Empty menu bar dashboard recovery instruction */
+"menu_bar.empty.create_account_in_settings" = "Создайте аккаунт в настройках.";
+
+/* Empty menu bar dashboard message */
+"menu_bar.empty.no_enabled_accounts" = "Нет включённых аккаунтов.";
+
+/* Accessibility value while the menu bar refresh is idle */
+"menu_bar.ready" = "Готово";
+
+/* Accessibility label and tooltip for the menu bar refresh button */
+"menu_bar.refresh_all_accounts" = "Обновить все аккаунты";
+
+/* Tooltip when no enabled accounts can be refreshed */
+"menu_bar.refresh_help.no_enabled_accounts" = "Нет включённых аккаунтов для обновления.";
+
+/* Tooltip while the menu bar refresh is active */
+"menu_bar.refresh_help.refreshing_all_accounts" = "Обновляются все аккаунты.";
+
+/* Tooltip while an account refresh is active */
+"menu_bar.refresh_help.wait_for_current_refresh" = "Дождитесь завершения обновления текущего аккаунта.";
+
+/* Accessibility value while the menu bar refresh is active */
+"menu_bar.refreshing" = "Обновление";

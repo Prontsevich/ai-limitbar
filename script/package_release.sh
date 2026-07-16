@@ -60,10 +60,14 @@ validate_app_bundle() {
   local bundle_binary="$bundle/Contents/MacOS/$APP_NAME"
   local bundle_helper="$bundle/Contents/Helpers/$HELPER_NAME"
   local bundle_icon="$bundle/Contents/Resources/AppIcon.icns"
+  local english_strings="$bundle/Contents/Resources/en.lproj/Localizable.strings"
+  local russian_strings="$bundle/Contents/Resources/ru.lproj/Localizable.strings"
 
   [[ -x "$bundle_binary" ]] || { echo "error: missing app executable" >&2; exit 1; }
   [[ -x "$bundle_helper" ]] || { echo "error: missing helper executable" >&2; exit 1; }
   [[ -s "$bundle_icon" ]] || { echo "error: missing compiled app icon" >&2; exit 1; }
+  [[ -s "$english_strings" ]] || { echo "error: missing English localization resources" >&2; exit 1; }
+  [[ -s "$russian_strings" ]] || { echo "error: missing Russian localization resources" >&2; exit 1; }
   [[ -d "$bundle/Contents/Resources/GRDB_GRDB.bundle" ]] || {
     echo "error: missing GRDB production resource bundle" >&2
     exit 1
@@ -78,6 +82,7 @@ validate_app_bundle() {
   assert_equal "$VERSION" "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$bundle_info")" "short version"
   assert_equal "$VERSION" "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$bundle_info")" "bundle version"
   assert_equal "15.0" "$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' "$bundle_info")" "minimum system version"
+  assert_equal "en" "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleDevelopmentRegion' "$bundle_info")" "development region"
   assert_equal "AppIcon" "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIconFile' "$bundle_info")" "app icon file"
   assert_equal "AppIcon" "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIconName' "$bundle_info")" "app icon name"
   assert_equal "$ARCHITECTURE" "$(/usr/bin/lipo -archs "$bundle_binary")" "app architecture"

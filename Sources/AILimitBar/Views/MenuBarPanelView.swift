@@ -2,6 +2,7 @@ import SwiftUI
 
 struct MenuBarPanelView: View {
     @Environment(\.openWindow) private var openWindow
+    @Environment(\.locale) private var locale
     @ObservedObject var appModel: AppModel
     var onOpenSettings: (() -> Void)? = nil
     var onOpenAbout: (() -> Void)? = nil
@@ -70,19 +71,23 @@ struct MenuBarPanelView: View {
             .buttonStyle(TerminalIconButtonStyle())
             .disabled(!canRefreshAll)
             .help(refreshAllHelp)
-            .accessibilityLabel("Refresh all accounts")
-            .accessibilityValue(appModel.isRefreshing ? "Refreshing" : "Ready")
+            .accessibilityLabel(AppStrings.MenuBar.refreshAllAccounts.resource(locale: locale))
+            .accessibilityValue(
+                appModel.isRefreshing
+                    ? AppStrings.MenuBar.refreshing.localized(locale: locale)
+                    : AppStrings.MenuBar.ready.localized(locale: locale)
+            )
         }
     }
 
     private var emptyAccountsPanel: some View {
-        TerminalFieldset(title: "ACCOUNTS") {
+        TerminalFieldset(title: AppStrings.MenuBar.accountsTitle.localized(locale: locale)) {
             EmptyView()
         } content: {
-            Text("No enabled accounts.")
+            Text(AppStrings.MenuBar.noEnabledAccounts.resource(locale: locale))
                 .font(TerminalTheme.emphasizedBodyFont)
                 .foregroundStyle(TerminalTheme.primary)
-            Text("Create an account in Settings.")
+            Text(AppStrings.MenuBar.createAccountInSettings.resource(locale: locale))
                 .font(TerminalTheme.captionFont)
                 .foregroundStyle(TerminalTheme.secondary)
         }
@@ -97,7 +102,7 @@ struct MenuBarPanelView: View {
                     ApplicationLifecycle.openSettings(using: openWindow)
                 }
             } label: {
-                Text("Settings")
+                Text(AppStrings.MenuBar.settings.resource(locale: locale))
             }
             .buttonStyle(TerminalTextButtonStyle())
 
@@ -108,18 +113,18 @@ struct MenuBarPanelView: View {
                     ApplicationLifecycle.openAbout()
                 }
             } label: {
-                Text("About")
+                Text(AppStrings.MenuBar.about.resource(locale: locale))
             }
             .buttonStyle(TerminalTextButtonStyle())
-            .help("About AI Limitbar")
-            .accessibilityLabel("About AI Limitbar")
+            .help(AppStrings.MenuBar.aboutAILimitbar.localized(locale: locale))
+            .accessibilityLabel(AppStrings.MenuBar.aboutAILimitbar.resource(locale: locale))
 
             Spacer()
 
             Button(role: .destructive) {
                 ApplicationLifecycle.terminate()
             } label: {
-                Text("Quit")
+                Text(AppStrings.MenuBar.quit.resource(locale: locale))
             }
             .buttonStyle(TerminalTextButtonStyle())
         }
@@ -162,14 +167,14 @@ struct MenuBarPanelView: View {
 
     private var refreshAllHelp: String {
         if !appModel.hasEnabledAccounts {
-            return "No enabled accounts to refresh."
+            return AppStrings.MenuBar.noEnabledAccountsToRefresh.localized(locale: locale)
         }
         if appModel.isRefreshing {
-            return "Refreshing all accounts."
+            return AppStrings.MenuBar.refreshingAllAccounts.localized(locale: locale)
         }
         if appModel.hasActiveProviderRefresh {
-            return "Wait for the current account refresh to finish."
+            return AppStrings.MenuBar.waitForCurrentRefresh.localized(locale: locale)
         }
-        return "Refresh all accounts"
+        return AppStrings.MenuBar.refreshAllAccounts.localized(locale: locale)
     }
 }

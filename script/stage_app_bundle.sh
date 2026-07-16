@@ -72,6 +72,7 @@ HELPER_BINARY="$APP_HELPERS/$HELPER_NAME"
 APP_RESOURCES="$APP_CONTENTS/Resources"
 INFO_PLIST="$APP_CONTENTS/Info.plist"
 ASSET_CATALOG="$ROOT_DIR/Resources/Assets.xcassets"
+APP_RESOURCE_BUNDLE="$APP_NAME"_"$APP_NAME".bundle
 
 BUILD_ARGS=(--configuration "$CONFIGURATION")
 if [[ -n "$ARCHITECTURE" ]]; then
@@ -100,10 +101,29 @@ for resource_bundle in "$BUILD_DIRECTORY"/*.bundle; do
     *Tests.bundle)
       continue
       ;;
+    "$APP_RESOURCE_BUNDLE")
+      for localization in en ru; do
+        localized_resources="$resource_bundle/$localization.lproj"
+        [[ -d "$localized_resources" ]] || {
+          echo "error: missing $localization localization resources in $resource_name" >&2
+          exit 1
+        }
+        /usr/bin/ditto "$localized_resources" "$APP_RESOURCES/$localization.lproj"
+      done
+      ;;
+    *)
+      /usr/bin/ditto "$resource_bundle" "$APP_RESOURCES/$resource_name"
+      ;;
   esac
-  /usr/bin/ditto "$resource_bundle" "$APP_RESOURCES/$resource_name"
 done
 shopt -u nullglob
+
+for localization in en ru; do
+  [[ -s "$APP_RESOURCES/$localization.lproj/Localizable.strings" ]] || {
+    echo "error: missing staged $localization Localizable.strings" >&2
+    exit 1
+  }
+done
 
 ASSET_INFO_PLIST="$(mktemp "${TMPDIR:-/tmp}/AILimitBar-assets.XXXXXX")"
 xcrun actool \
@@ -126,6 +146,13 @@ cat >"$INFO_PLIST" <<PLIST
   <string>$BUNDLE_ID</string>
   <key>CFBundleName</key>
   <string>$APP_NAME</string>
+  <key>CFBundleDevelopmentRegion</key>
+  <string>en</string>
+  <key>CFBundleLocalizations</key>
+  <array>
+    <string>en</string>
+    <string>ru</string>
+  </array>
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>LSMinimumSystemVersion</key>

@@ -1,0 +1,38 @@
+/* Terminal fieldset title for the account list */
+"menu_bar.accounts.title" = "ACCOUNTS";
+
+/* Menu bar footer action */
+"menu_bar.action.about" = "About";
+
+/* Tooltip and accessibility label for the About action */
+"menu_bar.action.about_ai_limitbar" = "About AI Limitbar";
+
+/* Menu bar footer action */
+"menu_bar.action.quit" = "Quit";
+
+/* Menu bar footer action */
+"menu_bar.action.settings" = "Settings";
+
+/* Empty menu bar dashboard recovery instruction */
+"menu_bar.empty.create_account_in_settings" = "Create an account in Settings.";
+
+/* Empty menu bar dashboard message */
+"menu_bar.empty.no_enabled_accounts" = "No enabled accounts.";
+
+/* Accessibility value while the menu bar refresh is idle */
+"menu_bar.ready" = "Ready";
+
+/* Accessibility label and tooltip for the menu bar refresh button */
+"menu_bar.refresh_all_accounts" = "Refresh all accounts";
+
+/* Tooltip when no enabled accounts can be refreshed */
+"menu_bar.refresh_help.no_enabled_accounts" = "No enabled accounts to refresh.";
+
+/* Tooltip while the menu bar refresh is active */
+"menu_bar.refresh_help.refreshing_all_accounts" = "Refreshing all accounts.";
+
+/* Tooltip while an account refresh is active */
+"menu_bar.refresh_help.wait_for_current_refresh" = "Wait for the current account refresh to finish.";
+
+/* Accessibility value while the menu bar refresh is active */
+"menu_bar.refreshing" = "Refreshing";

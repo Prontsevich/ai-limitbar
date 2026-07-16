@@ -4,6 +4,7 @@ import PackageDescription
 
 let package = Package(
     name: "AILimitBar",
+    defaultLocalization: "en",
     platforms: [
         .macOS(.v15)
     ],
@@ -19,7 +20,8 @@ let package = Package(
         .executableTarget(
             name: "AILimitBar",
             dependencies: ["AILimitBarCore"],
-            path: "Sources/AILimitBar"
+            path: "Sources/AILimitBar",
+            resources: [.process("Resources")]
         ),
         .executableTarget(
             name: "AILimitBarClaudeStatusLine",
