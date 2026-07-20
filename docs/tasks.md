@@ -1173,6 +1173,28 @@ Acceptance:
 - The feedback links remain readable and reachable without scrolling or clipping
   in both system appearances.
 
+## Milestone 23: English/Russian Localization And v0.3 Release
+
+Goal: verify and publish the localized v0.3 app through the existing ad-hoc
+GitHub Release flow without implying trusted or notarized distribution.
+
+- [x] Run `swift build` and the full `swift test` suite.
+- [x] Verify the deterministic staged-app smoke path and localization regression
+  coverage.
+- [x] Build and validate architecture-specific `arm64` and `x86_64` archives,
+  including bundle metadata, resources, ad-hoc signatures, and ZIP round trips.
+- [x] Update public documentation to describe shipped English/Russian
+  localization, General Settings, and locale-aware formatting.
+- [x] Publish public-safe GitHub Release notes with the ad-hoc signing and
+  non-notarization disclaimer.
+
+Implementation status (2026-07-20): `swift build` passed; `swift test` passed
+with 154 tests and no failures; `./script/build_and_run.sh --verify` passed;
+and both release archives passed local packaging validation. The app remains a
+menu-bar-only `LSUIElement`; interactive visual verification of every menu-bar
+surface requires a macOS GUI session and is not inferred from process or test
+checks.
+
 ## Future Directions And Execution Boundary
 
 Detailed unfinished scope is maintained privately in Linear. Public high-level

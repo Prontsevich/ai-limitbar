@@ -24,6 +24,8 @@ No real provider credentials are required to start.
 - Configurable refresh interval (manual by default)
 - Stale-snapshot flags so you know when data is outdated
 - Dashboard height presets: Compact, Standard, Tall
+- English and Russian localization with immediate language switching
+- Locale-aware dates, percentages, and relative reset times
 - Menu-bar-only — no Dock icon, no main window
 
 ## Providers
@@ -61,12 +63,12 @@ you trust this repository and its release, try opening the app once, then use
 
 **Done ✅** — Core app, persistence, Claude Code, refresh coordination, account
 model, dashboard redesign, settings, Ollama web source, Codex app-server, SQLite
-migration, terminal dashboard, Settings redesign, Claude `/usage` CLI, and
-GitHub Release distribution.
+migration, terminal dashboard, Settings redesign, Claude `/usage` CLI, English
+and Russian localization, General Settings, and GitHub Release distribution.
 
-**Planned directions 📋** — localization, additional provider research,
-per-limit thresholds, notifications, dashboard appearance, trusted macOS
-distribution, and a passive WidgetKit extension.
+**Planned directions 📋** — additional provider research, per-limit thresholds,
+notifications, dashboard appearance, trusted macOS distribution, and a passive
+WidgetKit extension.
 
 ## Documentation
 
