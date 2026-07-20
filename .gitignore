@@ -2,4 +2,5 @@
 dist/
 outputs/
 .swiftpm/
+graphify-out/
 .DS_Store
