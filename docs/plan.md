@@ -509,7 +509,8 @@ without both values display `Development build`; the About surface does not
 invent version metadata or change the existing staging/release version policy.
 Its static system links point to the GitHub repository, a new GitHub issue,
 direct e-mail, Telegram, and the existing Boosty support page. The About window
-remains English until Milestone 23 adds app localization.
+uses the app-wide English/Russian localization alongside the other app-owned
+surfaces.
 
 This first distribution path deliberately has no Developer ID certificate,
 notarization credential, or Apple signing secret. It makes downloading simple,
@@ -791,7 +792,7 @@ The settings UI should support:
 - A singleton native SwiftUI Settings window opened through an explicit app
   action that activates the menu-bar-only process and calls `openWindow(id:)`.
 - A compact terminal segmented navigation control for General, Accounts, and
-  Provider Setup instead of a permanent top tile bar or navigation sidebar.
+  Providers instead of a permanent top tile bar or navigation sidebar.
 - A General section for language, refresh schedule, and dashboard-height
   preferences. Thresholds and appearance choices remain future work.
 - An Accounts master-detail layout with an account-name-first list, provider as
@@ -884,6 +885,11 @@ stable are:
   provider state.
 - Localization must preserve provider data, account names, technical
   identifiers, and stored values while translating app-owned presentation.
+- Used percentages are presentation values: format them with the effective
+  locale, preserve a provider-supplied fraction to at most one decimal place,
+  and omit a trailing zero for whole values. The same formatted value is used
+  for the dashboard, accessibility, and menu-bar summary; normalized provider
+  snapshots retain their original numeric `Double` values.
 - Thresholds and notifications must operate on provider-defined limit windows,
   remain opt-in where system permission is involved, and never fabricate state
   from unavailable data.

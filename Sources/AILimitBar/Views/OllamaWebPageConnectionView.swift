@@ -3,6 +3,7 @@ import SwiftUI
 import WebKit
 
 struct OllamaWebPageConnectionSheet: View {
+    @Environment(\.locale) private var locale
     @ObservedObject var appModel: AppModel
     let account: ProviderAccount
     let client: OllamaWebPageClientController
@@ -10,14 +11,18 @@ struct OllamaWebPageConnectionSheet: View {
 
     @State private var attempt = 0
     @State private var isConnecting = false
-    @State private var statusMessage: String?
+    @State private var status: ConnectionStatus?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             VStack(alignment: .leading, spacing: 4) {
-                Text(account.webDataStoreID == nil ? "Connect Ollama" : "Reconnect Ollama")
+                Text(
+                    account.webDataStoreID == nil
+                        ? AppStrings.Ollama.connect.resource(locale: locale)
+                        : AppStrings.Ollama.reconnect.resource(locale: locale)
+                )
                     .font(.title2.weight(.semibold))
-                Text("Sign in directly with Ollama in this isolated AI Limitbar window. Cookies, tokens, passwords, and raw page content stay inside WebKit and are never exported to AI Limitbar storage.")
+                Text(AppStrings.Ollama.description.resource(locale: locale))
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -32,14 +37,14 @@ struct OllamaWebPageConnectionSheet: View {
                     }
             } else {
                 ContentUnavailableView(
-                    "Connection Profile Unavailable",
+                    AppStrings.Ollama.profileUnavailable.localized(locale: locale),
                     systemImage: "person.crop.circle.badge.exclamationmark",
-                    description: Text("Save this account before opening the Ollama connection flow.")
+                    description: Text(AppStrings.Ollama.saveBeforeOpening.resource(locale: locale))
                 )
             }
 
-            if let statusMessage {
-                Text(statusMessage)
+            if let status {
+                Text(status.text(locale: locale))
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -48,12 +53,12 @@ struct OllamaWebPageConnectionSheet: View {
             HStack {
                 Spacer()
 
-                Button("Cancel", role: .cancel) {
+                Button(AppStrings.Common.cancel.localized(locale: locale), role: .cancel) {
                     dismiss()
                 }
 
-                if statusMessage != nil && !isConnecting {
-                    Button("Try Again") {
+                if status != nil && !isConnecting {
+                    Button(AppStrings.Ollama.tryAgain.localized(locale: locale)) {
                         attempt += 1
                     }
                 }
@@ -69,7 +74,7 @@ struct OllamaWebPageConnectionSheet: View {
     private func connect() async {
         guard !isConnecting else { return }
         isConnecting = true
-        statusMessage = "Loading Ollama settings…"
+        status = .loading
         defer { isConnecting = false }
 
         do {
@@ -77,15 +82,15 @@ struct OllamaWebPageConnectionSheet: View {
             appModel.acceptOllamaUsagePayload(payload, for: account)
             dismiss()
         } catch is CancellationError {
-            statusMessage = "Connection cancelled."
+            status = .cancelled
         } catch {
-            statusMessage = connectionMessage(for: error)
+            status = .providerError(connectionMessage(for: error))
         }
     }
 
     private func connectionMessage(for error: Error) -> String {
         guard let providerError = error as? ProviderAdapterError else {
-            return "Ollama connection failed. Reconnect and try again."
+            return AppStrings.Ollama.failed.localized(locale: locale)
         }
         if let recoverySuggestion = providerError.recoverySuggestion {
             return "\(providerError.message) \(recoverySuggestion)"
@@ -94,8 +99,26 @@ struct OllamaWebPageConnectionSheet: View {
     }
 }
 
+private enum ConnectionStatus {
+    case loading
+    case cancelled
+    case providerError(String)
+
+    func text(locale: Locale) -> String {
+        switch self {
+        case .loading:
+            AppStrings.Ollama.loading.localized(locale: locale)
+        case .cancelled:
+            AppStrings.Ollama.cancelled.localized(locale: locale)
+        case let .providerError(message):
+            message
+        }
+    }
+}
+
 struct OllamaWebPageConnectionWindow: View {
     @Environment(\.dismissWindow) private var dismissWindow
+    @Environment(\.locale) private var locale
     @ObservedObject var appModel: AppModel
     var dismiss: (() -> Void)? = nil
 
@@ -111,9 +134,9 @@ struct OllamaWebPageConnectionWindow: View {
                 )
             } else {
                 ContentUnavailableView(
-                    "Ollama Connection Unavailable",
+                    AppStrings.Ollama.windowUnavailable.localized(locale: locale),
                     systemImage: "person.crop.circle.badge.exclamationmark",
-                    description: Text("Choose Connect Ollama or Reconnect from an Ollama account first.")
+                    description: Text(AppStrings.Ollama.chooseFromAccount.resource(locale: locale))
                 )
                 .frame(
                     minWidth: OllamaConnectionWindowConfiguration.preferredSize.width,

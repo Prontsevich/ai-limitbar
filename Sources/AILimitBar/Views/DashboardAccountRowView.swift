@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct DashboardAccountRowView: View {
+    @Environment(\.locale) private var locale
     @ObservedObject var appModel: AppModel
     let row: AccountSnapshotRow
     let isStale: Bool
@@ -12,7 +13,8 @@ struct DashboardAccountRowView: View {
         DashboardAccountPresentation(
             row: row,
             isStale: isStale,
-            isGlobalRefresh: appModel.isRefreshing
+            isGlobalRefresh: appModel.isRefreshing,
+            locale: locale
         )
     }
 
@@ -41,8 +43,14 @@ struct DashboardAccountRowView: View {
             .buttonStyle(TerminalIconButtonStyle())
             .disabled(!presentation.canRefresh)
             .help(presentation.refreshHelp)
-            .accessibilityLabel("Refresh \(presentation.accountName)")
-            .accessibilityValue(presentation.isRefreshing ? "Refreshing" : "Ready")
+            .accessibilityLabel(
+                AppStrings.Dashboard.refreshAccount.formatted(locale: locale, presentation.accountName)
+            )
+            .accessibilityValue(
+                presentation.isRefreshing
+                    ? AppStrings.Common.refreshing.localized(locale: locale)
+                    : AppStrings.Common.ready.localized(locale: locale)
+            )
 
             Button {
                 isShowingDetails.toggle()
@@ -51,8 +59,13 @@ struct DashboardAccountRowView: View {
                     .frame(width: 14, height: 14)
             }
             .buttonStyle(TerminalIconButtonStyle())
-            .help("Show account details")
-            .accessibilityLabel("Show details for \(presentation.accountName)")
+            .help(AppStrings.Dashboard.showDetails.localized(locale: locale))
+            .accessibilityLabel(
+                AppStrings.Dashboard.showDetailsForAccount.formatted(
+                    locale: locale,
+                    presentation.accountName
+                )
+            )
             .popover(isPresented: $isShowingDetails, arrowEdge: .trailing) {
                 AccountDetailsView(
                     appModel: appModel,

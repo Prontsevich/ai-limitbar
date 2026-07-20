@@ -153,6 +153,10 @@ final class AppModel: ObservableObject {
     }
 
     var menuBarAccessibilityValue: String {
+        menuBarAccessibilityValue(locale: Locale(identifier: "en_US"))
+    }
+
+    func menuBarAccessibilityValue(locale: Locale) -> String {
         let highestUsage = enabledSnapshots
             .flatMap(\.displayLimitWindows)
             .compactMap(\.usedPercent)
@@ -160,18 +164,48 @@ final class AppModel: ObservableObject {
 
         let usageText: String
         if let highestUsage {
-            usageText = "Highest usage is \(Int(highestUsage.rounded())) percent"
+            usageText = AppStrings.Dashboard.highestUsage.formatted(
+                locale: locale,
+                AppFormatters.percentage(highestUsage, locale: locale)
+            )
         } else {
-            usageText = hasEnabledAccounts ? "No usage data available" : "No enabled accounts"
+            usageText = hasEnabledAccounts
+                ? AppStrings.Dashboard.noUsageAvailable.localized(locale: locale)
+                : AppStrings.Dashboard.noEnabledAccounts.localized(locale: locale)
         }
 
         switch menuBarIndicatorState {
         case .normal:
             return usageText
         case .warning:
-            return "Warning: one or more enabled accounts need attention. \(usageText)"
+            return AppStrings.Dashboard.warningSummary.formatted(locale: locale, usageText)
         case .error:
-            return "Error: one or more enabled accounts need attention. \(usageText)"
+            return AppStrings.Dashboard.errorSummary.formatted(locale: locale, usageText)
+        }
+    }
+
+    func localizedStorageWarning(locale: Locale) -> String? {
+        guard let storageWarning else { return nil }
+
+        return switch storageWarning {
+        case "Provider settings could not be saved.":
+            AppStrings.Storage.providerSettingsSave.localized(locale: locale)
+        case "Refresh settings could not be saved.":
+            AppStrings.Storage.refreshSettingsSave.localized(locale: locale)
+        case "Snapshots could not be saved.":
+            AppStrings.Storage.snapshotsSave.localized(locale: locale)
+        case "Provider diagnostics could not be saved.":
+            AppStrings.Storage.diagnosticsSave.localized(locale: locale)
+        case "Provider refresh state could not be saved.":
+            AppStrings.Storage.refreshStateSave.localized(locale: locale)
+        case "Legacy JSON data could not be migrated. Existing database data remains available.":
+            AppStrings.Storage.legacyMigration.localized(locale: locale)
+        case "Application Support is unavailable. Temporary storage is active.":
+            AppStrings.Storage.temporaryStorage.localized(locale: locale)
+        case "AI Limitbar storage is unavailable. Changes cannot be saved.":
+            AppStrings.Storage.storageUnavailable.localized(locale: locale)
+        default:
+            storageWarning
         }
     }
 
@@ -245,6 +279,28 @@ final class AppModel: ObservableObject {
         )
     }
 
+    func localizedAccountDiagnosticsMessage(for account: ProviderAccount, locale: Locale) -> String {
+        let diagnostics = accountDiagnostics(for: account)
+
+        switch diagnostics.availability {
+        case .unsupported:
+            return AppStrings.Dashboard.sourceUnsupported.localized(locale: locale)
+        case .failed:
+            return AppStrings.Dashboard.refreshFailed.localized(locale: locale)
+        case .needsConnection:
+            return AppStrings.Dashboard.connectBeforeRefresh.localized(locale: locale)
+        case .noData:
+            return localizedNoDataMessage(for: account, locale: locale)
+        case .supported:
+            return localizedSourceSummary(
+                providerID: account.providerID,
+                sourceMode: account.sourceMode,
+                fallback: diagnostics.message,
+                locale: locale
+            )
+        }
+    }
+
     func accounts(for providerID: String) -> [ProviderAccount] {
         providerAccounts
             .filter { $0.providerID == providerID }
@@ -294,6 +350,39 @@ final class AppModel: ObservableObject {
             "Refresh this account to read the experimental local Claude /usage source."
         case .manual, .claudeStatusLine:
             "Refresh or test this account to load a snapshot."
+        }
+    }
+
+    private func localizedNoDataMessage(for account: ProviderAccount, locale: Locale) -> String {
+        switch account.sourceMode {
+        case .ollamaWebPage:
+            AppStrings.AccountDetails.ollamaConnectFirst.localized(locale: locale)
+        case .appServer:
+            AppStrings.AccountDetails.codexRefreshFirst.localized(locale: locale)
+        case .claudeUsageCLI:
+            AppStrings.AccountDetails.claudeUsageRefreshFirst.localized(locale: locale)
+        case .manual, .claudeStatusLine:
+            AppStrings.AccountDetails.refreshOrTestFirst.localized(locale: locale)
+        }
+    }
+
+    private func localizedSourceSummary(
+        providerID: String,
+        sourceMode: ProviderSourceMode,
+        fallback: String,
+        locale: Locale
+    ) -> String {
+        switch (providerID, sourceMode) {
+        case ("ollama-cloud", .ollamaWebPage):
+            AppStrings.Dashboard.ollamaSourceSummary.localized(locale: locale)
+        case ("claude-code", .claudeStatusLine):
+            AppStrings.Dashboard.claudeStatusLineSummary.localized(locale: locale)
+        case ("claude-code", .claudeUsageCLI):
+            AppStrings.Dashboard.claudeUsageSummary.localized(locale: locale)
+        case ("openai-codex", .appServer):
+            AppStrings.Dashboard.codexSourceSummary.localized(locale: locale)
+        default:
+            fallback
         }
     }
 }

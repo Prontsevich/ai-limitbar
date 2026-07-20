@@ -81,6 +81,14 @@ struct AppString {
             comment: comment
         )
     }
+
+    func formatted(locale: Locale, _ arguments: CVarArg...) -> String {
+        String(
+            format: localized(locale: locale),
+            locale: locale,
+            arguments: arguments
+        )
+    }
 }
 
 enum AppStrings {

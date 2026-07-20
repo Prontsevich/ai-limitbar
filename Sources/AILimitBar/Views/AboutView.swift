@@ -2,6 +2,7 @@ import AppKit
 import SwiftUI
 
 struct AboutView: View {
+    @Environment(\.locale) private var locale
     private let buildInformation: AboutBuildInformation
 
     init(buildInformation: AboutBuildInformation = .current) {
@@ -21,54 +22,54 @@ struct AboutView: View {
                     .font(.system(size: 18, weight: .bold, design: .monospaced))
                     .foregroundStyle(TerminalTheme.primary)
 
-                Text(buildInformation.displayText)
+                Text(buildInformation.displayText(locale: locale))
                     .font(TerminalTheme.bodyFont)
                     .foregroundStyle(TerminalTheme.secondary)
-                    .accessibilityLabel("Build information")
-                    .accessibilityValue(buildInformation.displayText)
+                    .accessibilityLabel(AppStrings.About.buildInformation.localized(locale: locale))
+                    .accessibilityValue(buildInformation.displayText(locale: locale))
             }
 
             VStack(spacing: 8) {
                 externalLink(
-                    "Open GitHub",
+                    AppStrings.About.openGitHub.localized(locale: locale),
                     destination: AboutLinks.github,
-                    accessibilityLabel: "Open AI Limitbar on GitHub"
+                    accessibilityLabel: AppStrings.About.openGitHubAccessibility.localized(locale: locale)
                 )
 
-                Text("Feedback")
+                Text(AppStrings.About.feedback.resource(locale: locale))
                     .font(TerminalTheme.detailLabelFont)
                     .foregroundStyle(TerminalTheme.secondary)
 
                 HStack(spacing: 8) {
                     externalLink(
-                        "Report an issue",
+                        AppStrings.About.reportIssue.localized(locale: locale),
                         destination: AboutLinks.issue,
-                        accessibilityLabel: "Report an AI Limitbar issue on GitHub"
+                        accessibilityLabel: AppStrings.About.reportIssueAccessibility.localized(locale: locale)
                     )
 
                     externalLink(
-                        "Email",
+                        AppStrings.About.email.localized(locale: locale),
                         destination: AboutLinks.email,
-                        accessibilityLabel: "Email the AI Limitbar developer"
+                        accessibilityLabel: AppStrings.About.emailAccessibility.localized(locale: locale)
                     )
 
                     externalLink(
-                        "Telegram",
+                        AppStrings.About.telegram.localized(locale: locale),
                         destination: AboutLinks.telegram,
-                        accessibilityLabel: "Message the AI Limitbar developer on Telegram"
+                        accessibilityLabel: AppStrings.About.telegramAccessibility.localized(locale: locale)
                     )
                 }
 
-                Text("If AI Limitbar is useful, thank you for supporting its development.")
+                Text(AppStrings.About.supportText.resource(locale: locale))
                     .font(TerminalTheme.captionFont)
                     .foregroundStyle(TerminalTheme.secondary)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
 
                 externalLink(
-                    "Support on Boosty",
+                    AppStrings.About.supportBoosty.localized(locale: locale),
                     destination: AboutLinks.boosty,
-                    accessibilityLabel: "Support AI Limitbar on Boosty"
+                    accessibilityLabel: AppStrings.About.supportBoostyAccessibility.localized(locale: locale)
                 )
             }
         }
@@ -79,7 +80,7 @@ struct AboutView: View {
         )
         .background(TerminalTheme.surface)
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("About AI Limitbar")
+        .accessibilityLabel(AppStrings.About.accessibilityLabel.localized(locale: locale))
     }
 
     private func externalLink(

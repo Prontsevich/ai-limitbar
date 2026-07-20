@@ -10,6 +10,7 @@ final class MenuBarStatusItemController: NSObject, ObservableObject {
     private let popover: NSPopover
     private let hostingController: NSHostingController<AppLocaleScope<MenuBarPanelView>>
     private var modelObservation: AnyCancellable?
+    private var languageObservation: AnyCancellable?
     private var appearanceObservation: NSKeyValueObservation?
 
     init(appModel: AppModel, appLanguagePreference: AppLanguagePreference) {
@@ -74,6 +75,9 @@ final class MenuBarStatusItemController: NSObject, ObservableObject {
                 self?.refresh()
             }
         }
+        languageObservation = appLanguagePreference.$effectiveLocale.sink { [weak self] _ in
+            self?.refresh()
+        }
     }
 
     private func observeAppearance() {
@@ -91,7 +95,9 @@ final class MenuBarStatusItemController: NSObject, ObservableObject {
         statusItem.button?.image = MenuBarStatusItemImageRenderer.image(
             for: appModel.menuBarIndicatorState
         )
-        statusItem.button?.setAccessibilityValue(appModel.menuBarAccessibilityValue)
+        statusItem.button?.setAccessibilityValue(
+            appModel.menuBarAccessibilityValue(locale: appLanguagePreference.effectiveLocale)
+        )
     }
 
     @objc private func togglePopover(_ sender: Any?) {

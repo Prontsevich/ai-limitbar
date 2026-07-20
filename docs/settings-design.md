@@ -17,9 +17,9 @@ for navigation, choices, selection, and actions. The earlier hybrid of native
 blue segmented controls, grouped Form cards, and terminal fieldsets is not an
 accepted presentation.
 
-The current Settings information architecture is General, Accounts, and Provider
-Setup. General collects the shared, cross-account preferences; Accounts and
-Provider Setup keep their current responsibilities. This reorganization does not
+The current Settings information architecture is General, Accounts, and
+Providers. General collects the shared, cross-account preferences; Accounts and
+Providers keep their current responsibilities. This reorganization does not
 change account editing, provider source behavior, usage thresholds,
 notifications, theme editing, credentials, or persistence contracts.
 
@@ -108,7 +108,7 @@ the selected section when Settings opens or reopens.
 
 ```text
 ┌─ AI Limitbar Settings ─────────────────────────────────────┐
-│        [ General ]  [ Accounts ]  [ Provider Setup ]       │
+│        [ General ]  [ Accounts ]  [ Providers ]            │
 ├──────────────────┬─────────────────────────────────────────┤
 │ ACCOUNTS         │ claude-main                    [Enabled]│
 │                  │                                         │
@@ -138,9 +138,9 @@ single-account Codex source is not selectable. Text fields have terminal focus
 borders rather than system-blue rings. File importer, validation, Save, Cancel,
 Return, and Escape behavior remain intact inside those groups.
 
-Provider Setup lists only current provider sources and their usage actions. It
-does not show a disabled Credentials placeholder; credential UI appears only
-when a verified provider integration has an actionable requirement.
+Providers lists each provider's current source summary and an action to open its
+limits page. It does not show a disabled Credentials placeholder; credential UI
+appears only when a verified provider integration has an actionable requirement.
 
 Accounts without a configurable source, such as the built-in Mock provider, do
 not show a redundant source fieldset. Ollama Cloud and OpenAI Codex keep their

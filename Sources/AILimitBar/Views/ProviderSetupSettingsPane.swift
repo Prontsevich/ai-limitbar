@@ -1,20 +1,21 @@
 import SwiftUI
 
 struct ProviderSetupSettingsPane: View {
+    @Environment(\.locale) private var locale
     @ObservedObject var appModel: AppModel
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             VStack(alignment: .leading, spacing: 4) {
-                Text("PROVIDER SETUP")
+                Text(AppStrings.Settings.ProviderSetup.title.resource(locale: locale))
                     .font(TerminalTheme.titleFont)
                     .foregroundStyle(TerminalTheme.primary)
-                Text("Provider access stays conservative until stable machine-readable sources are verified.")
+                Text(AppStrings.Settings.ProviderSetup.description.resource(locale: locale))
                     .font(TerminalTheme.bodyFont)
                     .foregroundStyle(TerminalTheme.secondary)
             }
 
-            TerminalFieldset(title: "PROVIDERS") {
+            TerminalFieldset(title: AppStrings.Settings.ProviderSetup.providers.localized(locale: locale)) {
                 EmptyView()
             } content: {
                 VStack(spacing: 0) {
@@ -38,6 +39,7 @@ struct ProviderSetupSettingsPane: View {
 
 private struct ProviderSetupRow: View {
     @Environment(\.openURL) private var openURL
+    @Environment(\.locale) private var locale
     @ObservedObject var appModel: AppModel
     let providerID: String
 
@@ -55,7 +57,10 @@ private struct ProviderSetupRow: View {
             Button {
                 if let usageURL { openURL(usageURL) }
             } label: {
-                Label("Open Usage", systemImage: "arrow.up.forward.square")
+                Label(
+                    AppStrings.Settings.ProviderSetup.openUsage.localized(locale: locale),
+                    systemImage: "arrow.up.forward.square"
+                )
             }
             .buttonStyle(TerminalActionButtonStyle())
             .disabled(usageURL == nil)
@@ -68,9 +73,13 @@ private struct ProviderSetupRow: View {
 
     private var sourceSummary: String {
         let capabilities = appModel.providerCapabilities(for: providerID)
-        guard !capabilities.sources.isEmpty else { return "No configured source" }
+        guard !capabilities.sources.isEmpty else {
+            return AppStrings.Settings.ProviderSetup.noConfiguredSource.localized(locale: locale)
+        }
         return capabilities.sources
-            .map { "\($0.mode.displayName) · \($0.kind.displayName)" }
+            .map {
+                "\($0.mode.localizedDisplayName(locale: locale)) · \($0.kind.localizedDisplayName(locale: locale))"
+            }
             .joined(separator: " · ")
     }
 }

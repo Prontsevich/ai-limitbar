@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import SwiftUI
 
 enum ApplicationLifecycle {
@@ -10,6 +11,15 @@ enum ApplicationLifecycle {
 
     @MainActor
     private static var directAboutWindowController: NSWindowController?
+
+    @MainActor
+    private static var directSettingsWindowTitleObservation: AnyCancellable?
+
+    @MainActor
+    private static var directOllamaWindowTitleObservation: AnyCancellable?
+
+    @MainActor
+    private static var directAboutWindowTitleObservation: AnyCancellable?
 
     @MainActor
     static func activate() {
@@ -52,7 +62,12 @@ enum ApplicationLifecycle {
             }
         )
         let window = NSWindow(contentViewController: hostingController)
-        window.title = SettingsWindowConfiguration.title
+        observeWindowTitle(
+            window,
+            preference: appLanguagePreference,
+            title: { AppStrings.Window.settingsTitle.localized(locale: $0) },
+            storeIn: &directSettingsWindowTitleObservation
+        )
         window.styleMask = [.titled, .closable, .miniaturizable]
         window.isReleasedWhenClosed = false
         window.setContentSize(SettingsWindowConfiguration.preferredSize)
@@ -110,7 +125,12 @@ enum ApplicationLifecycle {
         }
         let hostingController = NSHostingController(rootView: rootView)
         let window = NSWindow(contentViewController: hostingController)
-        window.title = OllamaConnectionWindowConfiguration.title
+        observeWindowTitle(
+            window,
+            preference: appLanguagePreference,
+            title: { AppStrings.Window.ollamaTitle.localized(locale: $0) },
+            storeIn: &directOllamaWindowTitleObservation
+        )
         window.styleMask = [.titled, .closable, .miniaturizable]
         window.isReleasedWhenClosed = false
         window.setContentSize(OllamaConnectionWindowConfiguration.preferredSize)
@@ -148,7 +168,12 @@ enum ApplicationLifecycle {
             }
         )
         let window = NSWindow(contentViewController: hostingController)
-        window.title = AboutWindowConfiguration.title
+        observeWindowTitle(
+            window,
+            preference: appLanguagePreference,
+            title: { AppStrings.Window.aboutTitle.localized(locale: $0) },
+            storeIn: &directAboutWindowTitleObservation
+        )
         window.styleMask = [.titled, .closable]
         window.isReleasedWhenClosed = false
         window.isRestorable = false
@@ -188,21 +213,34 @@ enum ApplicationLifecycle {
     @MainActor
     private static func visibleSettingsWindow() -> NSWindow? {
         NSApplication.shared.windows.first { window in
-            window.title == SettingsWindowConfiguration.title && window.isVisible
+            SettingsWindowConfiguration.matchesTitle(window.title) && window.isVisible
         }
     }
 
     @MainActor
     private static func visibleOllamaConnectionWindow() -> NSWindow? {
         NSApplication.shared.windows.first { window in
-            window.title == OllamaConnectionWindowConfiguration.title && window.isVisible
+            OllamaConnectionWindowConfiguration.matchesTitle(window.title) && window.isVisible
         }
     }
 
     @MainActor
     private static func settingsWindow() -> NSWindow? {
         NSApplication.shared.windows.first { window in
-            window.title == SettingsWindowConfiguration.title
+            SettingsWindowConfiguration.matchesTitle(window.title)
+        }
+    }
+
+    @MainActor
+    private static func observeWindowTitle(
+        _ window: NSWindow,
+        preference: AppLanguagePreference,
+        title: @escaping (Locale) -> String,
+        storeIn observation: inout AnyCancellable?
+    ) {
+        window.title = title(preference.effectiveLocale)
+        observation = preference.$effectiveLocale.sink { [weak window] locale in
+            window?.title = title(locale)
         }
     }
 

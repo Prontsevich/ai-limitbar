@@ -2,6 +2,7 @@ import AppKit
 import SwiftUI
 
 struct NativeActionsMenuButton: View {
+    @Environment(\.locale) private var locale
     let isTestEnabled: Bool
     let isUsageEnabled: Bool
     let onTest: () -> Void
@@ -16,13 +17,15 @@ struct NativeActionsMenuButton: View {
             } label: {
                 SettingsActionIcon(systemName: "ellipsis", verticalOffset: -1)
             }
-            .settingsIconButton(help: "More account actions")
-            .accessibilityLabel("More account actions")
+            .settingsIconButton(help: AppStrings.Settings.Editor.moreActions.localized(locale: locale))
+            .accessibilityLabel(AppStrings.Settings.Editor.moreActions.localized(locale: locale))
 
             NativeActionsMenuAnchor(
                 request: $menuRequest,
                 isTestEnabled: isTestEnabled,
                 isUsageEnabled: isUsageEnabled,
+                testTitle: AppStrings.AccountDetails.testConnection.localized(locale: locale),
+                usageTitle: AppStrings.AccountDetails.openUsage.localized(locale: locale),
                 onTest: onTest,
                 onOpenUsage: onOpenUsage
             )
@@ -36,6 +39,8 @@ private struct NativeActionsMenuAnchor: NSViewRepresentable {
     @Binding var request: UInt
     let isTestEnabled: Bool
     let isUsageEnabled: Bool
+    let testTitle: String
+    let usageTitle: String
     let onTest: () -> Void
     let onOpenUsage: () -> Void
 
@@ -51,6 +56,8 @@ private struct NativeActionsMenuAnchor: NSViewRepresentable {
         context.coordinator.update(
             isTestEnabled: isTestEnabled,
             isUsageEnabled: isUsageEnabled,
+            testTitle: testTitle,
+            usageTitle: usageTitle,
             onTest: onTest,
             onOpenUsage: onOpenUsage
         )
@@ -75,6 +82,8 @@ private struct NativeActionsMenuAnchor: NSViewRepresentable {
         func update(
             isTestEnabled: Bool,
             isUsageEnabled: Bool,
+            testTitle: String,
+            usageTitle: String,
             onTest: @escaping () -> Void,
             onOpenUsage: @escaping () -> Void
         ) {
@@ -84,10 +93,14 @@ private struct NativeActionsMenuAnchor: NSViewRepresentable {
             targets = [testTarget, usageTarget]
             testEnabled = isTestEnabled
             usageEnabled = isUsageEnabled
+            self.testTitle = testTitle
+            self.usageTitle = usageTitle
         }
 
         private var testEnabled = false
         private var usageEnabled = false
+        private var testTitle = ""
+        private var usageTitle = ""
 
         func present(from view: NSView) {
             guard !isPresenting else { return }
@@ -98,7 +111,7 @@ private struct NativeActionsMenuAnchor: NSViewRepresentable {
             menu.autoenablesItems = false
 
             let testItem = NSMenuItem(
-                title: "Test Connection",
+                title: testTitle,
                 action: #selector(MenuActionTarget.invoke(_:)),
                 keyEquivalent: ""
             )
@@ -108,7 +121,7 @@ private struct NativeActionsMenuAnchor: NSViewRepresentable {
             menu.addItem(testItem)
 
             let usageItem = NSMenuItem(
-                title: "Open Usage",
+                title: usageTitle,
                 action: #selector(MenuActionTarget.invoke(_:)),
                 keyEquivalent: ""
             )

@@ -4,6 +4,7 @@ import SwiftUI
 struct AccountDetailsView: View {
     @Environment(\.openURL) private var openURL
     @Environment(\.openWindow) private var openWindow
+    @Environment(\.locale) private var locale
     @ObservedObject var appModel: AppModel
     let row: AccountSnapshotRow
     let onOpenOllamaConnection: (() -> Void)?
@@ -14,7 +15,8 @@ struct AccountDetailsView: View {
         DashboardAccountPresentation(
             row: row,
             isStale: row.snapshot.map { appModel.isSnapshotStale($0) } ?? false,
-            isGlobalRefresh: appModel.isRefreshing
+            isGlobalRefresh: appModel.isRefreshing,
+            locale: locale
         )
     }
 
@@ -33,15 +35,17 @@ struct AccountDetailsView: View {
         }
         .frame(maxHeight: 520)
         .background(TerminalTheme.surface)
-        .alert("Ollama Connection", isPresented: connectionErrorBinding) {
-            Button("OK", role: .cancel) {}
+        .alert(AppStrings.Ollama.connectionTitle.localized(locale: locale), isPresented: connectionErrorBinding) {
+            Button(AppStrings.Common.ok.localized(locale: locale), role: .cancel) {}
         } message: {
-            Text(connectionError ?? "Ollama connection is unavailable.")
+            Text(connectionError ?? AppStrings.Ollama.unavailable.localized(locale: locale))
         }
     }
 
     private var inspector: some View {
-        TerminalFieldset(title: "\(row.account.displayName) details") {
+        TerminalFieldset(
+            title: AppStrings.AccountDetails.title.formatted(locale: locale, row.account.displayName)
+        ) {
             EmptyView()
         } content: {
             inspectorRows
@@ -53,15 +57,15 @@ struct AccountDetailsView: View {
         let diagnostics = appModel.accountDiagnostics(for: currentAccount)
 
         TerminalInspectorRow(
-            label: "REFRESH",
+            label: AppStrings.AccountDetails.refresh.localized(locale: locale),
             value: refreshText,
             valueColor: refreshStatusColor
         )
         TerminalRule()
 
         TerminalInspectorRow(
-            label: "SOURCE STATE",
-            value: diagnostics.message,
+            label: AppStrings.AccountDetails.sourceState.localized(locale: locale),
+            value: appModel.localizedAccountDiagnosticsMessage(for: currentAccount, locale: locale),
             valueColor: sourceAvailabilityColor(diagnostics.availability)
         )
 
@@ -69,27 +73,30 @@ struct AccountDetailsView: View {
            let lastSuccessfulRefreshAt = diagnostics.lastSuccessfulRefreshAt {
             TerminalRule()
             TerminalInspectorRow(
-                label: "LAST SUCCESS",
+                label: AppStrings.AccountDetails.lastSuccess.localized(locale: locale),
                 value: preciseDate(lastSuccessfulRefreshAt)
             )
         }
         TerminalRule()
 
         if let snapshot = row.snapshot {
-            TerminalInspectorRow(label: "SOURCE", value: snapshot.source)
+            TerminalInspectorRow(label: AppStrings.AccountDetails.source.localized(locale: locale), value: snapshot.source)
             TerminalRule()
-            TerminalInspectorRow(label: "CONFIDENCE", value: snapshot.confidence.displayName)
+            TerminalInspectorRow(
+                label: AppStrings.AccountDetails.confidence.localized(locale: locale),
+                value: snapshot.confidence.localizedDisplayName(locale: locale)
+            )
 
             if let planName = snapshot.planName {
                 TerminalRule()
-                TerminalInspectorRow(label: "PLAN", value: planName)
+                TerminalInspectorRow(label: AppStrings.AccountDetails.plan.localized(locale: locale), value: planName)
             }
 
             if snapshot.displayLimitWindows.isEmpty {
                 TerminalRule()
                 TerminalInspectorRow(
-                    label: "USAGE",
-                    value: snapshot.remainingLabel ?? snapshot.status.displayName,
+                    label: AppStrings.AccountDetails.usage.localized(locale: locale),
+                    value: snapshot.remainingLabel ?? snapshot.status.localizedDisplayName(locale: locale),
                     valueColor: currentStateColor
                 )
             }
@@ -98,20 +105,30 @@ struct AccountDetailsView: View {
                 if let resetAt = window.resetAt {
                     TerminalRule()
                     TerminalInspectorRow(
-                        label: "\(window.displayName.uppercased()) RESET",
+                        label: AppStrings.AccountDetails.reset.formatted(
+                            locale: locale,
+                            window.displayName.uppercased(with: locale)
+                        ),
                         value: preciseDate(resetAt)
                     )
                 }
             }
         } else {
-            TerminalInspectorRow(label: "SOURCE", value: currentAccount.sourceMode.displayName)
+            TerminalInspectorRow(
+                label: AppStrings.AccountDetails.source.localized(locale: locale),
+                value: currentAccount.sourceMode.localizedDisplayName(locale: locale)
+            )
             TerminalRule()
-            TerminalInspectorRow(label: "USAGE", value: emptyStateMessage, valueColor: TerminalTheme.secondary)
+            TerminalInspectorRow(
+                label: AppStrings.AccountDetails.usage.localized(locale: locale),
+                value: emptyStateMessage,
+                valueColor: TerminalTheme.secondary
+            )
         }
 
         if hasDiagnostics {
             TerminalRule()
-            TerminalNoteBox(title: "Diagnostics") {
+            TerminalNoteBox(title: AppStrings.AccountDetails.diagnostics.localized(locale: locale)) {
                 diagnosticsContent
             }
         }
@@ -121,8 +138,10 @@ struct AccountDetailsView: View {
     private var diagnosticsContent: some View {
         if let issue = row.refreshIssue {
             diagnosticItem(
-                title: "Last refresh failed",
-                messages: issue.warnings.isEmpty ? ["No additional error details were provided."] : issue.warnings,
+                title: AppStrings.AccountDetails.lastRefreshFailed.localized(locale: locale),
+                messages: issue.warnings.isEmpty
+                    ? [AppStrings.AccountDetails.noErrorDetails.localized(locale: locale)]
+                    : issue.warnings,
                 date: issue.occurredAt,
                 color: TerminalTheme.error
             )
@@ -133,8 +152,8 @@ struct AccountDetailsView: View {
                 TerminalRule()
             }
             diagnosticItem(
-                title: "Stale data",
-                messages: ["Snapshot is older than the configured freshness window."],
+                title: AppStrings.AccountDetails.staleData.localized(locale: locale),
+                messages: [AppStrings.AccountDetails.staleDetail.localized(locale: locale)],
                 date: nil,
                 color: TerminalTheme.warning
             )
@@ -145,7 +164,7 @@ struct AccountDetailsView: View {
                 TerminalRule()
             }
             diagnosticItem(
-                title: "Warnings",
+                title: AppStrings.AccountDetails.warnings.localized(locale: locale),
                 messages: diagnosticWarnings,
                 date: nil,
                 color: snapshot.status == .error ? TerminalTheme.error : TerminalTheme.warning
@@ -160,12 +179,12 @@ struct AccountDetailsView: View {
                     .disabled(appModel.ollamaWebPageClient == nil || actionsDisabled)
             }
 
-            Button("Test Connection") {
+            Button(AppStrings.AccountDetails.testConnection.localized(locale: locale)) {
                 appModel.testConnection(providerID: row.account.providerID, accountID: row.account.accountID)
             }
             .disabled(actionsDisabled)
 
-            Button("Open Usage") {
+            Button(AppStrings.AccountDetails.openUsage.localized(locale: locale)) {
                 if let url = usageURL {
                     openURL(url)
                 }
@@ -184,19 +203,21 @@ struct AccountDetailsView: View {
     }
 
     private var ollamaConnectionTitle: String {
-        currentAccount.webDataStoreID == nil ? "Connect" : "Reconnect"
+        currentAccount.webDataStoreID == nil
+            ? AppStrings.AccountDetails.connect.localized(locale: locale)
+            : AppStrings.AccountDetails.reconnect.localized(locale: locale)
     }
 
     private var emptyStateMessage: String {
         switch currentAccount.sourceMode {
         case .ollamaWebPage:
-            "Connect Ollama to load the experimental settings-page source."
+            AppStrings.AccountDetails.ollamaConnectFirst.localized(locale: locale)
         case .appServer:
-            "Refresh this account to read the experimental local Codex app-server source."
+            AppStrings.AccountDetails.codexRefreshFirst.localized(locale: locale)
         case .claudeUsageCLI:
-            "Refresh this account to read the experimental local Claude /usage source."
+            AppStrings.AccountDetails.claudeUsageRefreshFirst.localized(locale: locale)
         case .manual, .claudeStatusLine:
-            "Refresh or test this account to load a snapshot."
+            AppStrings.AccountDetails.refreshOrTestFirst.localized(locale: locale)
         }
     }
 
@@ -270,23 +291,23 @@ struct AccountDetailsView: View {
         case .idle:
             persistedRefreshText
         case .refreshing:
-            "Refreshing"
+            AppStrings.Common.refreshing.localized(locale: locale)
         case let .succeeded(date):
-            "Succeeded at \(preciseDate(date))"
+            AppStrings.AccountDetails.succeededAt.formatted(locale: locale, preciseDate(date))
         case let .failed(date):
-            "Failed at \(preciseDate(date))"
+            AppStrings.AccountDetails.failedAt.formatted(locale: locale, preciseDate(date))
         }
     }
 
     private var persistedRefreshText: String {
         if let issue = row.refreshIssue {
-            return "Failed at \(preciseDate(issue.occurredAt))"
+            return AppStrings.AccountDetails.failedAt.formatted(locale: locale, preciseDate(issue.occurredAt))
         }
         if let date = appModel.accountDiagnostics(for: currentAccount).lastSuccessfulRefreshAt {
-            return "Succeeded at \(preciseDate(date))"
+            return AppStrings.AccountDetails.succeededAt.formatted(locale: locale, preciseDate(date))
         }
         if let snapshot = row.snapshot, snapshot.status != .error {
-            return "Succeeded at \(preciseDate(snapshot.lastUpdatedAt))"
+            return AppStrings.AccountDetails.succeededAt.formatted(locale: locale, preciseDate(snapshot.lastUpdatedAt))
         }
         return currentStateText
     }
@@ -294,21 +315,22 @@ struct AccountDetailsView: View {
     private var currentStateText: String {
         switch dashboardPresentation.state {
         case .normal:
-            row.snapshot?.status.displayName ?? "No Data"
+            row.snapshot?.status.localizedDisplayName(locale: locale)
+                ?? AppStrings.Common.noUsageData.localized(locale: locale)
         case .refreshing:
-            "Refreshing"
+            AppStrings.Common.refreshing.localized(locale: locale)
         case .stale:
-            "Stale"
+            AppStrings.Common.stale.localized(locale: locale)
         case .failed:
-            "Failed"
+            AppStrings.Common.failed.localized(locale: locale)
         case .warning:
-            "Warning"
+            AppStrings.Common.warning.localized(locale: locale)
         case .manual:
-            "Manual"
+            AppStrings.Common.manual.localized(locale: locale)
         case .unavailable:
-            "Unavailable"
+            AppStrings.Common.unavailable.localized(locale: locale)
         case .noData:
-            "No Data"
+            AppStrings.Common.noUsageData.localized(locale: locale)
         }
     }
 
@@ -320,7 +342,7 @@ struct AccountDetailsView: View {
                   accountID: currentAccount.accountID
               )
         else {
-            connectionError = "Save the account before connecting Ollama through AI Limitbar."
+            connectionError = AppStrings.Ollama.saveBeforeConnecting.localized(locale: locale)
             return
         }
         appModel.presentOllamaConnection(for: connectedAccount)
@@ -361,7 +383,7 @@ struct AccountDetailsView: View {
     }
 
     private func preciseDate(_ date: Date) -> String {
-        date.formatted(date: .abbreviated, time: .standard)
+        AppFormatters.preciseDate(date, locale: locale)
     }
 }
 

@@ -17,7 +17,7 @@ struct MenuBarPanelView: View {
         VStack(alignment: .leading, spacing: 10) {
             header
 
-            if let warning = appModel.storageWarning {
+            if let warning = appModel.localizedStorageWarning(locale: locale) {
                 Text(warning)
                     .font(TerminalTheme.captionFont)
                     .foregroundStyle(TerminalTheme.warning)

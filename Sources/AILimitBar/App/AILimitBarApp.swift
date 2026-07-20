@@ -25,7 +25,10 @@ struct AILimitBarApp: App {
     }
 
     var body: some Scene {
-        Window(SettingsWindowConfiguration.title, id: SettingsWindowConfiguration.id) {
+        Window(
+            AppStrings.Window.settingsTitle.localized(locale: appLanguagePreference.effectiveLocale),
+            id: SettingsWindowConfiguration.id
+        ) {
             AppLocaleScope(languagePreference: appLanguagePreference) {
                 SettingsView(
                     appModel: appModel,
@@ -48,7 +51,10 @@ struct AILimitBarApp: App {
             return WindowPlacement(placement.position, size: placement.size)
         }
 
-        Window(OllamaConnectionWindowConfiguration.title, id: OllamaConnectionWindowConfiguration.id) {
+        Window(
+            AppStrings.Window.ollamaTitle.localized(locale: appLanguagePreference.effectiveLocale),
+            id: OllamaConnectionWindowConfiguration.id
+        ) {
             AppLocaleScope(languagePreference: appLanguagePreference) {
                 OllamaWebPageConnectionWindow(appModel: appModel)
             }

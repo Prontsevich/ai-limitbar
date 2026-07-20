@@ -11,10 +11,10 @@ struct GeneralSettingsPane: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             VStack(alignment: .leading, spacing: 4) {
-                Text("GENERAL")
+                Text(AppStrings.Settings.General.title.resource(locale: locale))
                     .font(TerminalTheme.titleFont)
                     .foregroundStyle(TerminalTheme.primary)
-                Text("Configure preferences that apply across AI Limitbar accounts.")
+                Text(AppStrings.Settings.General.description.resource(locale: locale))
                     .font(TerminalTheme.bodyFont)
                     .foregroundStyle(TerminalTheme.secondary)
             }
@@ -48,48 +48,54 @@ struct GeneralSettingsPane: View {
                     .foregroundStyle(TerminalTheme.secondary)
             }
 
-            TerminalFieldset(title: "SCHEDULE") {
+            TerminalFieldset(title: AppStrings.Settings.General.scheduleTitle.localized(locale: locale)) {
                 EmptyView()
             } content: {
                 HStack(alignment: .center, spacing: 14) {
-                    Text("Interval")
+                    Text(AppStrings.Settings.General.interval.resource(locale: locale))
                         .font(TerminalTheme.bodyFont)
                         .foregroundStyle(TerminalTheme.secondary)
                         .frame(width: 80, alignment: .leading)
 
                     TerminalSegmentedControl(
-                        "Refresh interval",
+                        AppStrings.Settings.General.refreshInterval.localized(locale: locale),
                         selection: refreshIntervalBinding,
                         options: RefreshInterval.allCases.map {
-                            TerminalSegmentedOption(value: $0, title: $0.displayName)
+                            TerminalSegmentedOption(
+                                value: $0,
+                                title: $0.localizedDisplayName(locale: locale)
+                            )
                         }
                     )
                 }
 
-                Text("Manual refresh stays available from the menu bar panel.")
+                Text(AppStrings.Settings.General.manualRefreshHelp.resource(locale: locale))
                     .font(TerminalTheme.bodyFont)
                     .foregroundStyle(TerminalTheme.secondary)
             }
 
-            TerminalFieldset(title: "DASHBOARD") {
+            TerminalFieldset(title: AppStrings.Settings.General.dashboardTitle.localized(locale: locale)) {
                 EmptyView()
             } content: {
                 HStack(alignment: .center, spacing: 14) {
-                    Text("Height")
+                    Text(AppStrings.Settings.General.height.resource(locale: locale))
                         .font(TerminalTheme.bodyFont)
                         .foregroundStyle(TerminalTheme.secondary)
                         .frame(width: 80, alignment: .leading)
 
                     TerminalSegmentedControl(
-                        "Dashboard height",
+                        AppStrings.Settings.General.heightAccessibility.localized(locale: locale),
                         selection: dashboardHeightPresetBinding,
                         options: DashboardHeightPreset.allCases.map {
-                            TerminalSegmentedOption(value: $0, title: $0.displayName)
+                            TerminalSegmentedOption(
+                                value: $0,
+                                title: $0.localizedDisplayName(locale: locale)
+                            )
                         }
                     )
                 }
 
-                Text("Controls the maximum visible height of the menu-bar dashboard. Longer account lists scroll.")
+                Text(AppStrings.Settings.General.heightHelp.resource(locale: locale))
                     .font(TerminalTheme.bodyFont)
                     .foregroundStyle(TerminalTheme.secondary)
             }

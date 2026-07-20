@@ -25,10 +25,40 @@ final class DashboardAccountPresentationTests: XCTestCase {
         )
 
         XCTAssertEqual(presentation.windows.count, 1)
-        XCTAssertEqual(presentation.windows[0].usedText, "42% used")
+        XCTAssertEqual(presentation.windows[0].usedText, "41.6% used")
         XCTAssertEqual(presentation.windows[0].resetText, "resets in 2 hours")
-        XCTAssertEqual(presentation.windows[0].accessibilityValue, "42% used")
+        XCTAssertEqual(presentation.windows[0].accessibilityValue, "41.6% used")
         XCTAssertNil(presentation.bodyMessage)
+    }
+
+    func testUsageWindowUsesRussianDecimalSeparatorAndLocalizedCopy() {
+        let snapshot = makeSnapshot(
+            limitWindows: [
+                UsageLimitWindow(id: "weekly", displayName: "Weekly", usedPercent: 35.4)
+            ]
+        )
+
+        let presentation = DashboardAccountPresentation(
+            row: makeRow(snapshot: snapshot),
+            isStale: false,
+            isGlobalRefresh: false,
+            locale: Locale(identifier: "ru_RU")
+        )
+
+        XCTAssertEqual(presentation.windows[0].displayName, "Weekly")
+        XCTAssertTrue(presentation.windows[0].usedText.contains("35,4"))
+        XCTAssertTrue(presentation.windows[0].usedText.hasPrefix("Ушло"))
+        XCTAssertEqual(presentation.windows[0].accessibilityValue, presentation.windows[0].usedText)
+    }
+
+    func testUsageWindowOmitsFractionForWholePercentages() {
+        let presentation = DashboardAccountPresentation(
+            row: makeRow(snapshot: makeSnapshot()),
+            isStale: false,
+            isGlobalRefresh: false
+        )
+
+        XCTAssertEqual(presentation.windows[0].usedText, "42% used")
     }
 
     func testManualAndUnavailableAccountsDoNotInventUsageBars() {
@@ -223,12 +253,13 @@ final class DashboardAccountPresentationTests: XCTestCase {
 
     private func makeRow(
         snapshot: UsageSnapshot?,
+        providerID: String = "test",
         sourceMode: ProviderSourceMode = .claudeStatusLine,
         refreshStatus: ProviderRefreshStatus = .idle,
         refreshIssue: AccountRefreshIssue? = nil
     ) -> AccountSnapshotRow {
         let account = ProviderAccount(
-            providerID: "test",
+            providerID: providerID,
             accountID: "work",
             displayName: "Work",
             isEnabled: true,

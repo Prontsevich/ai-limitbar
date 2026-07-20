@@ -240,7 +240,7 @@ final class AppModelTests: XCTestCase {
         XCTAssertEqual(model.menuBarIndicatorState, .warning)
         XCTAssertEqual(
             model.menuBarAccessibilityValue,
-            "Warning: one or more enabled accounts need attention. Highest usage is 88 percent"
+            "Warning: one or more enabled accounts need attention. Highest usage is 88%"
         )
     }
 
@@ -254,7 +254,7 @@ final class AppModelTests: XCTestCase {
 
         XCTAssertEqual(model.menuBarIndicatorState, .normal)
         XCTAssertEqual(MenuBarStatusItemImageRenderer.baseSystemImageName, "gauge.with.dots.needle.33percent")
-        XCTAssertEqual(model.menuBarAccessibilityValue, "Highest usage is 42 percent")
+        XCTAssertEqual(model.menuBarAccessibilityValue, "Highest usage is 42%")
     }
 
     @MainActor
@@ -569,7 +569,7 @@ final class AppModelTests: XCTestCase {
         )
         XCTAssertEqual(
             SettingsSection.allCases.map(\.title),
-            ["General", "Accounts", "Provider Setup"]
+            ["General", "Accounts", "Providers"]
         )
     }
 

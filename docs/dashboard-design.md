@@ -97,7 +97,9 @@ pressed behavior for all interactive elements.
 For each known limit window, render only:
 
 1. The provider-defined window label, such as `5-hour` or `7-day`.
-2. One right-aligned `NN% used` value.
+2. One right-aligned localized used value. It preserves a provider-supplied
+   fractional percentage to one decimal place (for example, `35.4% used` or
+   `Использовано 35,4 %`) and omits a trailing `.0` for whole percentages.
 3. One compact rectangular outlined usage meter.
 4. A relative reset label when a reset date is available, such as
    `resets in 2 hours`.

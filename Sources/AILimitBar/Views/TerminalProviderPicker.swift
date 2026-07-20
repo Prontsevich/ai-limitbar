@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct TerminalProviderPicker: View {
+    @Environment(\.locale) private var locale
     private enum FocusTarget: Hashable {
         case trigger
         case option(String)
@@ -69,9 +70,9 @@ struct TerminalProviderPicker: View {
                 break
             }
         }
-        .accessibilityLabel("Provider")
+        .accessibilityLabel(AppStrings.Settings.Editor.providerAccessibility.localized(locale: locale))
         .accessibilityValue(selectedTitle)
-        .accessibilityHint("Press Space or Return to open the provider list. Use arrow keys to move through the list, then press Space or Return to select a provider.")
+        .accessibilityHint(AppStrings.Settings.Editor.providerHint.localized(locale: locale))
     }
 
     private var pickerList: some View {
@@ -121,7 +122,11 @@ struct TerminalProviderPicker: View {
                         .onMoveCommand { direction in
                             moveFocus(direction)
                         }
-                        .accessibilityValue(selection == option.value ? "Selected" : "Not selected")
+                        .accessibilityValue(
+                            selection == option.value
+                                ? AppStrings.Common.selected.localized(locale: locale)
+                                : AppStrings.Common.notSelected.localized(locale: locale)
+                        )
                     }
                 }
             }
@@ -146,7 +151,8 @@ struct TerminalProviderPicker: View {
     }
 
     private var selectedTitle: String {
-        options.first(where: { $0.value == selection })?.title ?? "Select provider"
+        options.first(where: { $0.value == selection })?.title
+            ?? AppStrings.Settings.Editor.selectProvider.localized(locale: locale)
     }
 
     private var listViewportHeight: CGFloat {

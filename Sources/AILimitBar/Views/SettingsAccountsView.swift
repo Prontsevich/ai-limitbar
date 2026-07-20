@@ -2,6 +2,7 @@ import AILimitBarCore
 import SwiftUI
 
 struct AccountsSettingsPane: View {
+    @Environment(\.locale) private var locale
     @ObservedObject var appModel: AppModel
     @Binding var editorSession: AccountEditorSession
     let onRequestAccountSelection: (String?) -> Void
@@ -22,18 +23,28 @@ struct AccountsSettingsPane: View {
         .onChange(of: accountIDs) { _, _ in
             reconcileSelection()
         }
-        .alert("Delete Account?", isPresented: $isShowingDeleteConfirmation) {
-            Button("Delete", role: .destructive, action: deleteSelectedAccount)
-            Button("Cancel", role: .cancel) {}
+        .alert(AppStrings.Settings.Accounts.deleteTitle.localized(locale: locale), isPresented: $isShowingDeleteConfirmation) {
+            Button(
+                AppStrings.Common.delete.localized(locale: locale),
+                role: .destructive,
+                action: deleteSelectedAccount
+            )
+            Button(AppStrings.Common.cancel.localized(locale: locale), role: .cancel) {}
         } message: {
-            Text("This removes \(selectedAccount?.displayName ?? "the selected account") and its stored snapshot from AI Limitbar.")
+            Text(
+                AppStrings.Settings.Accounts.deleteMessage.formatted(
+                    locale: locale,
+                    selectedAccount?.displayName
+                        ?? AppStrings.Common.selectedAccount.localized(locale: locale)
+                )
+            )
         }
     }
 
     private var accountList: some View {
         VStack(spacing: 0) {
             HStack {
-                Text("ACCOUNTS")
+                Text(AppStrings.Settings.Accounts.title.resource(locale: locale))
                     .font(TerminalTheme.legendFont)
                     .foregroundStyle(TerminalTheme.secondary)
                 Spacer()
@@ -60,7 +71,7 @@ struct AccountsSettingsPane: View {
                     .listRowInsets(EdgeInsets(top: 1, leading: 6, bottom: 1, trailing: 6))
                     .listRowBackground(Color.clear)
                     .contextMenu {
-                        Button("Move Up") {
+                        Button(AppStrings.Settings.Accounts.moveUp.localized(locale: locale)) {
                             appModel.moveAccountUp(providerID: account.providerID, accountID: account.accountID)
                         }
                         .disabled(editorSession.isDirty || !appModel.canMoveAccountUp(
@@ -68,7 +79,7 @@ struct AccountsSettingsPane: View {
                             accountID: account.accountID
                         ))
 
-                        Button("Move Down") {
+                        Button(AppStrings.Settings.Accounts.moveDown.localized(locale: locale)) {
                             appModel.moveAccountDown(providerID: account.providerID, accountID: account.accountID)
                         }
                         .disabled(editorSession.isDirty || !appModel.canMoveAccountDown(
@@ -92,8 +103,8 @@ struct AccountsSettingsPane: View {
                 Button(action: beginAdding) {
                     SettingsActionIcon(systemName: "plus")
                 }
-                .settingsIconButton(help: "Add account")
-                .accessibilityLabel("Add account")
+                .settingsIconButton(help: AppStrings.Settings.Accounts.addAccount.localized(locale: locale))
+                .accessibilityLabel(AppStrings.Settings.Accounts.addAccount.localized(locale: locale))
                 .disabled(editorSession.isDirty || !hasAvailableProvider)
 
                 Button(role: .destructive) {
@@ -101,8 +112,12 @@ struct AccountsSettingsPane: View {
                 } label: {
                     SettingsActionIcon(systemName: "minus")
                 }
-                .settingsIconButton(help: "Delete selected account")
-                .accessibilityLabel("Delete selected account")
+                .settingsIconButton(
+                    help: AppStrings.Settings.Accounts.deleteSelectedAccount.localized(locale: locale)
+                )
+                .accessibilityLabel(
+                    AppStrings.Settings.Accounts.deleteSelectedAccount.localized(locale: locale)
+                )
                 .disabled(selectedAccount == nil || editorSession.isDirty)
 
                 Spacer()
@@ -112,8 +127,16 @@ struct AccountsSettingsPane: View {
                 } label: {
                     SettingsActionIcon(systemName: "arrow.clockwise")
                 }
-                .settingsIconButton(help: appModel.isRefreshing ? "Refreshing all accounts" : "Refresh all accounts")
-                .accessibilityLabel(appModel.isRefreshing ? "Refreshing all accounts" : "Refresh all accounts")
+                .settingsIconButton(
+                    help: appModel.isRefreshing
+                        ? AppStrings.MenuBar.refreshingAllAccounts.localized(locale: locale)
+                        : AppStrings.MenuBar.refreshAllAccounts.localized(locale: locale)
+                )
+                .accessibilityLabel(
+                    appModel.isRefreshing
+                        ? AppStrings.MenuBar.refreshingAllAccounts.localized(locale: locale)
+                        : AppStrings.MenuBar.refreshAllAccounts.localized(locale: locale)
+                )
                 .disabled(appModel.isRefreshing || appModel.hasActiveProviderRefresh || !appModel.hasEnabledAccounts)
             }
             .padding(.horizontal, 14)
@@ -156,9 +179,9 @@ struct AccountsSettingsPane: View {
             }
         } else {
             ContentUnavailableView(
-                "No Account Selected",
+                AppStrings.Settings.Accounts.noAccountSelected.localized(locale: locale),
                 systemImage: "person.crop.square",
-                description: Text("Select an account or add a new one to configure it.")
+                description: Text(AppStrings.Settings.Accounts.selectOrAdd.resource(locale: locale))
             )
         }
     }

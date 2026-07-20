@@ -29,6 +29,13 @@ struct AboutBuildInformation: Equatable {
         return "Version \(shortVersion) (build \(buildNumber))"
     }
 
+    func displayText(locale: Locale) -> String {
+        guard let shortVersion, let buildNumber else {
+            return AppStrings.About.developmentBuild.localized(locale: locale)
+        }
+        return AppStrings.About.version.formatted(locale: locale, shortVersion, buildNumber)
+    }
+
     private static func normalized(_ value: String?) -> String? {
         guard let value else { return nil }
         let trimmedValue = value.trimmingCharacters(in: .whitespacesAndNewlines)

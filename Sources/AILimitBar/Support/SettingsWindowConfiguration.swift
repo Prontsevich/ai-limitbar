@@ -46,6 +46,10 @@ enum SettingsWindowConfiguration {
             height: size.height
         )
     }
+
+    static func matchesTitle(_ value: String) -> Bool {
+        value == title || value == AppStrings.Window.settingsTitle.localized(locale: Locale(identifier: "ru"))
+    }
 }
 
 enum OllamaConnectionWindowConfiguration {
@@ -58,5 +62,9 @@ enum OllamaConnectionWindowConfiguration {
             width: min(max(preferredSize.width, contentSize.width), visibleRect.width),
             height: min(max(preferredSize.height, contentSize.height), visibleRect.height)
         )
+    }
+
+    static func matchesTitle(_ value: String) -> Bool {
+        value == title || value == AppStrings.Window.ollamaTitle.localized(locale: Locale(identifier: "ru"))
     }
 }

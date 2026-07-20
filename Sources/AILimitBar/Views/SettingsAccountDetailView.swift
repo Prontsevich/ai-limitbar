@@ -5,6 +5,7 @@ import UniformTypeIdentifiers
 struct AccountDetailView: View {
     @Environment(\.openURL) private var openURL
     @Environment(\.openWindow) private var openWindow
+    @Environment(\.locale) private var locale
     @ObservedObject var appModel: AppModel
     let account: ProviderAccount
     let onEdit: () -> Void
@@ -21,30 +22,30 @@ struct AccountDetailView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
-                    TerminalFieldset(title: "STATUS") {
+                    TerminalFieldset(title: AppStrings.Settings.Detail.status.localized(locale: locale)) {
                         EmptyView()
                     } content: {
                         SettingsDetailValueRow(
-                            label: "Source",
-                            value: currentAccount.sourceMode.displayName,
+                            label: AppStrings.Settings.Detail.source.localized(locale: locale),
+                            value: currentAccount.sourceMode.localizedDisplayName(locale: locale),
                             isTechnical: true
                         )
                         SettingsDetailValueRow(
-                            label: "Refresh",
-                            value: appModel.refreshStatus(for: currentAccount).displayName
+                            label: AppStrings.Settings.Detail.refresh.localized(locale: locale),
+                            value: appModel.refreshStatus(for: currentAccount).localizedDisplayName(locale: locale)
                         )
                         SettingsDetailValueRow(
-                            label: "Last updated",
+                            label: AppStrings.Settings.Detail.lastUpdated.localized(locale: locale),
                             value: lastUpdatedText,
                             isTechnical: true
                         )
                     }
 
-                    TerminalFieldset(title: "CONFIGURATION") {
+                    TerminalFieldset(title: AppStrings.Settings.Detail.configuration.localized(locale: locale)) {
                         EmptyView()
                     } content: {
                         SettingsDetailValueRow(
-                            label: "Provider",
+                            label: AppStrings.Settings.Detail.provider.localized(locale: locale),
                             value: appModel.providerDisplayName(for: currentAccount.providerID)
                         )
                         if let executableLabel,
@@ -59,7 +60,7 @@ struct AccountDetailView: View {
                     }
 
                     if !appModel.migrationDiagnostics(for: currentAccount).isEmpty {
-                        TerminalFieldset(title: "MIGRATION") {
+                        TerminalFieldset(title: AppStrings.Settings.Detail.migration.localized(locale: locale)) {
                             EmptyView()
                         } content: {
                             ForEach(appModel.migrationDiagnostics(for: currentAccount)) { diagnostic in
@@ -75,10 +76,10 @@ struct AccountDetailView: View {
             }
             .scrollBounceBehavior(.basedOnSize)
         }
-        .alert("Ollama Connection", isPresented: connectionErrorBinding) {
-            Button("OK", role: .cancel) {}
+        .alert(AppStrings.Ollama.connectionTitle.localized(locale: locale), isPresented: connectionErrorBinding) {
+            Button(AppStrings.Common.ok.localized(locale: locale), role: .cancel) {}
         } message: {
-            Text(connectionError ?? "Ollama connection is unavailable.")
+            Text(connectionError ?? AppStrings.Ollama.unavailable.localized(locale: locale))
         }
     }
 
@@ -95,13 +96,13 @@ struct AccountDetailView: View {
 
             Spacer()
 
-            Toggle("Enabled", isOn: enabledBinding)
+            Toggle(AppStrings.Common.enabled.resource(locale: locale), isOn: enabledBinding)
                 .toggleStyle(TerminalToggleStyle())
 
             Button(action: onEdit) {
                 SettingsActionIcon(systemName: "square.and.pencil", verticalOffset: -1)
             }
-            .settingsIconButton(help: "Edit account")
+            .settingsIconButton(help: AppStrings.Settings.Detail.editAccount.localized(locale: locale))
             .frame(width: 32, height: 32)
 
             if currentAccount.providerID == "ollama-cloud",
@@ -156,7 +157,9 @@ struct AccountDetailView: View {
     }
 
     private var refreshButtonTitle: String {
-        appModel.refreshStatus(for: currentAccount) == .refreshing ? "Refreshing…" : "Refresh"
+        appModel.refreshStatus(for: currentAccount) == .refreshing
+            ? AppStrings.Settings.Detail.refreshing.localized(locale: locale)
+            : AppStrings.Common.refresh.localized(locale: locale)
     }
 
     private var usageURL: URL? {
@@ -166,9 +169,9 @@ struct AccountDetailView: View {
     private var executableLabel: String? {
         switch (currentAccount.providerID, currentAccount.sourceMode) {
         case ("openai-codex", .appServer):
-            "Codex executable"
+            AppStrings.Settings.Detail.codexExecutable.localized(locale: locale)
         case ("claude-code", .claudeUsageCLI):
-            "Claude executable"
+            AppStrings.Settings.Detail.claudeExecutable.localized(locale: locale)
         default:
             nil
         }
@@ -176,9 +179,9 @@ struct AccountDetailView: View {
 
     private var lastUpdatedText: String {
         guard let snapshot = appModel.snapshot(for: currentAccount) else {
-            return "No usage data"
+            return AppStrings.Common.noUsageData.localized(locale: locale)
         }
-        return snapshot.lastUpdatedAt.formatted(date: .abbreviated, time: .shortened)
+        return AppFormatters.shortDate(snapshot.lastUpdatedAt, locale: locale)
     }
 
     private var enabledBinding: Binding<Bool> {
@@ -195,7 +198,9 @@ struct AccountDetailView: View {
     }
 
     private var ollamaConnectionTitle: String {
-        currentAccount.webDataStoreID == nil ? "Connect Ollama" : "Reconnect Ollama"
+        currentAccount.webDataStoreID == nil
+            ? AppStrings.Settings.Detail.connectOllama.localized(locale: locale)
+            : AppStrings.Settings.Detail.reconnectOllama.localized(locale: locale)
     }
 
     private func beginOllamaConnection() {
@@ -205,7 +210,7 @@ struct AccountDetailView: View {
                   accountID: account.accountID
               )
         else {
-            connectionError = "Save the account before connecting Ollama through AI Limitbar."
+            connectionError = AppStrings.Ollama.saveBeforeConnecting.localized(locale: locale)
             return
         }
         appModel.presentOllamaConnection(for: connectedAccount)
@@ -312,6 +317,7 @@ struct AccountEditorDraft: Equatable {
 }
 
 struct AccountEditorView: View {
+    @Environment(\.locale) private var locale
     @ObservedObject var appModel: AppModel
     let account: ProviderAccount?
     @Binding var isDirty: Bool
@@ -321,8 +327,8 @@ struct AccountEditorView: View {
 
     private let initialDraft: AccountEditorDraft
     @State private var draft: AccountEditorDraft
-    @State private var helperSetupMessage: String?
-    @State private var helperSetupError: String?
+    @State private var helperInstallation: HelperInstallation?
+    @State private var helperSetupError: HelperSetupError?
     @State private var isSelectingExecutable = false
 
     init(
@@ -371,11 +377,16 @@ struct AccountEditorView: View {
             HStack {
                 Spacer()
 
-                Button("Cancel", action: onCancel)
+                Button(AppStrings.Common.cancel.localized(locale: locale), action: onCancel)
                     .buttonStyle(TerminalActionButtonStyle())
                     .keyboardShortcut(.cancelAction)
 
-                Button(account == nil ? "Create" : "Save", action: save)
+                Button(
+                    account == nil
+                        ? AppStrings.Common.create.localized(locale: locale)
+                        : AppStrings.Common.save.localized(locale: locale),
+                    action: save
+                )
                     .buttonStyle(TerminalActionButtonStyle(isProminent: true))
                     .keyboardShortcut(.defaultAction)
                     .disabled(
@@ -400,7 +411,7 @@ struct AccountEditorView: View {
             }
             .onChange(of: draft.sourceMode) { _, sourceMode in
                 if sourceMode != .claudeStatusLine {
-                    helperSetupMessage = nil
+                    helperInstallation = nil
                     helperSetupError = nil
                 }
             }
@@ -419,11 +430,19 @@ struct AccountEditorView: View {
     private var editorHeader: some View {
         HStack(alignment: .firstTextBaseline) {
             VStack(alignment: .leading, spacing: 3) {
-                Text(account == nil ? "New Account" : "Edit Account")
+                Text(
+                    account == nil
+                        ? AppStrings.Settings.Editor.newAccount.resource(locale: locale)
+                        : AppStrings.Settings.Editor.editAccount.resource(locale: locale)
+                )
                     .font(TerminalTheme.titleFont)
                     .foregroundStyle(TerminalTheme.primary)
 
-                Text(account == nil ? "Add a provider account to track its usage." : "Save to apply account configuration changes.")
+                Text(
+                    account == nil
+                        ? AppStrings.Settings.Editor.newDescription.resource(locale: locale)
+                        : AppStrings.Settings.Editor.editDescription.resource(locale: locale)
+                )
                     .font(TerminalTheme.bodyFont)
                     .foregroundStyle(TerminalTheme.secondary)
             }
@@ -435,10 +454,10 @@ struct AccountEditorView: View {
     }
 
     private var accountFieldset: some View {
-        TerminalFieldset(title: "ACCOUNT") {
+        TerminalFieldset(title: AppStrings.Settings.Editor.account.localized(locale: locale)) {
             EmptyView()
         } content: {
-            SettingsEditorValueRow("Provider") {
+            SettingsEditorValueRow(AppStrings.Settings.Editor.provider.localized(locale: locale)) {
                 if account == nil {
                     TerminalProviderPicker(
                         selection: $draft.providerID,
@@ -457,8 +476,11 @@ struct AccountEditorView: View {
             }
             .zIndex(1)
 
-            SettingsEditorValueRow("Account Name") {
-                TerminalTextField("Account Name", text: $draft.displayName)
+            SettingsEditorValueRow(AppStrings.Settings.Editor.accountName.localized(locale: locale)) {
+                TerminalTextField(
+                    AppStrings.Settings.Editor.accountName.localized(locale: locale),
+                    text: $draft.displayName
+                )
             }
 
             if let displayNameConflict {
@@ -469,11 +491,11 @@ struct AccountEditorView: View {
             }
 
             if account == nil {
-                SettingsEditorValueRow("Enabled") {
-                    Toggle("Enabled", isOn: $draft.isEnabled)
+                SettingsEditorValueRow(AppStrings.Common.enabled.localized(locale: locale)) {
+                    Toggle(AppStrings.Common.enabled.resource(locale: locale), isOn: $draft.isEnabled)
                         .labelsHidden()
                         .toggleStyle(TerminalToggleStyle())
-                        .accessibilityLabel("Enabled")
+                        .accessibilityLabel(AppStrings.Common.enabled.localized(locale: locale))
                 }
             }
         }
@@ -481,7 +503,7 @@ struct AccountEditorView: View {
     }
 
     private var sourceFieldset: some View {
-        TerminalFieldset(title: "SOURCE") {
+        TerminalFieldset(title: AppStrings.Settings.Editor.source.localized(locale: locale)) {
             EmptyView()
         } content: {
             sourceSelector
@@ -492,12 +514,15 @@ struct AccountEditorView: View {
     @ViewBuilder
     private var sourceSelector: some View {
         if draft.providerID == "claude-code" {
-            SettingsEditorValueRow("Mode") {
+            SettingsEditorValueRow(AppStrings.Settings.Editor.mode.localized(locale: locale)) {
                 TerminalSegmentedControl(
-                    "Claude Code source",
+                    AppStrings.Settings.Editor.claudeSourceAccessibility.localized(locale: locale),
                     selection: $draft.sourceMode,
                     options: [
-                        TerminalSegmentedOption(value: .manual, title: "Manual"),
+                        TerminalSegmentedOption(
+                            value: .manual,
+                            title: AppStrings.Common.manual.localized(locale: locale)
+                        ),
                         TerminalSegmentedOption(value: .claudeStatusLine, title: "statusLine"),
                         TerminalSegmentedOption(value: .claudeUsageCLI, title: "/usage CLI")
                     ]
@@ -505,8 +530,8 @@ struct AccountEditorView: View {
                 .labelsHidden()
             }
         } else if let sourceMode = configuredSourceMode {
-            SettingsEditorValueRow("Mode") {
-                Text(sourceMode.displayName)
+            SettingsEditorValueRow(AppStrings.Settings.Editor.mode.localized(locale: locale)) {
+                Text(sourceMode.localizedDisplayName(locale: locale))
                     .font(TerminalTheme.detailValueFont)
                     .foregroundStyle(TerminalTheme.primary)
             }
@@ -518,41 +543,41 @@ struct AccountEditorView: View {
         if draft.providerID == "claude-code" {
             switch draft.sourceMode {
             case .manual:
-                Text("Manual source: open the Claude usage page when you need to check plan limits. AI Limitbar does not start Claude Code or retain provider output in this mode.")
+                Text(AppStrings.Settings.Editor.manualSourceDescription.resource(locale: locale))
                     .font(TerminalTheme.captionFont)
                     .foregroundStyle(TerminalTheme.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.top, 4)
             case .claudeStatusLine:
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Claude Code statusLine helper")
+                    Text(AppStrings.Settings.Editor.statusLineTitle.resource(locale: locale))
                         .font(TerminalTheme.emphasizedBodyFont)
                         .foregroundStyle(TerminalTheme.primary)
 
-                    Text("The helper reads Claude Code's official statusLine JSON and writes local-estimate rate-limit data to AI Limitbar's managed database. No JSON path is configured or retained.")
+                    Text(AppStrings.Settings.Editor.statusLineDescription.resource(locale: locale))
                         .font(TerminalTheme.captionFont)
                         .foregroundStyle(TerminalTheme.secondary)
                         .fixedSize(horizontal: false, vertical: true)
 
-                    Button("Install or Repair Helper", action: installHelper)
+                    Button(AppStrings.Settings.Editor.installHelper.localized(locale: locale), action: installHelper)
                         .buttonStyle(TerminalActionButtonStyle())
                         .disabled(account == nil)
 
                     if account == nil {
-                        Text("Save this account first, then install its helper configuration.")
+                        Text(AppStrings.Settings.Editor.saveFirst.resource(locale: locale))
                             .font(TerminalTheme.captionFont)
                             .foregroundStyle(TerminalTheme.secondary)
                     }
 
-                    if let helperSetupMessage {
-                        Text(helperSetupMessage)
+                    if let helperInstallation {
+                        Text(helperInstallation.text(locale: locale))
                             .font(TerminalTheme.captionFont)
                             .foregroundStyle(TerminalTheme.secondary)
                             .textSelection(.enabled)
                     }
 
                     if let helperSetupError {
-                        Text(helperSetupError)
+                        Text(helperSetupError.text(locale: locale))
                             .font(TerminalTheme.captionFont)
                             .foregroundStyle(TerminalTheme.error)
                             .fixedSize(horizontal: false, vertical: true)
@@ -561,21 +586,24 @@ struct AccountEditorView: View {
                 .padding(.top, 4)
             case .claudeUsageCLI:
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Experimental source: AI Limitbar runs the authenticated local Claude Code CLI in safe non-interactive mode and retains only normalized plan-limit windows. Raw output, activity attribution, stderr, and session metadata are discarded.")
+                    Text(AppStrings.Settings.Editor.usageCLI.resource(locale: locale))
                         .font(TerminalTheme.captionFont)
                         .foregroundStyle(TerminalTheme.secondary)
                         .fixedSize(horizontal: false, vertical: true)
 
-                    SettingsEditorValueRow("Claude Path") {
-                        TerminalTextField("Claude executable path", text: $draft.executablePath)
+                    SettingsEditorValueRow(AppStrings.Settings.Editor.claudePath.localized(locale: locale)) {
+                        TerminalTextField(
+                            AppStrings.Settings.Editor.claudeExecutablePlaceholder.localized(locale: locale),
+                            text: $draft.executablePath
+                        )
                     }
 
                     HStack {
-                        Text("Leave blank to locate Claude automatically.")
+                        Text(AppStrings.Settings.Editor.leaveBlankForClaude.resource(locale: locale))
                             .font(TerminalTheme.captionFont)
                             .foregroundStyle(TerminalTheme.secondary)
                         Spacer()
-                        Button("Browse…") {
+                        Button(AppStrings.Settings.Editor.browse.localized(locale: locale)) {
                             isSelectingExecutable = true
                         }
                         .buttonStyle(TerminalActionButtonStyle())
@@ -593,28 +621,31 @@ struct AccountEditorView: View {
                 EmptyView()
             }
         } else if draft.providerID == "ollama-cloud" {
-            Text("Experimental source: AI Limitbar opens an isolated WebKit session for https://ollama.com/settings. The session is never copied from another browser, and raw page content is not stored.")
+            Text(AppStrings.Settings.Editor.ollamaSource.resource(locale: locale))
                 .font(TerminalTheme.captionFont)
                 .foregroundStyle(TerminalTheme.secondary)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.top, 4)
         } else if draft.providerID == "openai-codex" {
             VStack(alignment: .leading, spacing: 8) {
-                Text("Experimental source: AI Limitbar starts a short-lived local Codex app-server to read current rate-limit windows. It never reads Codex credentials, session files, browser data, or terminal output.")
+                Text(AppStrings.Settings.Editor.codexSource.resource(locale: locale))
                     .font(TerminalTheme.captionFont)
                     .foregroundStyle(TerminalTheme.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
-                SettingsEditorValueRow("Codex Path") {
-                    TerminalTextField("Codex executable path", text: $draft.executablePath)
+                SettingsEditorValueRow(AppStrings.Settings.Editor.codexPath.localized(locale: locale)) {
+                    TerminalTextField(
+                        AppStrings.Settings.Editor.codexExecutablePlaceholder.localized(locale: locale),
+                        text: $draft.executablePath
+                    )
                 }
 
                 HStack {
-                    Text("Leave blank to locate Codex automatically.")
+                    Text(AppStrings.Settings.Editor.leaveBlankForCodex.resource(locale: locale))
                         .font(TerminalTheme.captionFont)
                         .foregroundStyle(TerminalTheme.secondary)
                     Spacer()
-                    Button("Browse…") {
+                    Button(AppStrings.Settings.Editor.browse.localized(locale: locale)) {
                         isSelectingExecutable = true
                     }
                     .buttonStyle(TerminalActionButtonStyle())
@@ -698,7 +729,7 @@ struct AccountEditorView: View {
               )
         else { return nil }
 
-        return "Only one OpenAI Codex account can use the local app-server source because it reads the active local Codex CLI session."
+        return AppStrings.Settings.Editor.appServerConflict.localized(locale: locale)
     }
 
     private var claudeUsageCLIConflict: String? {
@@ -711,7 +742,7 @@ struct AccountEditorView: View {
               )
         else { return nil }
 
-        return "Only one Claude Code account can use /usage CLI because it reads the active local Claude CLI identity, including when the other account is disabled."
+        return AppStrings.Settings.Editor.usageCLIConflict.localized(locale: locale)
     }
 
     private var displayNameConflict: String? {
@@ -719,12 +750,12 @@ struct AccountEditorView: View {
             accountID: account?.accountID,
             displayName: draft.normalizedDisplayName
         ) else { return nil }
-        return "Account names must be globally unique, including disabled accounts."
+        return AppStrings.Settings.Editor.displayNameConflict.localized(locale: locale)
     }
 
     private func installHelper() {
         guard let account else {
-            helperSetupError = "Save the account before installing its statusLine helper."
+            helperSetupError = .saveAccountFirst
             return
         }
         do {
@@ -732,10 +763,36 @@ struct AccountEditorView: View {
             let helperURL = try installer.install()
             draft.sourceMode = .claudeStatusLine
             helperSetupError = nil
-            helperSetupMessage = "Installed at \(helperURL.path). Add this object to ~/.claude/settings.json:\n\n\(installer.settingsSnippet(helperURL: helperURL, accountID: account.accountID))"
+            helperInstallation = HelperInstallation(
+                path: helperURL.path,
+                snippet: installer.settingsSnippet(helperURL: helperURL, accountID: account.accountID)
+            )
         } catch {
-            helperSetupMessage = nil
-            helperSetupError = error.localizedDescription
+            helperInstallation = nil
+            helperSetupError = .technical(error.localizedDescription)
+        }
+    }
+}
+
+private struct HelperInstallation {
+    let path: String
+    let snippet: String
+
+    func text(locale: Locale) -> String {
+        AppStrings.Settings.Editor.helperInstalled.formatted(locale: locale, path, snippet)
+    }
+}
+
+private enum HelperSetupError {
+    case saveAccountFirst
+    case technical(String)
+
+    func text(locale: Locale) -> String {
+        switch self {
+        case .saveAccountFirst:
+            AppStrings.Settings.Editor.saveBeforeHelper.localized(locale: locale)
+        case let .technical(message):
+            message
         }
     }
 }

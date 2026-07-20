@@ -154,6 +154,7 @@ struct TerminalSegmentedOption<Selection: Hashable>: Identifiable {
 }
 
 struct TerminalSegmentedControl<Selection: Hashable>: View {
+    @Environment(\.locale) private var locale
     let accessibilityLabel: String
     @Binding var selection: Selection
     let options: [TerminalSegmentedOption<Selection>]
@@ -179,7 +180,11 @@ struct TerminalSegmentedControl<Selection: Hashable>: View {
                         .frame(maxWidth: .infinity, minHeight: 28)
                 }
                 .buttonStyle(TerminalSegmentButtonStyle(isSelected: selection == option.value))
-                .accessibilityValue(selection == option.value ? "Selected" : "Not selected")
+                .accessibilityValue(
+                    selection == option.value
+                        ? AppStrings.Common.selected.localized(locale: locale)
+                        : AppStrings.Common.notSelected.localized(locale: locale)
+                )
 
                 if index < options.count - 1 {
                     Rectangle()
@@ -203,18 +208,28 @@ struct TerminalSegmentedControl<Selection: Hashable>: View {
 }
 
 struct TerminalToggleStyle: ToggleStyle {
+    @Environment(\.locale) private var locale
+
     func makeBody(configuration: Configuration) -> some View {
         Button {
             configuration.isOn.toggle()
         } label: {
             HStack(spacing: 7) {
                 configuration.label
-                Text(configuration.isOn ? "ON" : "OFF")
+                Text(
+                    configuration.isOn
+                        ? AppStrings.Common.on.resource(locale: locale)
+                        : AppStrings.Common.off.resource(locale: locale)
+                )
                     .font(TerminalTheme.captionFont)
             }
         }
         .buttonStyle(TerminalToggleButtonStyle(isOn: configuration.isOn))
-        .accessibilityValue(configuration.isOn ? "On" : "Off")
+        .accessibilityValue(
+            configuration.isOn
+                ? AppStrings.Common.onAccessibility.localized(locale: locale)
+                : AppStrings.Common.offAccessibility.localized(locale: locale)
+        )
     }
 }
 

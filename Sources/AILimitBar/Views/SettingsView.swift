@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct SettingsView: View {
+    @Environment(\.locale) private var locale
     @ObservedObject var appModel: AppModel
     @ObservedObject var appLanguagePreference: AppLanguagePreference
     @State private var workspace = SettingsWorkspaceState()
@@ -8,7 +9,7 @@ struct SettingsView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if let warning = appModel.storageWarning {
+            if let warning = appModel.localizedStorageWarning(locale: locale) {
                 Label(warning, systemImage: "externaldrive.badge.exclamationmark")
                     .font(TerminalTheme.bodyFont)
                     .foregroundStyle(TerminalTheme.warning)
@@ -27,17 +28,17 @@ struct SettingsView: View {
         .frame(minWidth: 760, idealWidth: 840, minHeight: 500, idealHeight: 560)
         .font(TerminalTheme.bodyFont)
         .tint(TerminalTheme.primary)
-        .alert("Discard Changes?", isPresented: $workspace.isShowingDiscardConfirmation) {
-            Button("Discard Changes", role: .destructive) {
+        .alert(AppStrings.Settings.Accounts.discardTitle.localized(locale: locale), isPresented: $workspace.isShowingDiscardConfirmation) {
+            Button(AppStrings.Settings.Accounts.discard.localized(locale: locale), role: .destructive) {
                 guard let pendingNavigation = workspace.pendingNavigation else { return }
                 applyNavigation(pendingNavigation)
                 workspace.pendingNavigation = nil
             }
-            Button("Keep Editing", role: .cancel) {
+            Button(AppStrings.Settings.Accounts.keepEditing.localized(locale: locale), role: .cancel) {
                 workspace.pendingNavigation = nil
             }
         } message: {
-            Text("Your account changes have not been saved.")
+            Text(AppStrings.Settings.Accounts.discardMessage.resource(locale: locale))
         }
         .onAppear {
             AppTelemetry.lifecycle.info("Settings appeared")
@@ -49,10 +50,10 @@ struct SettingsView: View {
 
     private var sectionNavigation: some View {
         TerminalSegmentedControl(
-            "Settings Section",
+            AppStrings.Settings.Navigation.label.localized(locale: locale),
             selection: $workspace.selection,
             options: SettingsSection.allCases.map {
-                TerminalSegmentedOption(value: $0, title: $0.title)
+                TerminalSegmentedOption(value: $0, title: $0.localizedTitle(locale: locale))
             }
         )
         .labelsHidden()
@@ -186,7 +187,7 @@ enum SettingsSection: String, CaseIterable, Hashable, Identifiable {
         switch self {
         case .general: "General"
         case .accounts: "Accounts"
-        case .providerSetup: "Provider Setup"
+        case .providerSetup: "Providers"
         }
     }
 }

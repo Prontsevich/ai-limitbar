@@ -17,34 +17,32 @@ struct DashboardLimitWindowPresentation: Identifiable, Equatable {
     let displayName: String
     let usedPercent: Double
     let usedText: String
+    let accessibilityLabel: String
     let resetText: String?
-
-    var accessibilityLabel: String {
-        "\(displayName) usage"
-    }
 
     var accessibilityValue: String {
         usedText
     }
 
-    init?(window: UsageLimitWindow, now: Date) {
+    init?(window: UsageLimitWindow, now: Date, locale: Locale) {
         guard let usedPercent = window.usedPercent else { return nil }
 
         id = window.id
         displayName = window.displayName
         self.usedPercent = usedPercent
-        usedText = "\(Int(usedPercent.rounded()))% used"
-        resetText = Self.resetText(for: window.resetAt, now: now)
+        let formattedPercent = AppFormatters.percentage(usedPercent, locale: locale)
+        usedText = AppStrings.Dashboard.used.formatted(locale: locale, formattedPercent)
+        accessibilityLabel = AppStrings.Dashboard.windowUsage.formatted(locale: locale, displayName)
+        resetText = Self.resetText(for: window.resetAt, now: now, locale: locale)
     }
 
-    private static func resetText(for resetAt: Date?, now: Date) -> String? {
+    private static func resetText(for resetAt: Date?, now: Date, locale: Locale) -> String? {
         guard let resetAt else { return nil }
 
-        let formatter = RelativeDateTimeFormatter()
-        formatter.locale = Locale(identifier: "en_US")
-        formatter.unitsStyle = .full
-        let relativeText = formatter.localizedString(for: resetAt, relativeTo: now)
-        return resetAt >= now ? "resets \(relativeText)" : "reset \(relativeText)"
+        let relativeText = AppFormatters.relativeDate(resetAt, relativeTo: now, locale: locale)
+        return resetAt >= now
+            ? AppStrings.Dashboard.resets.formatted(locale: locale, relativeText)
+            : AppStrings.Dashboard.reset.formatted(locale: locale, relativeText)
     }
 }
 
@@ -62,7 +60,8 @@ struct DashboardAccountPresentation: Equatable {
         row: AccountSnapshotRow,
         isStale: Bool,
         isGlobalRefresh: Bool,
-        now: Date = Date()
+        now: Date = Date(),
+        locale: Locale = Locale(identifier: "en_US")
     ) {
         accountName = row.account.displayName
         isRefreshing = row.refreshStatus == .refreshing
@@ -71,13 +70,18 @@ struct DashboardAccountPresentation: Equatable {
             accountName: row.account.displayName,
             isEnabled: row.account.isEnabled,
             isGlobalRefresh: isGlobalRefresh,
-            isRefreshing: isRefreshing
+            isRefreshing: isRefreshing,
+            locale: locale
         )
 
         let snapshot = row.snapshot
         let resolvedState = Self.state(for: row, isStale: isStale)
         let visibleWindows = snapshot?.displayLimitWindows.compactMap {
-            DashboardLimitWindowPresentation(window: $0, now: now)
+            DashboardLimitWindowPresentation(
+                window: $0,
+                now: now,
+                locale: locale
+            )
         } ?? []
         state = resolvedState
         windows = switch resolvedState {
@@ -88,12 +92,14 @@ struct DashboardAccountPresentation: Equatable {
         }
         statusText = Self.statusText(
             for: resolvedState,
-            limitWindows: snapshot?.displayLimitWindows ?? []
+            limitWindows: snapshot?.displayLimitWindows ?? [],
+            locale: locale
         )
         bodyMessage = Self.bodyMessage(
             for: resolvedState,
             snapshot: snapshot,
-            hasVisibleWindows: !windows.isEmpty
+            hasVisibleWindows: !windows.isEmpty,
+            locale: locale
         )
     }
 
@@ -132,15 +138,18 @@ struct DashboardAccountPresentation: Equatable {
 
     private static func statusText(
         for state: DashboardAccountState,
-        limitWindows: [UsageLimitWindow]
+        limitWindows: [UsageLimitWindow],
+        locale: Locale
     ) -> String? {
         switch state {
         case .failed:
-            "Refresh failed"
+            AppStrings.Dashboard.refreshFailed.localized(locale: locale)
         case .stale:
-            "Stale"
+            AppStrings.Common.stale.localized(locale: locale)
         case .warning:
-            limitWindows.contains { ($0.usedPercent ?? 0) >= 85 } ? nil : "Warning"
+            limitWindows.contains { ($0.usedPercent ?? 0) >= 85 }
+                ? nil
+                : AppStrings.Common.warning.localized(locale: locale)
         case .normal, .refreshing, .manual, .unavailable, .noData:
             nil
         }
@@ -149,19 +158,24 @@ struct DashboardAccountPresentation: Equatable {
     private static func bodyMessage(
         for state: DashboardAccountState,
         snapshot: UsageSnapshot?,
-        hasVisibleWindows: Bool
+        hasVisibleWindows: Bool,
+        locale: Locale
     ) -> String? {
         switch state {
         case .manual:
-            "Manual source — open provider usage"
+            AppStrings.Dashboard.manualSource.localized(locale: locale)
         case .unavailable:
-            snapshot?.remainingLabel ?? "Usage unavailable"
+            snapshot?.remainingLabel ?? AppStrings.Common.usageUnavailable.localized(locale: locale)
         case .noData:
-            "No usage data"
+            AppStrings.Dashboard.noData.localized(locale: locale)
         case .failed:
-            hasVisibleWindows ? nil : snapshot?.remainingLabel ?? "Refresh failed"
+            hasVisibleWindows
+                ? nil
+                : snapshot?.remainingLabel ?? AppStrings.Dashboard.refreshFailedFallback.localized(locale: locale)
         case .normal, .refreshing, .stale, .warning:
-            hasVisibleWindows ? nil : snapshot?.remainingLabel ?? "Usage unavailable"
+            hasVisibleWindows
+                ? nil
+                : snapshot?.remainingLabel ?? AppStrings.Common.usageUnavailable.localized(locale: locale)
         }
     }
 
@@ -169,17 +183,18 @@ struct DashboardAccountPresentation: Equatable {
         accountName: String,
         isEnabled: Bool,
         isGlobalRefresh: Bool,
-        isRefreshing: Bool
+        isRefreshing: Bool,
+        locale: Locale
     ) -> String {
         if !isEnabled {
-            return "\(accountName) is disabled."
+            return AppStrings.Dashboard.accountDisabled.formatted(locale: locale, accountName)
         }
         if isGlobalRefresh {
-            return "Refreshing all accounts."
+            return AppStrings.MenuBar.refreshingAllAccounts.localized(locale: locale)
         }
         if isRefreshing {
-            return "Refreshing \(accountName)."
+            return AppStrings.Dashboard.refreshingAccount.formatted(locale: locale, accountName)
         }
-        return "Refresh \(accountName)"
+        return AppStrings.Dashboard.refreshAccount.formatted(locale: locale, accountName)
     }
 }
