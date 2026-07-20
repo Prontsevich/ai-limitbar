@@ -19,19 +19,33 @@ enum AppFormatters {
         return formatter.localizedString(for: date, relativeTo: referenceDate)
     }
 
-    static func preciseDate(_ date: Date, locale: Locale) -> String {
+    static func preciseDate(
+        _ date: Date,
+        locale: Locale,
+        timeZone: TimeZone? = nil
+    ) -> String {
         let formatter = DateFormatter()
         formatter.locale = locale
         formatter.dateStyle = .medium
         formatter.timeStyle = .medium
+        if let timeZone {
+            formatter.timeZone = timeZone
+        }
         return formatter.string(from: date)
     }
 
-    static func shortDate(_ date: Date, locale: Locale) -> String {
+    static func shortDate(
+        _ date: Date,
+        locale: Locale,
+        timeZone: TimeZone? = nil
+    ) -> String {
         let formatter = DateFormatter()
         formatter.locale = locale
         formatter.dateStyle = .medium
         formatter.timeStyle = .short
+        if let timeZone {
+            formatter.timeZone = timeZone
+        }
         return formatter.string(from: date)
     }
 }

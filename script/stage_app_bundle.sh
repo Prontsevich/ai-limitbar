@@ -168,6 +168,29 @@ PLIST
 /usr/libexec/PlistBuddy -c "Merge $ASSET_INFO_PLIST" "$INFO_PLIST"
 rm -f "$ASSET_INFO_PLIST"
 
+[[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleDevelopmentRegion' "$INFO_PLIST")" == "en" ]] || {
+  echo "error: staged bundle must use English as its development region" >&2
+  exit 1
+}
+[[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleLocalizations:0' "$INFO_PLIST")" == "en" ]] || {
+  echo "error: staged bundle is missing English localization metadata" >&2
+  exit 1
+}
+[[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleLocalizations:1' "$INFO_PLIST")" == "ru" ]] || {
+  echo "error: staged bundle is missing Russian localization metadata" >&2
+  exit 1
+}
+
+for localization in en ru; do
+  built_strings="$BUILD_DIRECTORY/$APP_RESOURCE_BUNDLE/$localization.lproj/Localizable.strings"
+  staged_strings="$APP_RESOURCES/$localization.lproj/Localizable.strings"
+  /usr/bin/plutil -lint "$staged_strings" >/dev/null
+  cmp -s "$built_strings" "$staged_strings" || {
+    echo "error: staged $localization localization table differs from the built resource" >&2
+    exit 1
+  }
+done
+
 if [[ -n "$VERSION" ]]; then
   /usr/libexec/PlistBuddy -c "Add :CFBundleShortVersionString string $VERSION" "$INFO_PLIST"
   /usr/libexec/PlistBuddy -c "Add :CFBundleVersion string $VERSION" "$INFO_PLIST"

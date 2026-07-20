@@ -49,6 +49,8 @@ final class DashboardAccountPresentationTests: XCTestCase {
         XCTAssertTrue(presentation.windows[0].usedText.contains("35,4"))
         XCTAssertTrue(presentation.windows[0].usedText.hasPrefix("Ушло"))
         XCTAssertEqual(presentation.windows[0].accessibilityValue, presentation.windows[0].usedText)
+        XCTAssertEqual(snapshot.limitWindows[0].usedPercent, 35.4)
+        XCTAssertEqual(snapshot.limitWindows[0].displayName, "Weekly")
     }
 
     func testUsageWindowOmitsFractionForWholePercentages() {

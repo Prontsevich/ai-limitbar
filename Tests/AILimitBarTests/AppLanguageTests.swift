@@ -1,3 +1,4 @@
+import AILimitBarCore
 import Foundation
 import XCTest
 @testable import AILimitBar
@@ -50,6 +51,31 @@ final class AppLanguageTests: XCTestCase {
         XCTAssertEqual(restoredPreference.effectiveLocale.identifier, "ru")
     }
 
+    func testEveryLanguageSelectionPersistsAcrossRelaunch() {
+        let (userDefaults, suiteName) = makeUserDefaults()
+        defer { userDefaults.removePersistentDomain(forName: suiteName) }
+
+        for language in AppLanguage.allCases {
+            let preference = AppLanguagePreference(
+                userDefaults: userDefaults,
+                systemLocaleProvider: { Locale(identifier: "ru_BY") }
+            )
+            preference.select(language)
+
+            XCTAssertEqual(userDefaults.string(forKey: AppLanguage.storageKey), language.rawValue)
+
+            let restoredPreference = AppLanguagePreference(
+                userDefaults: userDefaults,
+                systemLocaleProvider: { Locale(identifier: "ru_BY") }
+            )
+            XCTAssertEqual(restoredPreference.language, language)
+            XCTAssertEqual(
+                restoredPreference.effectiveLocale.identifier,
+                language.resolvedLocale(systemLocale: Locale(identifier: "ru_BY")).identifier
+            )
+        }
+    }
+
     func testSystemDefaultRefreshesItsEffectiveLocale() {
         let (userDefaults, suiteName) = makeUserDefaults()
         defer { userDefaults.removePersistentDomain(forName: suiteName) }
@@ -64,6 +90,24 @@ final class AppLanguageTests: XCTestCase {
         preference.refreshSystemLocale()
 
         XCTAssertEqual(preference.effectiveLocale.identifier, "en_GB")
+    }
+
+    func testExplicitLanguageIgnoresSystemLocaleRefresh() {
+        let (userDefaults, suiteName) = makeUserDefaults()
+        defer { userDefaults.removePersistentDomain(forName: suiteName) }
+
+        var systemLocale = Locale(identifier: "en_US")
+        let preference = AppLanguagePreference(
+            userDefaults: userDefaults,
+            systemLocaleProvider: { systemLocale }
+        )
+        preference.select(.russian)
+
+        systemLocale = Locale(identifier: "en_GB")
+        preference.refreshSystemLocale()
+
+        XCTAssertEqual(preference.language, .russian)
+        XCTAssertEqual(preference.effectiveLocale.identifier, "ru")
     }
 
     func testSelectionImmediatelyChangesLocalizedPresentation() {
@@ -89,6 +133,40 @@ final class AppLanguageTests: XCTestCase {
             AppStrings.Settings.Language.title.localized(locale: preference.effectiveLocale),
             "ЯЗЫК"
         )
+    }
+
+    func testLanguageSelectionPreservesDashboardAndRefreshPreferencesAcrossRelaunch() throws {
+        let (userDefaults, suiteName) = makeUserDefaults()
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("AppLanguageTests.\(UUID().uuidString)", isDirectory: true)
+        defer {
+            userDefaults.removePersistentDomain(forName: suiteName)
+            try? FileManager.default.removeItem(at: directory)
+        }
+
+        userDefaults.set(DashboardHeightPreset.tall.rawValue, forKey: DashboardHeightPreset.storageKey)
+        let preference = AppLanguagePreference(
+            userDefaults: userDefaults,
+            systemLocaleProvider: { Locale(identifier: "en_US") }
+        )
+        let model = AppModel(storageDirectory: directory)
+
+        model.setRefreshInterval(.thirtyMinutes)
+        preference.select(.russian)
+
+        let restoredPreference = AppLanguagePreference(
+            userDefaults: userDefaults,
+            systemLocaleProvider: { Locale(identifier: "en_US") }
+        )
+        let restoredModel = AppModel(storageDirectory: directory)
+
+        XCTAssertEqual(restoredPreference.language, .russian)
+        XCTAssertEqual(restoredPreference.effectiveLocale.identifier, "ru")
+        XCTAssertEqual(
+            userDefaults.string(forKey: DashboardHeightPreset.storageKey),
+            DashboardHeightPreset.tall.rawValue
+        )
+        XCTAssertEqual(restoredModel.refreshSettings.interval, .thirtyMinutes)
     }
 
     private func makeUserDefaults() -> (UserDefaults, String) {

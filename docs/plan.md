@@ -877,6 +877,13 @@ stable are:
   script places both `en.lproj` and `ru.lproj` directly in
   `AILimitBar.app/Contents/Resources` so normal SwiftUI and Foundation lookup
   work from the shipped app.
+- Automated localization regression coverage parses both catalogs and requires
+  matching non-empty key/value sets plus compatible format placeholders. It
+  checks English fallback for unsupported locales, durable `AppLanguage`
+  selection without disturbing refresh or dashboard preferences, locale-aware
+  presentation formatting, and the staged bundle's localization metadata and
+  copied resources. These checks use only synthetic values and complement,
+  rather than replace, staged visual and interaction QA.
 - `AppLanguage` stores only `system`, `en`, or `ru` in `UserDefaults`. System
   Default follows the current system locale, while explicit English and Russian
   use their corresponding locales. One app-wide preference object injects the
