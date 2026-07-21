@@ -2,18 +2,24 @@
 set -euo pipefail
 
 usage() {
-  echo "usage: $0 MAJOR.MINOR.PATCH arm64|x86_64" >&2
+  echo "usage: $0 MAJOR.MINOR.PATCH BUILD_NUMBER arm64|x86_64" >&2
 }
 
-if [[ $# -ne 2 ]]; then
+if [[ $# -ne 3 ]]; then
   usage
   exit 2
 fi
 
 VERSION="$1"
-ARCHITECTURE="$2"
+BUILD_NUMBER="$2"
+ARCHITECTURE="$3"
 if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   echo "error: version must use MAJOR.MINOR.PATCH with numeric components" >&2
+  exit 2
+fi
+
+if [[ ! "$BUILD_NUMBER" =~ ^[0-9]+(\.[0-9]+){0,2}$ ]]; then
+  echo "error: build number must use one to three numeric components" >&2
   exit 2
 fi
 
@@ -42,6 +48,7 @@ trap cleanup EXIT
 "$ROOT_DIR/script/stage_app_bundle.sh" \
   --configuration release \
   --version "$VERSION" \
+  --build-number "$BUILD_NUMBER" \
   --arch "$ARCHITECTURE"
 
 assert_equal() {
@@ -80,7 +87,7 @@ validate_app_bundle() {
 
   assert_equal "$EXPECTED_BUNDLE_ID" "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$bundle_info")" "bundle identifier"
   assert_equal "$VERSION" "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$bundle_info")" "short version"
-  assert_equal "$VERSION" "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$bundle_info")" "bundle version"
+  assert_equal "$BUILD_NUMBER" "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$bundle_info")" "bundle version"
   assert_equal "15.0" "$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' "$bundle_info")" "minimum system version"
   assert_equal "en" "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleDevelopmentRegion' "$bundle_info")" "development region"
   assert_equal "AppIcon" "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIconFile' "$bundle_info")" "app icon file"

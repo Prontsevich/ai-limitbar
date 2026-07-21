@@ -937,8 +937,10 @@ archives.
   the bundle ad-hoc, and creates an architecture-specific
   `AILimitBar-<version>-<arch>.zip` with `ditto --keepParent`.
 - [x] Give the staged bundle explicit `CFBundleShortVersionString` and
-  `CFBundleVersion` values derived from the release version, without changing
-  the existing local build-and-run workflow.
+  `CFBundleVersion` values without changing the existing local build-and-run
+  workflow. The former is the release's `MAJOR.MINOR.PATCH` version; the latter
+  is `YYYYMMDD.<commit-count>`, derived from the UTC creation date of an
+  annotated release tag and its target commit.
 - [x] Add a GitHub Actions release workflow with a manual package-validation
   path and a version-tag publication path. Use the `macos-26` runner, run
   `swift test`, build `arm64` and `x86_64`, create both architecture-specific

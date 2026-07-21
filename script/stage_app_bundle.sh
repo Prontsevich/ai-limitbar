@@ -8,10 +8,11 @@ HELPER_NAME="AILimitBarClaudeStatusLine"
 
 CONFIGURATION="debug"
 VERSION=""
+BUILD_NUMBER=""
 ARCHITECTURE=""
 
 usage() {
-  echo "usage: $0 [--configuration debug|release] [--version MAJOR.MINOR.PATCH] [--arch arm64|x86_64]" >&2
+  echo "usage: $0 [--configuration debug|release] [--version MAJOR.MINOR.PATCH --build-number BUILD] [--arch arm64|x86_64]" >&2
 }
 
 while [[ $# -gt 0 ]]; do
@@ -24,6 +25,11 @@ while [[ $# -gt 0 ]]; do
     --version)
       [[ $# -ge 2 ]] || { usage; exit 2; }
       VERSION="$2"
+      shift 2
+      ;;
+    --build-number)
+      [[ $# -ge 2 ]] || { usage; exit 2; }
+      BUILD_NUMBER="$2"
       shift 2
       ;;
     --arch)
@@ -49,6 +55,16 @@ esac
 
 if [[ -n "$VERSION" && ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   echo "error: version must use MAJOR.MINOR.PATCH with numeric components" >&2
+  exit 2
+fi
+
+if [[ -n "$BUILD_NUMBER" && ! "$BUILD_NUMBER" =~ ^[0-9]+(\.[0-9]+){0,2}$ ]]; then
+  echo "error: build number must use one to three numeric components" >&2
+  exit 2
+fi
+
+if [[ -n "$VERSION" && -z "$BUILD_NUMBER" ]] || [[ -z "$VERSION" && -n "$BUILD_NUMBER" ]]; then
+  echo "error: version and build number must be provided together" >&2
   exit 2
 fi
 
@@ -193,7 +209,7 @@ done
 
 if [[ -n "$VERSION" ]]; then
   /usr/libexec/PlistBuddy -c "Add :CFBundleShortVersionString string $VERSION" "$INFO_PLIST"
-  /usr/libexec/PlistBuddy -c "Add :CFBundleVersion string $VERSION" "$INFO_PLIST"
+  /usr/libexec/PlistBuddy -c "Add :CFBundleVersion string $BUILD_NUMBER" "$INFO_PLIST"
 fi
 
 /usr/bin/plutil -lint "$INFO_PLIST" >/dev/null

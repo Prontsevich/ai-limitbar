@@ -29,6 +29,7 @@ jobs:
     timeout-minutes: 30
     outputs:
       version: ${{ steps.version.outputs.version }}
+      build_number: ${{ steps.version.outputs.build_number }}
       artifact: ${{ steps.version.outputs.artifact }}
 
     steps:
@@ -47,12 +48,23 @@ jobs:
         run: |
           if [[ "$EVENT_NAME" == "push" ]]; then
             version="${REF_NAME#v}"
-            if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
-              echo "error: release tag must point to a commit contained in main" >&2
+            if [[ "$(git cat-file -t "$REF_NAME")" != "tag" ]]; then
+              echo "error: release tag must be annotated" >&2
               exit 1
             fi
+
+            release_commit="$(git rev-parse "$REF_NAME^{}")"
+            main_commit="$(git rev-parse origin/main)"
+            if [[ "$release_commit" != "$main_commit" ]]; then
+              echo "error: release tag must point to the current main commit" >&2
+              exit 1
+            fi
+
+            tag_date="$(TZ=UTC git for-each-ref --format='%(taggerdate:format:%Y%m%d)' "refs/tags/$REF_NAME")"
           else
             version="$INPUT_VERSION"
+            release_commit="$(git rev-parse HEAD)"
+            tag_date="$(date -u +%Y%m%d)"
           fi
 
           if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
@@ -60,7 +72,10 @@ jobs:
             exit 2
           fi
 
+          commit_count="$(git rev-list --count "$release_commit")"
+          build_number="$tag_date.$commit_count"
           echo "version=$version" >>"$GITHUB_OUTPUT"
+          echo "build_number=$build_number" >>"$GITHUB_OUTPUT"
           echo "artifact=AILimitBar-$version-packages" >>"$GITHUB_OUTPUT"
 
       - name: Report toolchain
@@ -74,8 +89,8 @@ jobs:
 
       - name: Build release archives
         run: |
-          ./script/package_release.sh "${{ steps.version.outputs.version }}" arm64
-          ./script/package_release.sh "${{ steps.version.outputs.version }}" x86_64
+          ./script/package_release.sh "${{ steps.version.outputs.version }}" "${{ steps.version.outputs.build_number }}" arm64
+          ./script/package_release.sh "${{ steps.version.outputs.version }}" "${{ steps.version.outputs.build_number }}" x86_64
 
       - name: Upload package artifact
         uses: actions/upload-artifact@v7

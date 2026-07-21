@@ -489,10 +489,15 @@ The GitHub Actions workflow runs its package job on `macos-26` with read-only
 repository contents permission and builds both supported architectures.
 A manual dispatch produces a temporary Actions artifact containing both
 architecture-specific ZIPs for pre-release validation. A
-`vMAJOR.MINOR.PATCH` tag pointing to a commit contained in `main` unlocks a
-separate job with `contents: write`; that job publishes both already verified
-ZIPs through GitHub CLI with generated notes. The version tag supplies both
-archive names and app bundle version metadata. The first published tag is
+An annotated `vMAJOR.MINOR.PATCH` tag pointing to the current `main` commit
+unlocks a separate job with `contents: write`; that job publishes both already
+verified ZIPs through GitHub CLI with generated notes. The tag supplies the
+archive names and the user-facing `CFBundleShortVersionString`. Its UTC creation
+date and the tagged commit's history count produce the reproducible
+`CFBundleVersion` value `YYYYMMDD.<commit-count>`. Both architectures for one
+release receive the same build number. Manual package validation has no tag, so
+it uses the UTC workflow date with the checked-out commit's history count; its
+artifact is never published as a GitHub Release. The first published tag is
 `v0.1.0`, which created the original Apple Silicon archive.
 
 ### About AI Limitbar
