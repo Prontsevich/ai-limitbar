@@ -2,37 +2,52 @@ import SwiftUI
 
 @main
 struct AILimitBarApp: App {
-    @StateObject private var appModel: AppModel
-    @StateObject private var appLanguagePreference: AppLanguagePreference
-    @StateObject private var menuBarStatusItemController: MenuBarStatusItemController
+    @StateObject private var runtime: AppRuntime
 
     init() {
-        let ollamaClient = OllamaWebPageClientController()
-        let launchOptions = AppLaunchOptions()
-        let languagePreference = AppLanguagePreference()
-        let model = AppModel(
-            ollamaWebPageClient: ollamaClient,
-            storageDirectory: launchOptions.storageDirectory
-        )
-        _appModel = StateObject(wrappedValue: model)
-        _appLanguagePreference = StateObject(wrappedValue: languagePreference)
-        _menuBarStatusItemController = StateObject(
-            wrappedValue: MenuBarStatusItemController(
-                appModel: model,
-                appLanguagePreference: languagePreference
-            )
-        )
+        _runtime = StateObject(wrappedValue: AppRuntime())
     }
 
+    @SceneBuilder
     var body: some Scene {
+#if DEBUG
         Window(
-            AppStrings.Window.settingsTitle.localized(locale: appLanguagePreference.effectiveLocale),
+            "AI Limitbar UI Test Host — \(runtime.uiTestHostConfiguration?.scenario.rawValue ?? "disabled")",
+            id: UITestHostConfiguration.windowID
+        ) {
+            if let configuration = runtime.uiTestHostConfiguration,
+               let session = runtime.uiTestHostSession {
+                UITestHostRootView(
+                    appModel: runtime.appModel,
+                    appLanguagePreference: runtime.appLanguagePreference,
+                    configuration: configuration,
+                    userDefaults: session.userDefaults
+                )
+            } else {
+                EmptyView()
+            }
+        }
+        .defaultLaunchBehavior(
+            runtime.uiTestHostConfiguration == nil ? .suppressed : .presented
+        )
+        .restorationBehavior(.disabled)
+        .windowResizability(.contentSize)
+#endif
+        productionScenes
+    }
+
+    @SceneBuilder
+    private var productionScenes: some Scene {
+        Window(
+            AppStrings.Window.settingsTitle.localized(
+                locale: runtime.appLanguagePreference.effectiveLocale
+            ),
             id: SettingsWindowConfiguration.id
         ) {
-            AppLocaleScope(languagePreference: appLanguagePreference) {
+            AppLocaleScope(languagePreference: runtime.appLanguagePreference) {
                 SettingsView(
-                    appModel: appModel,
-                    appLanguagePreference: appLanguagePreference
+                    appModel: runtime.appModel,
+                    appLanguagePreference: runtime.appLanguagePreference
                 )
             }
                 .windowMinimizeBehavior(.disabled)
@@ -52,11 +67,13 @@ struct AILimitBarApp: App {
         }
 
         Window(
-            AppStrings.Window.ollamaTitle.localized(locale: appLanguagePreference.effectiveLocale),
+            AppStrings.Window.ollamaTitle.localized(
+                locale: runtime.appLanguagePreference.effectiveLocale
+            ),
             id: OllamaConnectionWindowConfiguration.id
         ) {
-            AppLocaleScope(languagePreference: appLanguagePreference) {
-                OllamaWebPageConnectionWindow(appModel: appModel)
+            AppLocaleScope(languagePreference: runtime.appLanguagePreference) {
+                OllamaWebPageConnectionWindow(appModel: runtime.appModel)
             }
                 .windowMinimizeBehavior(.disabled)
                 .windowResizeBehavior(.disabled)

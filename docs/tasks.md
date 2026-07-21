@@ -1197,6 +1197,54 @@ menu-bar-only `LSUIElement`; interactive visual verification of every menu-bar
 surface requires a macOS GUI session and is not inferred from process or test
 checks.
 
+## Milestone 23.1: Regular-Window UI Verification Host
+
+Goal: make app-owned dashboard and Settings UI directly inspectable without
+changing the production menu-bar bundle or using real provider integrations.
+
+- [x] Add a debug-only runtime and regular-window host that reuse the production
+  executable, `MenuBarPanelView`, `SettingsView`, localization, and dashboard
+  keyboard responder.
+- [x] Add deterministic empty, healthy, mixed-state, Settings, and dirty-editor
+  scenarios backed only by scripted synthetic adapters and isolated GRDB and
+  `UserDefaults` state.
+- [x] Stage `AILimitBarUITestHost.app` with a distinct bundle ID,
+  `AILimitBarTest` process, `LSUIElement=false`, copied resources, and an ad-hoc
+  signature. Preserve production bundle metadata and release staging.
+- [x] Add typed launch configuration, stable language-independent AX
+  identifiers, a public launcher command, lifecycle cleanup, unit coverage, and
+  the command/coverage contract in `docs/ui-test-host.md`.
+- [x] Verify the host through Computer Use without extending its claims to the
+  production status item, popover anchoring, `LSUIElement` behavior, WebKit, or
+  real providers.
+
+Implementation verification (2026-07-21): `swift build` passed and the full
+167-test `swift test` suite passed with no failures. The existing
+`./script/build_and_run.sh --verify` app-layer and Launch Services smoke path
+passed. Host and production bundle metadata, resources, signatures, distinct
+process names, concurrent launch, host-only termination, normal launcher wait,
+and temporary-state cleanup were checked directly.
+
+Computer Use obtained complete AX trees and screenshots from the host bundle ID.
+It verified `dashboard-empty` in EN/Light; `dashboard-healthy` in EN/Dark,
+including meter value toggle, `Tab`/`Return`/`Escape`, and dashboard-to-Settings
+switching; and `dashboard-mixed` in RU/Light/Compact, including healthy, warning,
+stale, failed, manual, no-data, long-name, Info popover, and scrolling states.
+It verified `settings` in EN/Light/Tall across Accounts, General, Providers, and
+a limit-display preference change. It verified `settings-dirty-editor` in
+RU/Dark by changing the account name, attempting section navigation, reading the
+discard alert and its stable action identifiers, and discarding the edit. Direct
+bundle launch also resolved to the documented EN/Dark/Standard healthy defaults.
+
+Acceptance:
+
+- App-owned dashboard and Settings behavior can be exercised through a regular
+  AX-inspectable window with deterministic, privacy-safe state.
+- The production `AILimitBar.app`, status item lifecycle, provider clients, and
+  release workflow remain unchanged.
+- Host data and preferences are unique per launch and removed after normal exit;
+  the launcher removes its exact temporary directory as a fallback.
+
 ## Future Directions And Execution Boundary
 
 Detailed unfinished scope is maintained privately in Linear. Public high-level

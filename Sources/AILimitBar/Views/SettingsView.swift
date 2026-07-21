@@ -4,8 +4,18 @@ struct SettingsView: View {
     @Environment(\.locale) private var locale
     @ObservedObject var appModel: AppModel
     @ObservedObject var appLanguagePreference: AppLanguagePreference
-    @State private var workspace = SettingsWorkspaceState()
+    @State private var workspace: SettingsWorkspaceState
     @State private var workspaceGeneration = UUID()
+
+    init(
+        appModel: AppModel,
+        appLanguagePreference: AppLanguagePreference,
+        initialWorkspace: SettingsWorkspaceState = SettingsWorkspaceState()
+    ) {
+        self.appModel = appModel
+        self.appLanguagePreference = appLanguagePreference
+        _workspace = State(initialValue: initialWorkspace)
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -34,9 +44,11 @@ struct SettingsView: View {
                 applyNavigation(pendingNavigation)
                 workspace.pendingNavigation = nil
             }
+            .accessibilityIdentifier("settings.discard")
             Button(AppStrings.Settings.Accounts.keepEditing.localized(locale: locale), role: .cancel) {
                 workspace.pendingNavigation = nil
             }
+            .accessibilityIdentifier("settings.keep-editing")
         } message: {
             Text(AppStrings.Settings.Accounts.discardMessage.resource(locale: locale))
         }
@@ -53,7 +65,11 @@ struct SettingsView: View {
             AppStrings.Settings.Navigation.label.localized(locale: locale),
             selection: $workspace.selection,
             options: SettingsSection.allCases.map {
-                TerminalSegmentedOption(value: $0, title: $0.localizedTitle(locale: locale))
+                TerminalSegmentedOption(
+                    value: $0,
+                    title: $0.localizedTitle(locale: locale),
+                    accessibilityIdentifier: "settings.navigation.\($0.rawValue)"
+                )
             }
         )
         .labelsHidden()

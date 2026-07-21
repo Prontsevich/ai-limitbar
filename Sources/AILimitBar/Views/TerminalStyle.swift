@@ -145,6 +145,17 @@ struct TerminalActionButtonStyle: ButtonStyle {
 struct TerminalSegmentedOption<Selection: Hashable>: Identifiable {
     let value: Selection
     let title: String
+    let accessibilityIdentifier: String?
+
+    init(
+        value: Selection,
+        title: String,
+        accessibilityIdentifier: String? = nil
+    ) {
+        self.value = value
+        self.title = title
+        self.accessibilityIdentifier = accessibilityIdentifier
+    }
 
     var id: Selection { value }
 }
@@ -181,6 +192,7 @@ struct TerminalSegmentedControl<Selection: Hashable>: View {
                         ? AppStrings.Common.selected.localized(locale: locale)
                         : AppStrings.Common.notSelected.localized(locale: locale)
                 )
+                .modifier(OptionalAccessibilityIdentifier(option.accessibilityIdentifier))
 
                 if index < options.count - 1 {
                     Rectangle()
@@ -200,6 +212,23 @@ struct TerminalSegmentedControl<Selection: Hashable>: View {
         .fixedSize(horizontal: false, vertical: true)
         .accessibilityElement(children: .contain)
         .accessibilityLabel(accessibilityLabel)
+    }
+}
+
+private struct OptionalAccessibilityIdentifier: ViewModifier {
+    let identifier: String?
+
+    init(_ identifier: String?) {
+        self.identifier = identifier
+    }
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if let identifier {
+            content.accessibilityIdentifier(identifier)
+        } else {
+            content
+        }
     }
 }
 

@@ -37,7 +37,8 @@ struct GeneralSettingsPane: View {
                             TerminalSegmentedOption(
                                 value: $0,
                                 title: AppStrings.Settings.Language.option(for: $0)
-                                    .localized(locale: locale)
+                                    .localized(locale: locale),
+                                accessibilityIdentifier: "settings.general.language.\($0.rawValue)"
                             )
                         }
                     )
@@ -63,7 +64,8 @@ struct GeneralSettingsPane: View {
                         options: RefreshInterval.allCases.map {
                             TerminalSegmentedOption(
                                 value: $0,
-                                title: $0.localizedDisplayName(locale: locale)
+                                title: $0.localizedDisplayName(locale: locale),
+                                accessibilityIdentifier: "settings.general.refresh.\($0.rawValue)"
                             )
                         }
                     )
@@ -89,7 +91,8 @@ struct GeneralSettingsPane: View {
                         options: UsageDisplayMode.allCases.map {
                             TerminalSegmentedOption(
                                 value: $0,
-                                title: $0.localizedDisplayName(locale: locale)
+                                title: $0.localizedDisplayName(locale: locale),
+                                accessibilityIdentifier: "settings.general.limit-display.\($0.rawValue)"
                             )
                         }
                     )
@@ -111,7 +114,8 @@ struct GeneralSettingsPane: View {
                         options: DashboardHeightPreset.allCases.map {
                             TerminalSegmentedOption(
                                 value: $0,
-                                title: $0.localizedDisplayName(locale: locale)
+                                title: $0.localizedDisplayName(locale: locale),
+                                accessibilityIdentifier: "settings.general.height.\($0.rawValue)"
                             )
                         }
                     )

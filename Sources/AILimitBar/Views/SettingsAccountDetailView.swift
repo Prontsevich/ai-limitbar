@@ -481,6 +481,7 @@ struct AccountEditorView: View {
                     AppStrings.Settings.Editor.accountName.localized(locale: locale),
                     text: $draft.displayName
                 )
+                .accessibilityIdentifier("settings.account-name")
             }
 
             if let displayNameConflict {

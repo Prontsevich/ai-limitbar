@@ -243,6 +243,9 @@ private struct LimitWindowProgressRow: View {
         .accessibilityLabel(window.accessibilityLabel)
         .accessibilityValue(window.accessibilityValue)
         .accessibilityHint(window.toggleAccessibilityHint)
+        .accessibilityIdentifier(
+            "dashboard.meter.\(focusTarget.providerID).\(focusTarget.accountID).\(focusTarget.windowID)"
+        )
     }
 }
 

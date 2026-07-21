@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ "${1:-}" == "--ui-test-host" ]]; then
+  exec "$SCRIPT_DIR/run_ui_test_host.sh" "$@"
+fi
+
 MODE="${1:-run}"
 APP_NAME="AILimitBar"
 
@@ -17,7 +22,7 @@ case "$MODE" in
   run|--debug|debug|--logs|logs|--telemetry|telemetry|--verify|verify)
     ;;
   *)
-    echo "usage: $0 [run|--debug|--logs|--telemetry|--verify]" >&2
+    echo "usage: $0 [run|--debug|--logs|--telemetry|--verify|--ui-test-host <scenario> ...]" >&2
     exit 2
     ;;
 esac

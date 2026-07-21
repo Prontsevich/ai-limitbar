@@ -4,10 +4,22 @@ struct AppLaunchOptions {
     static let storageDirectoryArgument = "--ai-limitbar-storage-directory"
 
     let storageDirectory: URL?
+#if DEBUG
+    let uiTestHostConfiguration: UITestHostConfiguration?
+#endif
 
-    init(arguments: [String] = CommandLine.arguments) {
+    init(
+        arguments: [String] = CommandLine.arguments,
+        bundleIdentifier: String? = Bundle.main.bundleIdentifier
+    ) {
         guard let argumentIndex = arguments.firstIndex(of: Self.storageDirectoryArgument) else {
             storageDirectory = nil
+#if DEBUG
+            uiTestHostConfiguration = Self.uiTestHostConfiguration(
+                arguments: arguments,
+                bundleIdentifier: bundleIdentifier
+            )
+#endif
             return
         }
 
@@ -22,5 +34,27 @@ struct AppLaunchOptions {
         }
 
         storageDirectory = URL(fileURLWithPath: path, isDirectory: true)
+#if DEBUG
+        uiTestHostConfiguration = Self.uiTestHostConfiguration(
+            arguments: arguments,
+            bundleIdentifier: bundleIdentifier
+        )
+#endif
     }
+
+#if DEBUG
+    private static func uiTestHostConfiguration(
+        arguments: [String],
+        bundleIdentifier: String?
+    ) -> UITestHostConfiguration? {
+        do {
+            return try UITestHostConfiguration.parse(
+                arguments: arguments,
+                bundleIdentifier: bundleIdentifier
+            )
+        } catch {
+            fatalError("Invalid UI test host configuration: \(error)")
+        }
+    }
+#endif
 }

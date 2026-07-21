@@ -888,6 +888,31 @@ available for manual QA. Process launch proves startup only; menu-bar
 interaction, Settings focus, pointer behavior, and other GUI details remain
 explicit manual QA rather than being inferred from a running PID.
 
+## Regular-Window UI Test Host
+
+Debug builds can stage a separate regular-window app at
+`dist/AILimitBarUITestHost.app`. The host reuses the production `AILimitBar`
+executable and renders the real `MenuBarPanelView` and `SettingsView` with
+deterministic synthetic fixtures. Its runtime owns isolated GRDB and
+`UserDefaults` state, uses only scripted adapters with a single refresh attempt,
+and does not create the production status item, WebKit controller, provider
+clients, credentials, or executable overrides.
+
+The host bundle uses `io.github.Prontsevich.AILimitBar.UITestHost`, the
+`AILimitBarTest` process name, and `LSUIElement=false`. This lets accessibility
+tooling inspect app-owned SwiftUI presentation and keyboard behavior while the
+production app remains running. Stable language-independent identifiers cover
+dashboard actions and meters, Settings navigation and options, account-name
+editing, and the discard confirmation flow. Scenarios cover empty, healthy,
+mixed-state, Settings, and dirty-editor presentation across explicit language,
+appearance, and dashboard-height variants. The full command and AX contract is
+documented in [`docs/ui-test-host.md`](ui-test-host.md).
+
+This host does not represent the production `NSStatusItem`, `NSPopover`
+anchoring, `LSUIElement` activation or Spaces behavior, OAuth/WebKit, Keychain,
+or real provider processes and network integrations. Those boundaries retain
+their existing staged-app, integration, telemetry, and manual verification.
+
 ## Planned Product Constraints
 
 Detailed future scope is private in Linear. The public constraints that remain

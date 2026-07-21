@@ -93,6 +93,7 @@ struct MenuBarPanelView: View {
                     ? AppStrings.MenuBar.refreshing.localized(locale: locale)
                     : AppStrings.MenuBar.ready.localized(locale: locale)
             )
+            .accessibilityIdentifier("dashboard.refresh-all")
         }
     }
 
@@ -117,6 +118,7 @@ struct MenuBarPanelView: View {
                 Text(AppStrings.MenuBar.settings.resource(locale: locale))
             }
             .buttonStyle(TerminalTextButtonStyle())
+            .accessibilityIdentifier("dashboard.open-settings")
 
             Button {
                 onOpenAbout()
