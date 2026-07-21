@@ -64,8 +64,6 @@ struct TerminalRule: View {
 struct TerminalStatusMeter: View {
     let value: Double
     let tint: Color
-    let accessibilityLabel: String
-    let accessibilityValue: String
 
     private var normalizedValue: Double {
         min(max(value, 0), 100) / 100
@@ -87,9 +85,7 @@ struct TerminalStatusMeter: View {
             }
         }
         .frame(height: 9)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(accessibilityLabel)
-        .accessibilityValue(accessibilityValue)
+        .accessibilityHidden(true)
     }
 }
 

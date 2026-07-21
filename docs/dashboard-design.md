@@ -45,10 +45,15 @@ or become a text-mode interface.
   screenshots are style references, not a fixed color-mode requirement.
 - Use monospaced labels and values, tight vertical rhythm, aligned label/value
   rows, and one-pixel separators associated with a developer status tool.
-- Usage meters are thin rectangular outlined meters with a muted-gold fill that
-  matches the structural border; do not use the default `ProgressView` track on
-  these surfaces. Green is reserved for successful status copy, amber for
-  warning/stale copy, and red for failure copy.
+- Usage windows are full-width, thin rectangular outlined buttons with a
+  muted-gold meter fill that matches the structural border; do not use the
+  default `ProgressView` track on these surfaces. Their label, value, meter, and
+  reset text share one activation target that toggles the Used/Left display
+  mode. Hover shows a restrained neutral fill, border, and pointing-hand cursor.
+  Pointer activation does not retain focus; keyboard focus starts only with
+  keyboard navigation, uses a terminal-colored outline instead of the
+  system-blue focus ring, and Escape clears it. Green is reserved for
+ warning/stale copy, and red for failure copy.
 - Actions remain SwiftUI controls but use flat text or glyph presentation rather
   than prominent system pill buttons. They have a subtle neutral hover fill and
   a pressed state, without card scaling or a pill-shaped hover treatment.
@@ -97,17 +102,22 @@ pressed behavior for all interactive elements.
 For each known limit window, render only:
 
 1. The provider-defined window label, such as `5-hour` or `7-day`.
-2. One right-aligned localized used value. It preserves a provider-supplied
-   fractional percentage to one decimal place (for example, `35.4% used` or
-   `Использовано 35,4 %`) and omits a trailing `.0` for whole percentages.
-3. One compact rectangular outlined usage meter.
+2. One right-aligned localized Used or Left value. The global display preference
+   applies unless that account/window has an explicit override. It preserves a
+   provider-supplied fractional percentage to one decimal place (for example,
+   `35.4% used`, `64.6% left`, `Ушло 35,4 %`, or `Ещё 64,6 %`) and omits a
+   trailing `.0` for whole percentages.
+3. One compact rectangular outlined meter with the same displayed percentage.
 4. A relative reset label when a reset date is available, such as
    `resets in 2 hours`.
 
-Do not show a second remaining percentage or a normal-state `Updated` timestamp
+Do not show a second percentage or a normal-state `Updated` timestamp
 in an account panel. Use restrained accent colors for progress and reserve
 warning/error colors for meaningful thresholds or exceptions. Color must not be
 the only indication of state.
+
+`usedPercent` remains canonical. Left is its clamped complement and does not
+change severity, thresholds, notifications, analytics, or menu-bar state.
 
 ### State Visibility
 
@@ -144,6 +154,7 @@ It contains:
 - Account identity and current refresh state.
 - The precise last-updated date and time.
 - Source and confidence.
+- A Use global / Used / Left control for every percentage-based limit window.
 - Exact reset dates when available.
 - Warning, stale, and failed-refresh context in a clearly labeled bordered
   message block.
@@ -157,8 +168,12 @@ compact inspector height.
 
 - Glyph-only Refresh and Info controls require visible keyboard focus, tooltips,
   and descriptive accessibility labels.
-- Progress bars expose the window name and used percentage to accessibility
-  clients.
+- Meters are keyboard-focusable buttons. Their help, accessibility value, and
+  fill agree with the current Used or Left value; their accessibility hint
+  explains the toggle action. From the neutral panel, Tab enters the first
+  meter and Shift-Tab enters the last; both keys wrap across the meter list.
+  Space or Return toggles the focused meter. Escape clears meter focus, or
+  closes the dashboard when no meter is focused.
 - Disabled refresh controls explain why they are unavailable through their
   accessibility state and tooltip where appropriate.
 - The details popover remains reachable by pointer and keyboard; hover is only
@@ -168,7 +183,7 @@ compact inspector height.
 
 - Redesigning Settings.
 - Changing refresh coordination or provider behavior.
-- Changing storage or the normalized snapshot model.
+- Changing the normalized snapshot model.
 - Adding history, charts, notifications, or a WidgetKit surface.
 - Recreating terminal escape codes, text-mode controls, or literal ASCII art.
 
@@ -176,6 +191,8 @@ compact inspector height.
 
 - Build and run the staged menu-bar app.
 - Verify global refresh, individual refresh, Info popover, and disabled states.
+- Verify global Used/Left selection, per-window overrides, meter pointer and
+  keyboard activation, persistence, and reset to Use global.
 - Manually check normal, refreshing, stale, failed, manual-only, and no-data
   accounts in both Light and Dark appearance.
 - Confirm that account ordering, progress accessibility values, and all existing

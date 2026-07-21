@@ -3,21 +3,25 @@ import Combine
 import SwiftUI
 
 @MainActor
-final class MenuBarStatusItemController: NSObject, ObservableObject {
+final class MenuBarStatusItemController: NSObject, ObservableObject, NSPopoverDelegate {
     private let appModel: AppModel
     private let appLanguagePreference: AppLanguagePreference
     private let statusItem: NSStatusItem
     private let popover: NSPopover
+    private let panelPresentation: MenuBarPanelPresentationState
     private let hostingController: NSHostingController<AppLocaleScope<MenuBarPanelView>>
     private var modelObservation: AnyCancellable?
     private var languageObservation: AnyCancellable?
     private var appearanceObservation: NSKeyValueObservation?
 
     init(appModel: AppModel, appLanguagePreference: AppLanguagePreference) {
+        let panelPresentation = MenuBarPanelPresentationState()
+        let popover = NSPopover()
         self.appModel = appModel
         self.appLanguagePreference = appLanguagePreference
+        self.panelPresentation = panelPresentation
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        popover = NSPopover()
+        self.popover = popover
         hostingController = NSHostingController(
             rootView: AppLocaleScope(languagePreference: appLanguagePreference) {
                 MenuBarPanelView(
@@ -39,7 +43,11 @@ final class MenuBarStatusItemController: NSObject, ObservableObject {
                             appModel: appModel,
                             appLanguagePreference: appLanguagePreference
                         )
-                    }
+                    },
+                    onCloseDashboard: { [weak popover] in
+                        popover?.performClose(nil)
+                    },
+                    panelPresentation: panelPresentation
                 )
             }
         )
@@ -64,8 +72,9 @@ final class MenuBarStatusItemController: NSObject, ObservableObject {
     }
 
     private func configurePopover() {
-        popover.behavior = .transient
+        popover.behavior = .applicationDefined
         popover.animates = true
+        popover.delegate = self
         popover.contentViewController = hostingController
     }
 
@@ -108,13 +117,40 @@ final class MenuBarStatusItemController: NSObject, ObservableObject {
             return
         }
 
+        panelPresentation.isVisible = true
+        AppTelemetry.menuBar.info("Dashboard popover opening")
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
             self.hostingController.view.layoutSubtreeIfNeeded()
             self.popover.contentSize = self.hostingController.view.fittingSize
+            self.activatePopoverForKeyboardInput()
         }
     }
+
+    private func activatePopoverForKeyboardInput() {
+        guard popover.isShown, let popoverWindow = hostingController.view.window else { return }
+
+        NSApp.activate(ignoringOtherApps: true)
+        popoverWindow.makeKey()
+        let acceptedResponder = panelPresentation.keyboardResponder.map {
+            popoverWindow.makeFirstResponder($0)
+        } ?? false
+        AppTelemetry.menuBar.info(
+            "Dashboard keyboard activated: keyWindow=\(popoverWindow.isKeyWindow), responderAccepted=\(acceptedResponder)"
+        )
+    }
+
+    func popoverDidClose(_ notification: Notification) {
+        panelPresentation.isVisible = false
+        AppTelemetry.menuBar.info("Dashboard popover closed")
+    }
+}
+
+@MainActor
+final class MenuBarPanelPresentationState: ObservableObject {
+    @Published var isVisible = false
+    weak var keyboardResponder: NSView?
 }
 
 enum MenuBarStatusItemImageRenderer {

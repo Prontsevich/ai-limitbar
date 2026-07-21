@@ -762,17 +762,37 @@ provider data. The current General Settings pane offers `Compact` (320 pt),
 `UserDefaults`. A preset sets the visible dashboard viewport height and longer
 account lists scroll within it. General also contains the app-owned `LANGUAGE`
 fieldset for the System Default, English, or Russian choice in `UserDefaults`;
-it does not alter account/provider data. Language, refresh, and dashboard-height
-controls are grouped there as shared preferences.
+it does not alter account/provider data. Language, refresh, dashboard-height,
+and the global Used/Left limit-display default are grouped there as shared
+preferences.
+
+Used/Left is presentation state. `UsageLimitWindow.usedPercent` remains the
+canonical normalized value; Left is its clamped complement. A window resolves
+to its explicit GRDB override keyed by provider ID, saved account ID, and stable
+provider-owned window ID, or otherwise to the global `UserDefaults` default.
+Missing and invalid global values default to Used. Overrides persist across
+refreshes and temporary window omission, cascade when their account is deleted,
+and are removed only by Use global or when the meter toggle reaches the global
+mode. The displayed label, meter fill, help, and accessibility value share the
+effective percentage. Severity, thresholds, notifications, analytics, and the
+menu-bar state continue to derive only from canonical `usedPercent`.
 
 Dashboard rows should:
 
 - Show accounts in user-defined order, not grouped by provider by default.
 - Use the globally unique account name as the fieldset legend. Keep provider
   context out of the normal dashboard body.
-- Render one compact outlined usage meter and one `NN% used` value per known limit
-  window, such as weekly plus provider-defined 3-hour, 4-hour, 5-hour, or other
-  rolling windows.
+- Render one compact outlined, keyboard-accessible full-width usage-window
+  button and one `NN% used` or `NN% left` value per known limit window, such as
+  weekly plus provider-defined 3-hour, 4-hour, 5-hour, or other rolling
+  windows. Its title, value, meter, and reset text share one hit target; hover
+  provides a restrained terminal border/fill and pointing-hand cursor. Pointer
+  activation does not retain focus; keyboard navigation enables a terminal
+  outline without the system-blue focus ring, and Escape clears it. Activation
+  toggles the effective mode without changing canonical usage. From the neutral
+  panel, Tab enters the first usage window and Shift-Tab enters the last; both
+  keys wrap across usage windows. Space and Return activate the focused window.
+  Escape clears meter focus, or closes the dashboard from the neutral state.
 - Show a relative reset label when available, but keep normal-state refresh
   timestamps out of the dashboard.
 - Keep unavailable, manual, stale, warning, and error states visible inline
@@ -783,9 +803,9 @@ Dashboard rows should:
 Account details should be available on demand rather than permanently occupying
 the dashboard. Use an explicit Info button to open a single matching technical
 inspector with aligned source, confidence, warnings, precise refresh timestamps,
-exact reset details, and secondary per-account actions. Diagnostics appear in
-its one nested `NOTE` block. Hover may be added as a convenience, but it must
-not be the only way to access details.
+exact reset details, per-window Use global / Used / Left controls, and secondary
+per-account actions. Diagnostics appear in its one nested `NOTE` block. Hover
+may be added as a convenience, but it must not be the only way to access details.
 
 The settings UI should support:
 
