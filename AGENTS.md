@@ -98,6 +98,13 @@ AILimitBarClaudeStatusLine (helper)
   for code changes; use the staged `.app` bundle for UI, lifecycle, or provider
   integration checks. Do not mark manual verification complete unless it was
   actually performed.
+- **Direct UI automation is unavailable for the production app.** The current
+  Codex Computer Use connection cannot discover or inspect the `LSUIElement`
+  menu-bar process, while XcodeBuildMCP UI automation supports iOS Simulator,
+  not macOS. Do not retry either tool against the production app. Use automated
+  Swift tests, `./script/build_and_run.sh --verify`, and telemetry/log checks;
+  reserve visual/manual UI verification for the user. External UI automation
+  requires a deliberately added regular-window test host.
 - Preserve unrelated working-tree changes. Create commits only when the user asks,
   and keep each requested commit scoped to one coherent task.
 
