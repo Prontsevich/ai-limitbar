@@ -27,6 +27,85 @@ extension AppModel {
         storageWarning = storageWarning ?? result.warning
     }
 
+    func loadUsageDisplayPreferences() {
+        usageDisplayMode = UsageDisplayMode(
+            rawValue: userDefaults.string(forKey: UsageDisplayMode.storageKey) ?? ""
+        ) ?? .used
+
+        let result = usageDisplayOverrideStore.load()
+        usageDisplayOverrides = Dictionary(
+            uniqueKeysWithValues: result.overrides.map { ($0.key, $0.mode) }
+        )
+        storageWarning = storageWarning ?? result.warning
+    }
+
+    func setUsageDisplayMode(_ mode: UsageDisplayMode) {
+        usageDisplayMode = mode
+        userDefaults.set(mode.rawValue, forKey: UsageDisplayMode.storageKey)
+    }
+
+    func usageDisplayMode(for account: ProviderAccount, windowID: String) -> UsageDisplayMode {
+        usageDisplayMode(for: UsageDisplayOverrideKey(
+            providerID: account.providerID,
+            accountID: account.accountID,
+            windowID: windowID
+        ))
+    }
+
+    func usageDisplayOverrideSelection(
+        for account: ProviderAccount,
+        windowID: String
+    ) -> UsageDisplayOverrideSelection {
+        UsageDisplayOverrideSelection(mode: usageDisplayOverrides[UsageDisplayOverrideKey(
+            providerID: account.providerID,
+            accountID: account.accountID,
+            windowID: windowID
+        )])
+    }
+
+    @discardableResult
+    func setUsageDisplayOverride(
+        _ selection: UsageDisplayOverrideSelection,
+        for account: ProviderAccount,
+        windowID: String
+    ) -> Bool {
+        let key = UsageDisplayOverrideKey(
+            providerID: account.providerID,
+            accountID: account.accountID,
+            windowID: windowID
+        )
+        let mode = selection.overrideMode
+
+        do {
+            try usageDisplayOverrideStore.set(mode, for: key)
+            if let mode {
+                usageDisplayOverrides[key] = mode
+            } else {
+                usageDisplayOverrides.removeValue(forKey: key)
+            }
+            clearStorageWarning("Usage display preferences could not be saved.")
+            return true
+        } catch {
+            storageWarning = "Usage display preferences could not be saved."
+            AppTelemetry.storage.error("Usage display preferences could not be saved")
+            return false
+        }
+    }
+
+    @discardableResult
+    func toggleUsageDisplayMode(for account: ProviderAccount, windowID: String) -> Bool {
+        let effectiveMode = usageDisplayMode(for: account, windowID: windowID)
+        let targetMode: UsageDisplayMode = effectiveMode == .used ? .left : .used
+        let selection = targetMode == usageDisplayMode
+            ? UsageDisplayOverrideSelection.global
+            : UsageDisplayOverrideSelection(mode: targetMode)
+        return setUsageDisplayOverride(selection, for: account, windowID: windowID)
+    }
+
+    private func usageDisplayMode(for key: UsageDisplayOverrideKey) -> UsageDisplayMode {
+        usageDisplayOverrides[key] ?? usageDisplayMode
+    }
+
     @discardableResult
     func saveRefreshSettings() -> Bool {
         do {

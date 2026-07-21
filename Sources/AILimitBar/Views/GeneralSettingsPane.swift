@@ -78,6 +78,28 @@ struct GeneralSettingsPane: View {
                 EmptyView()
             } content: {
                 HStack(alignment: .center, spacing: 14) {
+                    Text(AppStrings.Settings.General.displayLimits.resource(locale: locale))
+                        .font(TerminalTheme.bodyFont)
+                        .foregroundStyle(TerminalTheme.secondary)
+                        .frame(width: 80, alignment: .leading)
+
+                    TerminalSegmentedControl(
+                        AppStrings.Settings.General.displayLimitsAccessibility.localized(locale: locale),
+                        selection: usageDisplayModeBinding,
+                        options: UsageDisplayMode.allCases.map {
+                            TerminalSegmentedOption(
+                                value: $0,
+                                title: $0.localizedDisplayName(locale: locale)
+                            )
+                        }
+                    )
+                }
+
+                Text(AppStrings.Settings.General.displayLimitsHelp.resource(locale: locale))
+                    .font(TerminalTheme.bodyFont)
+                    .foregroundStyle(TerminalTheme.secondary)
+
+                HStack(alignment: .center, spacing: 14) {
                     Text(AppStrings.Settings.General.height.resource(locale: locale))
                         .font(TerminalTheme.bodyFont)
                         .foregroundStyle(TerminalTheme.secondary)
@@ -126,6 +148,13 @@ struct GeneralSettingsPane: View {
                 DashboardHeightPreset(rawValue: dashboardHeightPresetRawValue) ?? .standard
             },
             set: { dashboardHeightPresetRawValue = $0.rawValue }
+        )
+    }
+
+    private var usageDisplayModeBinding: Binding<UsageDisplayMode> {
+        Binding(
+            get: { appModel.usageDisplayMode },
+            set: { appModel.setUsageDisplayMode($0) }
         )
     }
 }

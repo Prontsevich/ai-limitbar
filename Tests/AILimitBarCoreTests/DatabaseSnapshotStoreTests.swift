@@ -46,6 +46,25 @@ final class DatabaseSnapshotStoreTests: XCTestCase {
         XCTAssertEqual(try store.snapshot(providerID: account.providerID, accountID: account.accountID), newer)
     }
 
+    func testUsageDisplayOverridesRoundTripAndCascadeWithAccountDeletion() throws {
+        let database = try database()
+        let account = ProviderAccount(providerID: "mock", accountID: "work", displayName: "Work", isEnabled: true)
+        let accountStore = DatabaseProviderConfigurationStore(database: database)
+        try accountStore.save([account])
+        let store = DatabaseUsageDisplayOverrideStore(database: database)
+        let key = UsageDisplayOverrideKey(
+            providerID: account.providerID,
+            accountID: account.accountID,
+            windowID: "weekly"
+        )
+
+        try store.set(.left, for: key)
+        XCTAssertEqual(store.load().overrides, [UsageDisplayOverride(key: key, mode: .left)])
+
+        try accountStore.save([])
+        XCTAssertTrue(store.load().overrides.isEmpty)
+    }
+
     private func database() throws -> AppDatabase {
         try AppDatabase(directory: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString))
     }

@@ -102,8 +102,15 @@
 "common.height.standard" = "Стандартная";
 "common.height.tall" = "Высокая";
 
+"display_mode.used" = "Ушло";
+"display_mode.left" = "Ещё";
+"display_mode.use_global" = "Как в общих";
+
 "dashboard.usage.used" = "Ушло %@";
+"dashboard.usage.left" = "Ещё %@";
 "dashboard.usage.accessibility" = "Лимит: израсходовано %@";
+"dashboard.usage.toggle_help" = "%@: %@. Активируйте, чтобы показать %@.";
+"dashboard.usage.toggle_hint" = "Переключает между потраченным и оставшимся.";
 "dashboard.reset.future" = "сброс %@";
 "dashboard.reset.past" = "сброс %@";
 "dashboard.action.refresh_account" = "Обновить %@";
@@ -135,6 +142,8 @@
 
 "storage.provider_settings_save" = "Не удалось сохранить настройки провайдера.";
 "storage.refresh_settings_save" = "Не удалось сохранить настройки обновления.";
+"storage.usage_display_preferences_load" = "Не удалось загрузить настройки отображения лимитов.";
+"storage.usage_display_preferences_save" = "Не удалось сохранить настройки отображения лимитов.";
 "storage.snapshots_save" = "Не удалось сохранить снимки.";
 "storage.diagnostics_save" = "Не удалось сохранить диагностику провайдера.";
 "storage.refresh_state_save" = "Не удалось сохранить состояние обновления провайдера.";
@@ -156,6 +165,9 @@
 "settings.dashboard.height" = "Высота";
 "settings.dashboard.height_accessibility" = "Высота панели";
 "settings.dashboard.height_help" = "Управляет максимальной видимой высотой панели menu bar. Длинные списки аккаунтов прокручиваются.";
+"settings.dashboard.display_limits" = "Лимиты";
+"settings.dashboard.display_limits_accessibility" = "Отображение лимитов";
+"settings.dashboard.display_limits_help" = "Задаёт default для окон, использующих глобальный режим отображения.";
 "settings.accounts.title" = "АККАУНТЫ";
 "settings.accounts.delete_title" = "Удалить аккаунт?";
 "settings.accounts.delete_message" = "Это удалит %@ и его сохранённый снимок из AI Limitbar.";
@@ -263,6 +275,8 @@
 "account_details.confidence" = "ДОСТОВЕРНОСТЬ";
 "account_details.plan" = "ПЛАН";
 "account_details.usage" = "ЛИМИТЫ";
+"account_details.display_mode" = "РЕЖИМ %@";
+"account_details.display_mode_accessibility" = "Режим отображения для %@";
 "account_details.reset" = "СБРОС %@";
 "account_details.diagnostics" = "Диагностика";
 "account_details.last_refresh_failed" = "Последнее обновление не удалось";

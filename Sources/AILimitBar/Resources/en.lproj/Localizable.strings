@@ -102,8 +102,15 @@
 "common.height.standard" = "Standard";
 "common.height.tall" = "Tall";
 
+"display_mode.used" = "Used";
+"display_mode.left" = "Left";
+"display_mode.use_global" = "Use global";
+
 "dashboard.usage.used" = "%@ used";
+"dashboard.usage.left" = "%@ left";
 "dashboard.usage.accessibility" = "%@ usage";
+"dashboard.usage.toggle_help" = "%@ is %@. Activate to show %@.";
+"dashboard.usage.toggle_hint" = "Toggles between used and left.";
 "dashboard.reset.future" = "resets %@";
 "dashboard.reset.past" = "reset %@";
 "dashboard.action.refresh_account" = "Refresh %@";
@@ -135,6 +142,8 @@
 
 "storage.provider_settings_save" = "Provider settings could not be saved.";
 "storage.refresh_settings_save" = "Refresh settings could not be saved.";
+"storage.usage_display_preferences_load" = "Usage display preferences could not be loaded.";
+"storage.usage_display_preferences_save" = "Usage display preferences could not be saved.";
 "storage.snapshots_save" = "Snapshots could not be saved.";
 "storage.diagnostics_save" = "Provider diagnostics could not be saved.";
 "storage.refresh_state_save" = "Provider refresh state could not be saved.";
@@ -156,6 +165,9 @@
 "settings.dashboard.height" = "Height";
 "settings.dashboard.height_accessibility" = "Dashboard height";
 "settings.dashboard.height_help" = "Controls the maximum visible height of the menu-bar dashboard. Longer account lists scroll.";
+"settings.dashboard.display_limits" = "Limits";
+"settings.dashboard.display_limits_accessibility" = "Limit display";
+"settings.dashboard.display_limits_help" = "Sets the default for windows that use the global display mode.";
 "settings.accounts.title" = "ACCOUNTS";
 "settings.accounts.delete_title" = "Delete Account?";
 "settings.accounts.delete_message" = "This removes %@ and its stored snapshot from AI Limitbar.";
@@ -263,6 +275,8 @@
 "account_details.confidence" = "CONFIDENCE";
 "account_details.plan" = "PLAN";
 "account_details.usage" = "USAGE";
+"account_details.display_mode" = "%@ DISPLAY";
+"account_details.display_mode_accessibility" = "Display mode for %@";
 "account_details.reset" = "%@ RESET";
 "account_details.diagnostics" = "Diagnostics";
 "account_details.last_refresh_failed" = "Last refresh failed";

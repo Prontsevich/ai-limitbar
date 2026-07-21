@@ -194,6 +194,21 @@ public final class AppDatabase: @unchecked Sendable {
                         REFERENCES provider_accounts(provider_id, account_id)
                         ON DELETE CASCADE
                 )
+            """)
+        }
+
+        migrator.registerMigration("v5-usage-display-overrides") { db in
+            try db.execute(sql: """
+                CREATE TABLE usage_display_overrides (
+                    provider_id TEXT NOT NULL,
+                    account_id TEXT NOT NULL,
+                    window_id TEXT NOT NULL,
+                    mode TEXT NOT NULL CHECK (mode IN ('used', 'left')),
+                    PRIMARY KEY (provider_id, account_id, window_id),
+                    FOREIGN KEY (provider_id, account_id)
+                        REFERENCES provider_accounts(provider_id, account_id)
+                        ON DELETE CASCADE
+                )
                 """)
         }
         return migrator

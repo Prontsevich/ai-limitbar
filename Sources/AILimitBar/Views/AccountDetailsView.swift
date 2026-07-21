@@ -102,6 +102,11 @@ struct AccountDetailsView: View {
             }
 
             ForEach(snapshot.displayLimitWindows) { window in
+                if window.usedPercent != nil {
+                    TerminalRule()
+                    usageDisplayControl(for: window)
+                }
+
                 if let resetAt = window.resetAt {
                     TerminalRule()
                     TerminalInspectorRow(
@@ -131,6 +136,33 @@ struct AccountDetailsView: View {
             TerminalNoteBox(title: AppStrings.AccountDetails.diagnostics.localized(locale: locale)) {
                 diagnosticsContent
             }
+        }
+    }
+
+    private func usageDisplayControl(for window: UsageLimitWindow) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(
+                AppStrings.AccountDetails.displayMode.formatted(
+                    locale: locale,
+                    window.displayName.uppercased(with: locale)
+                )
+            )
+            .font(TerminalTheme.detailLabelFont)
+            .foregroundStyle(TerminalTheme.secondary)
+
+            TerminalSegmentedControl(
+                AppStrings.AccountDetails.displayModeAccessibility.formatted(
+                    locale: locale,
+                    window.displayName
+                ),
+                selection: usageDisplayOverrideBinding(for: window),
+                options: UsageDisplayOverrideSelection.allCases.map {
+                    TerminalSegmentedOption(
+                        value: $0,
+                        title: $0.localizedDisplayName(locale: locale)
+                    )
+                }
+            )
         }
     }
 
@@ -200,6 +232,15 @@ struct AccountDetailsView: View {
 
     private var currentAccount: ProviderAccount {
         appModel.account(providerID: row.account.providerID, accountID: row.account.accountID) ?? row.account
+    }
+
+    private func usageDisplayOverrideBinding(
+        for window: UsageLimitWindow
+    ) -> Binding<UsageDisplayOverrideSelection> {
+        Binding(
+            get: { appModel.usageDisplayOverrideSelection(for: currentAccount, windowID: window.id) },
+            set: { _ = appModel.setUsageDisplayOverride($0, for: currentAccount, windowID: window.id) }
+        )
     }
 
     private var ollamaConnectionTitle: String {

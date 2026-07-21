@@ -16,6 +16,8 @@ final class AppModel: ObservableObject {
     @Published var sourceDiagnostics: [SourceDiagnostic] = []
     @Published var sourceRefreshStates: [String: SourceRefreshState] = [:]
     @Published var refreshSettings = RefreshSettings()
+    @Published var usageDisplayMode: UsageDisplayMode = .used
+    @Published var usageDisplayOverrides: [UsageDisplayOverrideKey: UsageDisplayMode] = [:]
     @Published var isRefreshing = false
     @Published var storageWarning: String?
     @Published private(set) var ollamaConnectionAccount: ProviderAccount?
@@ -24,7 +26,9 @@ final class AppModel: ObservableObject {
     let snapshotStore: any CurrentSnapshotStore
     let configurationStore: any ProviderAccountStore
     let refreshSettingsStore: any RefreshSettingsStoreProtocol
+    let usageDisplayOverrideStore: any UsageDisplayOverrideStore
     let diagnosticStore: any SourceDiagnosticStore
+    let userDefaults: UserDefaults
     let refreshCoordinator: ProviderRefreshCoordinator
     let ollamaWebPageClient: OllamaWebPageClientController?
     var scheduledRefreshTimer: Timer?
@@ -37,11 +41,13 @@ final class AppModel: ObservableObject {
         ollamaWebPageClient: OllamaWebPageClientController? = nil,
         directoryResolver: ApplicationSupportDirectoryResolver = ApplicationSupportDirectoryResolver(),
         storageDirectory: URL? = nil,
+        userDefaults: UserDefaults = .standard,
         refreshCoordinator: ProviderRefreshCoordinator = ProviderRefreshCoordinator()
     ) {
         self.ollamaWebPageClient = ollamaWebPageClient
         let resolvedClient: any OllamaWebPageClient = ollamaWebPageClient ?? UnavailableOllamaWebPageClient()
         self.refreshCoordinator = refreshCoordinator
+        self.userDefaults = userDefaults
 
         let directory: URL
         var initialStorageWarning: String?
@@ -69,6 +75,7 @@ final class AppModel: ObservableObject {
         self.snapshotStore = snapshotStore
         self.configurationStore = DatabaseProviderConfigurationStore(database: database)
         self.refreshSettingsStore = DatabaseRefreshSettingsStore(database: database)
+        self.usageDisplayOverrideStore = DatabaseUsageDisplayOverrideStore(database: database)
         self.diagnosticStore = DatabaseSourceDiagnosticStore(database: database)
         self.storageWarning = initialStorageWarning
         self.registry = registry ?? ProviderRegistry(
@@ -89,6 +96,7 @@ final class AppModel: ObservableObject {
         }
         loadConfiguration()
         loadRefreshSettings()
+        loadUsageDisplayPreferences()
         loadSnapshots()
         loadDiagnostics()
         configureScheduledRefresh()
@@ -192,6 +200,10 @@ final class AppModel: ObservableObject {
             AppStrings.Storage.providerSettingsSave.localized(locale: locale)
         case "Refresh settings could not be saved.":
             AppStrings.Storage.refreshSettingsSave.localized(locale: locale)
+        case "Usage display preferences could not be loaded.":
+            AppStrings.Storage.usageDisplayPreferencesLoad.localized(locale: locale)
+        case "Usage display preferences could not be saved.":
+            AppStrings.Storage.usageDisplayPreferencesSave.localized(locale: locale)
         case "Snapshots could not be saved.":
             AppStrings.Storage.snapshotsSave.localized(locale: locale)
         case "Provider diagnostics could not be saved.":

@@ -52,7 +52,10 @@ extension AppStrings {
 
     enum Dashboard {
         static let used = AppString("dashboard.usage.used", defaultValue: "%@ used", comment: "Used percentage beside a dashboard meter")
+        static let left = AppString("dashboard.usage.left", defaultValue: "%@ left", comment: "Left percentage beside a dashboard meter")
         static let windowUsage = AppString("dashboard.usage.accessibility", defaultValue: "%@ usage", comment: "Accessibility label for a provider limit window")
+        static let meterToggleHelp = AppString("dashboard.usage.toggle_help", defaultValue: "%@ is %@. Activate to show %@.", comment: "Help text for toggling a dashboard meter display mode")
+        static let meterToggleHint = AppString("dashboard.usage.toggle_hint", defaultValue: "Toggles between used and left.", comment: "Accessibility hint for toggling a dashboard meter display mode")
         static let resets = AppString("dashboard.reset.future", defaultValue: "resets %@", comment: "Relative future reset label")
         static let reset = AppString("dashboard.reset.past", defaultValue: "reset %@", comment: "Relative past reset label")
         static let refreshAccount = AppString("dashboard.action.refresh_account", defaultValue: "Refresh %@", comment: "Refresh account accessibility label")
@@ -86,12 +89,20 @@ extension AppStrings {
     enum Storage {
         static let providerSettingsSave = AppString("storage.provider_settings_save", defaultValue: "Provider settings could not be saved.", comment: "Provider settings persistence warning")
         static let refreshSettingsSave = AppString("storage.refresh_settings_save", defaultValue: "Refresh settings could not be saved.", comment: "Refresh settings persistence warning")
+        static let usageDisplayPreferencesLoad = AppString("storage.usage_display_preferences_load", defaultValue: "Usage display preferences could not be loaded.", comment: "Usage display preferences load warning")
+        static let usageDisplayPreferencesSave = AppString("storage.usage_display_preferences_save", defaultValue: "Usage display preferences could not be saved.", comment: "Usage display preferences save warning")
         static let snapshotsSave = AppString("storage.snapshots_save", defaultValue: "Snapshots could not be saved.", comment: "Snapshots persistence warning")
         static let diagnosticsSave = AppString("storage.diagnostics_save", defaultValue: "Provider diagnostics could not be saved.", comment: "Provider diagnostics persistence warning")
         static let refreshStateSave = AppString("storage.refresh_state_save", defaultValue: "Provider refresh state could not be saved.", comment: "Provider refresh state persistence warning")
         static let legacyMigration = AppString("storage.legacy_migration", defaultValue: "Legacy JSON data could not be migrated. Existing database data remains available.", comment: "Legacy migration warning")
         static let temporaryStorage = AppString("storage.temporary_storage", defaultValue: "Application Support is unavailable. Temporary storage is active.", comment: "Temporary storage warning")
         static let storageUnavailable = AppString("storage.unavailable", defaultValue: "AI Limitbar storage is unavailable. Changes cannot be saved.", comment: "Storage unavailable warning")
+    }
+
+    enum DisplayMode {
+        static let used = AppString("display_mode.used", defaultValue: "Used", comment: "Usage display mode option")
+        static let left = AppString("display_mode.left", defaultValue: "Left", comment: "Usage display mode option")
+        static let useGlobal = AppString("display_mode.use_global", defaultValue: "Use global", comment: "Usage display override option that inherits the global setting")
     }
 
 }
@@ -115,6 +126,9 @@ extension AppStrings.Settings {
             static let height = AppString("settings.dashboard.height", defaultValue: "Height", comment: "Dashboard height field label")
             static let heightAccessibility = AppString("settings.dashboard.height_accessibility", defaultValue: "Dashboard height", comment: "Dashboard height selector accessibility label")
             static let heightHelp = AppString("settings.dashboard.height_help", defaultValue: "Controls the maximum visible height of the menu-bar dashboard. Longer account lists scroll.", comment: "Dashboard height help text")
+            static let displayLimits = AppString("settings.dashboard.display_limits", defaultValue: "Limits", comment: "Usage display mode field label")
+            static let displayLimitsAccessibility = AppString("settings.dashboard.display_limits_accessibility", defaultValue: "Limit display", comment: "Usage display mode selector accessibility label")
+            static let displayLimitsHelp = AppString("settings.dashboard.display_limits_help", defaultValue: "Sets the default for windows that use the global display mode.", comment: "Usage display mode setting help text")
         }
 
         enum Accounts {
@@ -241,6 +255,8 @@ extension AppStrings {
         static let confidence = AppString("account_details.confidence", defaultValue: "CONFIDENCE", comment: "Confidence inspector label")
         static let plan = AppString("account_details.plan", defaultValue: "PLAN", comment: "Plan inspector label")
         static let usage = AppString("account_details.usage", defaultValue: "USAGE", comment: "Usage inspector label")
+        static let displayMode = AppString("account_details.display_mode", defaultValue: "%@ DISPLAY", comment: "Account-details display mode label for a provider limit window")
+        static let displayModeAccessibility = AppString("account_details.display_mode_accessibility", defaultValue: "Display mode for %@", comment: "Account-details display mode selector accessibility label")
         static let reset = AppString("account_details.reset", defaultValue: "%@ RESET", comment: "Limit window reset inspector label")
         static let diagnostics = AppString("account_details.diagnostics", defaultValue: "Diagnostics", comment: "Diagnostics section title")
         static let lastRefreshFailed = AppString("account_details.last_refresh_failed", defaultValue: "Last refresh failed", comment: "Refresh diagnostics title")

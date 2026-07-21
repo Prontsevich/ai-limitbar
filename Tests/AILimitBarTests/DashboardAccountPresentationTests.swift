@@ -25,7 +25,7 @@ final class DashboardAccountPresentationTests: XCTestCase {
         )
 
         XCTAssertEqual(presentation.windows.count, 1)
-        XCTAssertEqual(presentation.windows[0].usedText, "41.6% used")
+        XCTAssertEqual(presentation.windows[0].displayText, "41.6% used")
         XCTAssertEqual(presentation.windows[0].resetText, "resets in 2 hours")
         XCTAssertEqual(presentation.windows[0].accessibilityValue, "41.6% used")
         XCTAssertNil(presentation.bodyMessage)
@@ -46,9 +46,9 @@ final class DashboardAccountPresentationTests: XCTestCase {
         )
 
         XCTAssertEqual(presentation.windows[0].displayName, "Weekly")
-        XCTAssertTrue(presentation.windows[0].usedText.contains("35,4"))
-        XCTAssertTrue(presentation.windows[0].usedText.hasPrefix("Ушло"))
-        XCTAssertEqual(presentation.windows[0].accessibilityValue, presentation.windows[0].usedText)
+        XCTAssertTrue(presentation.windows[0].displayText.contains("35,4"))
+        XCTAssertTrue(presentation.windows[0].displayText.hasPrefix("Ушло"))
+        XCTAssertEqual(presentation.windows[0].accessibilityValue, presentation.windows[0].displayText)
         XCTAssertEqual(snapshot.limitWindows[0].usedPercent, 35.4)
         XCTAssertEqual(snapshot.limitWindows[0].displayName, "Weekly")
     }
@@ -60,7 +60,50 @@ final class DashboardAccountPresentationTests: XCTestCase {
             isGlobalRefresh: false
         )
 
-        XCTAssertEqual(presentation.windows[0].usedText, "42% used")
+        XCTAssertEqual(presentation.windows[0].displayText, "42% used")
+    }
+
+    func testLeftModeUsesClampedComplementForTextMeterAndAccessibility() {
+        let snapshot = makeSnapshot(limitWindows: [
+            UsageLimitWindow(id: "five-hour", displayName: "5-hour", usedPercent: 41.6)
+        ])
+        let presentation = DashboardAccountPresentation(
+            row: makeRow(snapshot: snapshot),
+            isStale: false,
+            isGlobalRefresh: false,
+            displayModeForWindow: { _ in .left }
+        )
+
+        let window = try! XCTUnwrap(presentation.windows.first)
+        XCTAssertEqual(window.displayPercent, 58.4, accuracy: 0.0001)
+        XCTAssertEqual(window.displayText, "58.4% left")
+        XCTAssertEqual(window.accessibilityValue, "58.4% left")
+        XCTAssertEqual(window.toggleHelp, "5-hour is 58.4% left. Activate to show 41.6% used.")
+    }
+
+    func testLeftModeClampsOutOfRangeCanonicalPercentWithoutChangingSeverity() {
+        let snapshot = makeSnapshot(
+            status: .warning,
+            limitWindows: [
+                UsageLimitWindow(id: "weekly", displayName: "Weekly", usedPercent: 120)
+            ]
+        )
+        let left = DashboardAccountPresentation(
+            row: makeRow(snapshot: snapshot),
+            isStale: false,
+            isGlobalRefresh: false,
+            displayModeForWindow: { _ in .left }
+        )
+        let used = DashboardAccountPresentation(
+            row: makeRow(snapshot: snapshot),
+            isStale: false,
+            isGlobalRefresh: false
+        )
+
+        XCTAssertEqual(left.windows.first?.displayPercent, 0)
+        XCTAssertEqual(left.windows.first?.displayText, "0% left")
+        XCTAssertEqual(left.state, used.state)
+        XCTAssertEqual(left.statusText, used.statusText)
     }
 
     func testManualAndUnavailableAccountsDoNotInventUsageBars() {
@@ -249,7 +292,7 @@ final class DashboardAccountPresentationTests: XCTestCase {
             isGlobalRefresh: false
         )
 
-        XCTAssertEqual(presentation.windows.first?.usedText, "100% used")
+        XCTAssertEqual(presentation.windows.first?.displayText, "100% used")
         XCTAssertNil(presentation.statusText)
     }
 

@@ -131,6 +131,8 @@ final class AppLocalizationTests: XCTestCase {
         let locale = Locale(identifier: "ru")
         XCTAssertEqual(AppStrings.Settings.Navigation.general.localized(locale: locale), "Основные")
         XCTAssertEqual(AppStrings.Dashboard.used.formatted(locale: locale, "35,4 %"), "Ушло 35,4 %")
+        XCTAssertEqual(AppStrings.Dashboard.left.formatted(locale: locale, "35,4 %"), "Ещё 35,4 %")
+        XCTAssertEqual(AppStrings.DisplayMode.useGlobal.localized(locale: locale), "Как в общих")
         XCTAssertEqual(AppStrings.Window.settingsTitle.localized(locale: locale), "Настройки AI Limitbar")
     }
 

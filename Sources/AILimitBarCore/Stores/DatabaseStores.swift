@@ -17,6 +17,75 @@ public protocol RefreshSettingsStoreProtocol: Sendable {
     func save(_ settings: RefreshSettings) throws
 }
 
+public final class DatabaseUsageDisplayOverrideStore: UsageDisplayOverrideStore, @unchecked Sendable {
+    private let database: AppDatabase?
+
+    public init(database: AppDatabase?) {
+        self.database = database
+    }
+
+    public func load() -> UsageDisplayOverrideLoadResult {
+        guard let database else {
+            return UsageDisplayOverrideLoadResult(
+                overrides: [],
+                warning: "Usage display preferences could not be loaded."
+            )
+        }
+
+        do {
+            let overrides = try database.pool.read { db in
+                try Row.fetchAll(db, sql: """
+                    SELECT provider_id, account_id, window_id, mode
+                    FROM usage_display_overrides
+                    """).compactMap { row -> UsageDisplayOverride? in
+                    guard let mode = UsageDisplayMode(rawValue: row["mode"] as String) else {
+                        return nil
+                    }
+                    return UsageDisplayOverride(
+                        key: UsageDisplayOverrideKey(
+                            providerID: row["provider_id"],
+                            accountID: row["account_id"],
+                            windowID: row["window_id"]
+                        ),
+                        mode: mode
+                    )
+                }
+            }
+            return UsageDisplayOverrideLoadResult(overrides: overrides)
+        } catch {
+            return UsageDisplayOverrideLoadResult(
+                overrides: [],
+                warning: "Usage display preferences could not be loaded."
+            )
+        }
+    }
+
+    public func set(_ mode: UsageDisplayMode?, for key: UsageDisplayOverrideKey) throws {
+        guard let database else { throw AppDatabaseError.unavailable }
+        try database.pool.write { db in
+            if let mode {
+                try db.execute(
+                    sql: """
+                        INSERT INTO usage_display_overrides (provider_id, account_id, window_id, mode)
+                        VALUES (?, ?, ?, ?)
+                        ON CONFLICT(provider_id, account_id, window_id) DO UPDATE SET
+                            mode = excluded.mode
+                        """,
+                    arguments: [key.providerID, key.accountID, key.windowID, mode.rawValue]
+                )
+            } else {
+                try db.execute(
+                    sql: """
+                        DELETE FROM usage_display_overrides
+                        WHERE provider_id = ? AND account_id = ? AND window_id = ?
+                        """,
+                    arguments: [key.providerID, key.accountID, key.windowID]
+                )
+            }
+        }
+    }
+}
+
 public struct SourceDiagnostic: Identifiable, Equatable, Sendable {
     public let providerID: String?
     public let accountID: String?

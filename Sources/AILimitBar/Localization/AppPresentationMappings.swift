@@ -114,6 +114,30 @@ extension DashboardHeightPreset {
     }
 }
 
+extension UsageDisplayMode {
+    func localizedDisplayName(locale: Locale) -> String {
+        switch self {
+        case .used:
+            AppStrings.DisplayMode.used.localized(locale: locale)
+        case .left:
+            AppStrings.DisplayMode.left.localized(locale: locale)
+        }
+    }
+}
+
+extension UsageDisplayOverrideSelection {
+    func localizedDisplayName(locale: Locale) -> String {
+        switch self {
+        case .global:
+            AppStrings.DisplayMode.useGlobal.localized(locale: locale)
+        case .used:
+            AppStrings.DisplayMode.used.localized(locale: locale)
+        case .left:
+            AppStrings.DisplayMode.left.localized(locale: locale)
+        }
+    }
+}
+
 extension SettingsSection {
     func localizedTitle(locale: Locale) -> String {
         switch self {
