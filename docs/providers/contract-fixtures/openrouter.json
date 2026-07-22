@@ -1,0 +1,381 @@
+{
+  "fixtureVersion": 1,
+  "contractVersion": {
+    "major": 1,
+    "minor": 0
+  },
+  "surfaces": [
+    {
+      "providerID": "openrouter",
+      "surfaceID": "api-key-capacity",
+      "displayName": "OpenRouter API key",
+      "interactionModel": "api",
+      "regions": [
+        {
+          "regionID": "global",
+          "displayName": "Global"
+        }
+      ],
+      "accountContextKinds": [
+        "personal",
+        "workspace",
+        "project"
+      ],
+      "capabilities": [
+        "credits",
+        "spend",
+        "reset-schedule"
+      ]
+    },
+    {
+      "providerID": "openrouter",
+      "surfaceID": "management",
+      "displayName": "OpenRouter management",
+      "interactionModel": "api",
+      "regions": [
+        {
+          "regionID": "global",
+          "displayName": "Global"
+        }
+      ],
+      "accountContextKinds": [
+        "personal",
+        "organization",
+        "workspace"
+      ],
+      "capabilities": [
+        "credits",
+        "spend",
+        "history"
+      ]
+    }
+  ],
+  "sources": [
+    {
+      "providerID": "openrouter",
+      "surfaceID": "api-key-capacity",
+      "sourceID": "current-key-api",
+      "displayName": "Current API key endpoint",
+      "kind": "documented-remote-api",
+      "authority": "provider-reported",
+      "maturity": "stable",
+      "defaultConfidence": "live",
+      "freshnessPolicy": {
+        "kind": "maximum-age",
+        "maxAgeSeconds": 600
+      },
+      "capabilities": [
+        "credits",
+        "spend",
+        "reset-schedule"
+      ],
+      "authRequirement": {
+        "category": "api-key",
+        "privilege": "least-privilege",
+        "requiredScopes": [
+          "current-key-read"
+        ],
+        "storageBoundary": "keychain"
+      }
+    },
+    {
+      "providerID": "openrouter",
+      "surfaceID": "management",
+      "sourceID": "management-api",
+      "displayName": "Management API",
+      "kind": "documented-remote-api",
+      "authority": "provider-reported",
+      "maturity": "experimental",
+      "defaultConfidence": "live",
+      "freshnessPolicy": {
+        "kind": "maximum-age",
+        "maxAgeSeconds": 600
+      },
+      "capabilities": [
+        "credits",
+        "spend",
+        "history"
+      ],
+      "authRequirement": {
+        "category": "api-key",
+        "privilege": "elevated",
+        "requiredScopes": [
+          "api-key-management"
+        ],
+        "storageBoundary": "keychain"
+      }
+    }
+  ],
+  "snapshots": [
+    {
+      "providerID": "openrouter",
+      "surfaceID": "api-key-capacity",
+      "savedAccountID": "openrouter-project-key",
+      "accountContexts": [
+        {
+          "contextID": "workspace",
+          "kind": "workspace",
+          "displayName": "Workspace",
+          "regionID": "global"
+        },
+        {
+          "contextID": "project",
+          "kind": "project",
+          "displayName": "Project key",
+          "regionID": "global",
+          "parentContextID": "workspace"
+        }
+      ],
+      "observedAt": "2026-07-22T12:00:00Z",
+      "metrics": [
+        {
+          "metricID": "key-credit-limit",
+          "accountContextID": "project",
+          "sourceID": "current-key-api",
+          "capability": "credits",
+          "displayName": "API key credit limit",
+          "availability": "known",
+          "conditions": [],
+          "unit": {
+            "kind": "currency",
+            "currencyCode": "USD"
+          },
+          "values": {
+            "consumed": {
+              "value": "25.50",
+              "origin": "reported"
+            },
+            "remaining": {
+              "value": "74.50",
+              "origin": "reported"
+            },
+            "limit": {
+              "value": "100.00",
+              "origin": "reported"
+            }
+          },
+          "window": {
+            "kind": "billing-cycle",
+            "nextTransition": {
+              "kind": "reset",
+              "at": "2026-08-01T00:00:00Z"
+            }
+          },
+          "freshness": {
+            "observedAt": "2026-07-22T12:00:00Z",
+            "validUntil": "2026-07-22T12:10:00Z"
+          },
+          "confidence": "live",
+          "derivations": []
+        },
+        {
+          "metricID": "daily-usage",
+          "accountContextID": "project",
+          "sourceID": "current-key-api",
+          "capability": "spend",
+          "displayName": "Daily usage",
+          "availability": "known",
+          "conditions": [],
+          "unit": {
+            "kind": "currency",
+            "currencyCode": "USD"
+          },
+          "values": {
+            "consumed": {
+              "value": "3.50",
+              "origin": "reported"
+            }
+          },
+          "window": {
+            "kind": "fixed",
+            "durationSeconds": 86400,
+            "nextTransition": {
+              "kind": "reset",
+              "at": "2026-07-23T00:00:00Z"
+            }
+          },
+          "freshness": {
+            "observedAt": "2026-07-22T12:00:00Z",
+            "validUntil": "2026-07-22T12:10:00Z"
+          },
+          "confidence": "live",
+          "derivations": []
+        },
+        {
+          "metricID": "byok-monthly-usage",
+          "accountContextID": "project",
+          "sourceID": "current-key-api",
+          "capability": "spend",
+          "displayName": "BYOK monthly usage",
+          "availability": "known",
+          "conditions": [],
+          "unit": {
+            "kind": "currency",
+            "currencyCode": "USD"
+          },
+          "values": {
+            "consumed": {
+              "value": "17.38",
+              "origin": "reported"
+            }
+          },
+          "window": {
+            "kind": "billing-cycle",
+            "nextTransition": {
+              "kind": "reset",
+              "at": "2026-08-01T00:00:00Z"
+            }
+          },
+          "freshness": {
+            "observedAt": "2026-07-22T12:00:00Z",
+            "validUntil": "2026-07-22T12:10:00Z"
+          },
+          "confidence": "live",
+          "derivations": []
+        }
+      ]
+    },
+    {
+      "providerID": "openrouter",
+      "surfaceID": "api-key-capacity",
+      "savedAccountID": "openrouter-unbounded-key",
+      "accountContexts": [
+        {
+          "contextID": "personal",
+          "kind": "personal",
+          "displayName": "Personal API key",
+          "regionID": "global"
+        }
+      ],
+      "observedAt": "2026-07-22T12:00:00Z",
+      "metrics": [
+        {
+          "metricID": "key-total-usage",
+          "accountContextID": "personal",
+          "sourceID": "current-key-api",
+          "capability": "spend",
+          "displayName": "API key total usage",
+          "availability": "known",
+          "conditions": [],
+          "unit": {
+            "kind": "currency",
+            "currencyCode": "USD"
+          },
+          "values": {
+            "consumed": {
+              "value": "25.50",
+              "origin": "reported"
+            }
+          },
+          "window": {
+            "kind": "lifetime"
+          },
+          "freshness": {
+            "observedAt": "2026-07-22T12:00:00Z",
+            "validUntil": "2026-07-22T12:10:00Z"
+          },
+          "confidence": "live",
+          "derivations": []
+        }
+      ]
+    },
+    {
+      "providerID": "openrouter",
+      "surfaceID": "management",
+      "savedAccountID": "openrouter-management-account",
+      "accountContexts": [
+        {
+          "contextID": "organization",
+          "kind": "organization",
+          "displayName": "Organization",
+          "regionID": "global"
+        },
+        {
+          "contextID": "workspace",
+          "kind": "workspace",
+          "displayName": "Managed workspace",
+          "regionID": "global",
+          "parentContextID": "organization"
+        }
+      ],
+      "observedAt": "2026-07-22T12:00:00Z",
+      "metrics": [
+        {
+          "metricID": "purchased-credits",
+          "accountContextID": "workspace",
+          "sourceID": "management-api",
+          "capability": "credits",
+          "displayName": "Purchased credits",
+          "availability": "known",
+          "conditions": [],
+          "unit": {
+            "kind": "currency",
+            "currencyCode": "USD"
+          },
+          "values": {
+            "consumed": {
+              "value": "100.00",
+              "origin": "reported"
+            },
+            "remaining": {
+              "value": "150.00",
+              "origin": "derived"
+            },
+            "limit": {
+              "value": "250.00",
+              "origin": "reported"
+            }
+          },
+          "window": {
+            "kind": "none"
+          },
+          "freshness": {
+            "observedAt": "2026-07-22T12:00:00Z",
+            "validUntil": "2026-07-22T12:10:00Z"
+          },
+          "confidence": "live",
+          "derivations": [
+            {
+              "kind": "remaining-from-limit-minus-consumed",
+              "target": "remaining",
+              "inputs": [
+                "limit",
+                "consumed"
+              ]
+            }
+          ]
+        },
+        {
+          "metricID": "completed-days-spend",
+          "accountContextID": "workspace",
+          "sourceID": "management-api",
+          "capability": "spend",
+          "displayName": "Completed-day spend",
+          "availability": "known",
+          "conditions": [],
+          "unit": {
+            "kind": "currency",
+            "currencyCode": "USD"
+          },
+          "values": {
+            "consumed": {
+              "value": "45.25",
+              "origin": "reported"
+            }
+          },
+          "window": {
+            "kind": "fixed",
+            "durationSeconds": 2592000,
+            "endsAt": "2026-07-22T00:00:00Z"
+          },
+          "freshness": {
+            "observedAt": "2026-07-22T12:00:00Z",
+            "validUntil": "2026-07-22T12:10:00Z"
+          },
+          "confidence": "delayed",
+          "derivations": []
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,475 @@
+{
+  "fixtureVersion": 1,
+  "contractVersion": {
+    "major": 1,
+    "minor": 0
+  },
+  "surfaces": [
+    {
+      "providerID": "anthropic",
+      "surfaceID": "claude-subscription",
+      "displayName": "Claude subscription",
+      "interactionModel": "subscription",
+      "regions": [
+        {
+          "regionID": "global",
+          "displayName": "Global"
+        }
+      ],
+      "accountContextKinds": [
+        "personal"
+      ],
+      "capabilities": [
+        "quota-windows",
+        "balance",
+        "spend",
+        "reset-schedule",
+        "history"
+      ]
+    },
+    {
+      "providerID": "anthropic",
+      "surfaceID": "claude-api",
+      "displayName": "Claude API",
+      "interactionModel": "api",
+      "regions": [
+        {
+          "regionID": "global",
+          "displayName": "Global"
+        }
+      ],
+      "accountContextKinds": [
+        "personal",
+        "organization",
+        "workspace"
+      ],
+      "capabilities": [
+        "balance",
+        "spend",
+        "history"
+      ]
+    },
+    {
+      "providerID": "anthropic",
+      "surfaceID": "claude-organization",
+      "displayName": "Claude organization",
+      "interactionModel": "enterprise",
+      "regions": [
+        {
+          "regionID": "global",
+          "displayName": "Global"
+        }
+      ],
+      "accountContextKinds": [
+        "organization",
+        "team"
+      ],
+      "capabilities": [
+        "quota-windows",
+        "spend",
+        "reset-schedule",
+        "history"
+      ]
+    }
+  ],
+  "sources": [
+    {
+      "providerID": "anthropic",
+      "surfaceID": "claude-subscription",
+      "sourceID": "claude-usage-page",
+      "displayName": "Claude Settings usage page",
+      "kind": "isolated-authenticated-web",
+      "authority": "provider-reported",
+      "maturity": "experimental",
+      "defaultConfidence": "live",
+      "freshnessPolicy": {
+        "kind": "maximum-age",
+        "maxAgeSeconds": 600
+      },
+      "capabilities": [
+        "quota-windows",
+        "balance",
+        "spend",
+        "reset-schedule",
+        "history"
+      ],
+      "authRequirement": {
+        "category": "isolated-browser-session",
+        "privilege": "least-privilege",
+        "requiredScopes": [],
+        "storageBoundary": "isolated-web-data-store"
+      }
+    },
+    {
+      "providerID": "anthropic",
+      "surfaceID": "claude-subscription",
+      "sourceID": "claude-status-line",
+      "displayName": "Claude Code statusLine",
+      "kind": "local-estimate",
+      "authority": "estimated",
+      "maturity": "stable",
+      "defaultConfidence": "local-estimate",
+      "freshnessPolicy": {
+        "kind": "maximum-age",
+        "maxAgeSeconds": 600
+      },
+      "capabilities": [
+        "quota-windows",
+        "reset-schedule"
+      ],
+      "authRequirement": {
+        "category": "external-cli-session",
+        "privilege": "least-privilege",
+        "requiredScopes": [],
+        "storageBoundary": "provider-managed-cli"
+      }
+    },
+    {
+      "providerID": "anthropic",
+      "surfaceID": "claude-api",
+      "sourceID": "claude-api-billing-page",
+      "displayName": "Claude API billing page",
+      "kind": "manual-provider-page",
+      "authority": "provider-reported",
+      "maturity": "stable",
+      "defaultConfidence": "manual",
+      "freshnessPolicy": {
+        "kind": "manual"
+      },
+      "capabilities": [
+        "balance",
+        "spend",
+        "history"
+      ],
+      "authRequirement": {
+        "category": "other",
+        "privilege": "least-privilege",
+        "requiredScopes": [],
+        "storageBoundary": "none"
+      }
+    },
+    {
+      "providerID": "anthropic",
+      "surfaceID": "claude-organization",
+      "sourceID": "claude-organization-usage-page",
+      "displayName": "Claude organization usage page",
+      "kind": "manual-provider-page",
+      "authority": "provider-reported",
+      "maturity": "stable",
+      "defaultConfidence": "manual",
+      "freshnessPolicy": {
+        "kind": "manual"
+      },
+      "capabilities": [
+        "quota-windows",
+        "spend",
+        "reset-schedule",
+        "history"
+      ],
+      "authRequirement": {
+        "category": "other",
+        "privilege": "elevated",
+        "requiredScopes": [
+          "organization-owner"
+        ],
+        "storageBoundary": "none"
+      }
+    }
+  ],
+  "snapshots": [
+    {
+      "providerID": "anthropic",
+      "surfaceID": "claude-subscription",
+      "savedAccountID": "claude-personal-web",
+      "accountContexts": [
+        {
+          "contextID": "personal",
+          "kind": "personal",
+          "displayName": "Personal subscription",
+          "regionID": "global"
+        }
+      ],
+      "observedAt": "2026-07-22T12:00:00Z",
+      "metrics": [
+        {
+          "metricID": "included-five-hour",
+          "accountContextID": "personal",
+          "sourceID": "claude-usage-page",
+          "capability": "quota-windows",
+          "displayName": "Included 5-hour usage",
+          "availability": "known",
+          "conditions": [],
+          "unit": {
+            "kind": "percent"
+          },
+          "values": {
+            "consumed": {
+              "value": "64",
+              "origin": "reported"
+            },
+            "remaining": {
+              "value": "36",
+              "origin": "derived"
+            }
+          },
+          "window": {
+            "kind": "rolling",
+            "durationSeconds": 18000,
+            "nextTransition": {
+              "kind": "reset",
+              "at": "2026-07-22T15:00:00Z"
+            }
+          },
+          "freshness": {
+            "observedAt": "2026-07-22T12:00:00Z",
+            "validUntil": "2026-07-22T12:10:00Z"
+          },
+          "confidence": "live",
+          "derivations": [
+            {
+              "kind": "percent-complement",
+              "target": "remaining",
+              "inputs": [
+                "consumed"
+              ]
+            }
+          ]
+        },
+        {
+          "metricID": "usage-credit-balance",
+          "accountContextID": "personal",
+          "sourceID": "claude-usage-page",
+          "capability": "balance",
+          "displayName": "Usage credit balance",
+          "availability": "known",
+          "conditions": [],
+          "unit": {
+            "kind": "currency",
+            "currencyCode": "USD"
+          },
+          "values": {
+            "remaining": {
+              "value": "35.50",
+              "origin": "reported"
+            }
+          },
+          "window": {
+            "kind": "none"
+          },
+          "freshness": {
+            "observedAt": "2026-07-22T12:00:00Z",
+            "validUntil": "2026-07-22T12:10:00Z"
+          },
+          "confidence": "live",
+          "derivations": []
+        },
+        {
+          "metricID": "usage-credit-spend",
+          "accountContextID": "personal",
+          "sourceID": "claude-usage-page",
+          "capability": "spend",
+          "displayName": "Usage credit spend",
+          "availability": "known",
+          "conditions": [],
+          "unit": {
+            "kind": "currency",
+            "currencyCode": "USD"
+          },
+          "values": {
+            "consumed": {
+              "value": "12.75",
+              "origin": "reported"
+            }
+          },
+          "window": {
+            "kind": "billing-cycle",
+            "nextTransition": {
+              "kind": "renew",
+              "at": "2026-08-01T00:00:00Z"
+            }
+          },
+          "freshness": {
+            "observedAt": "2026-07-22T12:00:00Z",
+            "validUntil": "2026-07-22T12:10:00Z"
+          },
+          "confidence": "live",
+          "derivations": []
+        }
+      ]
+    },
+    {
+      "providerID": "anthropic",
+      "surfaceID": "claude-subscription",
+      "savedAccountID": "claude-local-estimate",
+      "accountContexts": [
+        {
+          "contextID": "local-identity",
+          "kind": "personal",
+          "displayName": "Local Claude identity",
+          "regionID": "global"
+        }
+      ],
+      "observedAt": "2026-07-22T12:00:00Z",
+      "metrics": [
+        {
+          "metricID": "included-five-hour",
+          "accountContextID": "local-identity",
+          "sourceID": "claude-status-line",
+          "capability": "quota-windows",
+          "displayName": "Estimated 5-hour usage",
+          "availability": "known",
+          "conditions": [],
+          "unit": {
+            "kind": "percent"
+          },
+          "values": {
+            "consumed": {
+              "value": "58",
+              "origin": "reported"
+            },
+            "remaining": {
+              "value": "42",
+              "origin": "derived"
+            }
+          },
+          "window": {
+            "kind": "rolling",
+            "durationSeconds": 18000,
+            "nextTransition": {
+              "kind": "reset",
+              "at": "2026-07-22T15:00:00Z"
+            }
+          },
+          "freshness": {
+            "observedAt": "2026-07-22T12:00:00Z",
+            "validUntil": "2026-07-22T12:10:00Z"
+          },
+          "confidence": "local-estimate",
+          "derivations": [
+            {
+              "kind": "percent-complement",
+              "target": "remaining",
+              "inputs": [
+                "consumed"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "providerID": "anthropic",
+      "surfaceID": "claude-api",
+      "savedAccountID": "claude-api-account",
+      "accountContexts": [
+        {
+          "contextID": "api-organization",
+          "kind": "organization",
+          "displayName": "API organization",
+          "regionID": "global"
+        }
+      ],
+      "observedAt": "2026-07-22T12:00:00Z",
+      "metrics": [
+        {
+          "metricID": "prepaid-credit-balance",
+          "accountContextID": "api-organization",
+          "sourceID": "claude-api-billing-page",
+          "capability": "balance",
+          "displayName": "Prepaid API balance",
+          "availability": "known",
+          "conditions": [],
+          "unit": {
+            "kind": "currency",
+            "currencyCode": "USD"
+          },
+          "values": {
+            "remaining": {
+              "value": "80.00",
+              "origin": "reported"
+            }
+          },
+          "window": {
+            "kind": "none"
+          },
+          "freshness": {
+            "observedAt": "2026-07-22T12:00:00Z"
+          },
+          "confidence": "manual",
+          "derivations": []
+        }
+      ]
+    },
+    {
+      "providerID": "anthropic",
+      "surfaceID": "claude-organization",
+      "savedAccountID": "claude-team-account",
+      "accountContexts": [
+        {
+          "contextID": "organization",
+          "kind": "organization",
+          "displayName": "Organization",
+          "regionID": "global"
+        },
+        {
+          "contextID": "team",
+          "kind": "team",
+          "displayName": "Team",
+          "regionID": "global",
+          "parentContextID": "organization"
+        }
+      ],
+      "observedAt": "2026-07-22T12:00:00Z",
+      "metrics": [
+        {
+          "metricID": "monthly-usage-credit-spend",
+          "accountContextID": "team",
+          "sourceID": "claude-organization-usage-page",
+          "capability": "spend",
+          "displayName": "Monthly usage credit spend",
+          "availability": "known",
+          "conditions": [],
+          "unit": {
+            "kind": "currency",
+            "currencyCode": "USD"
+          },
+          "values": {
+            "consumed": {
+              "value": "120.00",
+              "origin": "reported"
+            },
+            "remaining": {
+              "value": "380.00",
+              "origin": "derived"
+            },
+            "limit": {
+              "value": "500.00",
+              "origin": "reported"
+            }
+          },
+          "window": {
+            "kind": "billing-cycle",
+            "nextTransition": {
+              "kind": "renew",
+              "at": "2026-08-01T00:00:00Z"
+            }
+          },
+          "freshness": {
+            "observedAt": "2026-07-22T12:00:00Z"
+          },
+          "confidence": "manual",
+          "derivations": [
+            {
+              "kind": "remaining-from-limit-minus-consumed",
+              "target": "remaining",
+              "inputs": [
+                "limit",
+                "consumed"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

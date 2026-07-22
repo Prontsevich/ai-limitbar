@@ -1,0 +1,255 @@
+{
+  "fixtureVersion": 1,
+  "contractVersion": {
+    "major": 1,
+    "minor": 0
+  },
+  "surfaces": [
+    {
+      "providerID": "openai",
+      "surfaceID": "codex-chatgpt",
+      "displayName": "Codex subscription",
+      "interactionModel": "subscription",
+      "regions": [
+        {
+          "regionID": "global",
+          "displayName": "Global"
+        }
+      ],
+      "accountContextKinds": [
+        "local-identity",
+        "workspace"
+      ],
+      "capabilities": [
+        "quota-windows",
+        "credits",
+        "reset-schedule",
+        "token-usage",
+        "history"
+      ]
+    }
+  ],
+  "sources": [
+    {
+      "providerID": "openai",
+      "surfaceID": "codex-chatgpt",
+      "sourceID": "codex-app-server",
+      "displayName": "Codex app-server",
+      "kind": "documented-local-interface",
+      "authority": "provider-reported",
+      "maturity": "experimental",
+      "defaultConfidence": "live",
+      "freshnessPolicy": {
+        "kind": "maximum-age",
+        "maxAgeSeconds": 600
+      },
+      "capabilities": [
+        "quota-windows",
+        "credits",
+        "reset-schedule",
+        "token-usage",
+        "history"
+      ],
+      "authRequirement": {
+        "category": "external-cli-session",
+        "privilege": "least-privilege",
+        "requiredScopes": [],
+        "storageBoundary": "provider-managed-cli"
+      }
+    }
+  ],
+  "snapshots": [
+    {
+      "providerID": "openai",
+      "surfaceID": "codex-chatgpt",
+      "savedAccountID": "codex-local",
+      "accountContexts": [
+        {
+          "contextID": "active-cli-identity",
+          "kind": "local-identity",
+          "displayName": "Local Codex identity",
+          "regionID": "global"
+        },
+        {
+          "contextID": "active-workspace",
+          "kind": "workspace",
+          "displayName": "Current workspace",
+          "regionID": "global",
+          "parentContextID": "active-cli-identity"
+        }
+      ],
+      "observedAt": "2026-07-22T12:00:00Z",
+      "metrics": [
+        {
+          "metricID": "codex-primary-window",
+          "accountContextID": "active-cli-identity",
+          "sourceID": "codex-app-server",
+          "capability": "quota-windows",
+          "displayName": "5-hour window",
+          "availability": "known",
+          "conditions": [],
+          "unit": {
+            "kind": "percent"
+          },
+          "values": {
+            "consumed": {
+              "value": "25",
+              "origin": "reported"
+            },
+            "remaining": {
+              "value": "75",
+              "origin": "derived"
+            }
+          },
+          "window": {
+            "kind": "rolling",
+            "durationSeconds": 18000,
+            "nextTransition": {
+              "kind": "reset",
+              "at": "2026-07-22T15:00:00Z"
+            }
+          },
+          "freshness": {
+            "observedAt": "2026-07-22T12:00:00Z",
+            "validUntil": "2026-07-22T12:10:00Z"
+          },
+          "confidence": "live",
+          "derivations": [
+            {
+              "kind": "percent-complement",
+              "target": "remaining",
+              "inputs": [
+                "consumed"
+              ]
+            }
+          ]
+        },
+        {
+          "metricID": "codex-weekly-window",
+          "accountContextID": "active-cli-identity",
+          "sourceID": "codex-app-server",
+          "capability": "quota-windows",
+          "displayName": "Weekly window",
+          "availability": "known",
+          "conditions": [],
+          "unit": {
+            "kind": "percent"
+          },
+          "values": {
+            "consumed": {
+              "value": "42",
+              "origin": "reported"
+            },
+            "remaining": {
+              "value": "58",
+              "origin": "derived"
+            }
+          },
+          "window": {
+            "kind": "fixed",
+            "durationSeconds": 604800,
+            "nextTransition": {
+              "kind": "reset",
+              "at": "2026-07-27T00:00:00Z"
+            }
+          },
+          "freshness": {
+            "observedAt": "2026-07-22T12:00:00Z",
+            "validUntil": "2026-07-22T12:10:00Z"
+          },
+          "confidence": "live",
+          "derivations": [
+            {
+              "kind": "percent-complement",
+              "target": "remaining",
+              "inputs": [
+                "consumed"
+              ]
+            }
+          ]
+        },
+        {
+          "metricID": "workspace-credits",
+          "accountContextID": "active-workspace",
+          "sourceID": "codex-app-server",
+          "capability": "credits",
+          "displayName": "Workspace credits",
+          "availability": "known",
+          "conditions": [],
+          "unit": {
+            "kind": "credits"
+          },
+          "values": {
+            "remaining": {
+              "value": "20",
+              "origin": "reported"
+            }
+          },
+          "window": {
+            "kind": "none"
+          },
+          "freshness": {
+            "observedAt": "2026-07-22T12:00:00Z",
+            "validUntil": "2026-07-22T12:10:00Z"
+          },
+          "confidence": "live",
+          "derivations": []
+        },
+        {
+          "metricID": "earned-rate-limit-resets",
+          "accountContextID": "active-cli-identity",
+          "sourceID": "codex-app-server",
+          "capability": "credits",
+          "displayName": "Earned rate-limit resets",
+          "availability": "known",
+          "conditions": [],
+          "unit": {
+            "kind": "credits"
+          },
+          "values": {
+            "remaining": {
+              "value": "2",
+              "origin": "reported"
+            }
+          },
+          "window": {
+            "kind": "none"
+          },
+          "freshness": {
+            "observedAt": "2026-07-22T12:00:00Z",
+            "validUntil": "2026-07-22T12:10:00Z"
+          },
+          "confidence": "live",
+          "derivations": []
+        },
+        {
+          "metricID": "lifetime-token-activity",
+          "accountContextID": "active-cli-identity",
+          "sourceID": "codex-app-server",
+          "capability": "token-usage",
+          "displayName": "Lifetime token activity",
+          "availability": "known",
+          "conditions": [],
+          "unit": {
+            "kind": "tokens"
+          },
+          "values": {
+            "consumed": {
+              "value": "1234567",
+              "origin": "reported"
+            }
+          },
+          "window": {
+            "kind": "lifetime"
+          },
+          "freshness": {
+            "observedAt": "2026-07-22T12:00:00Z",
+            "validUntil": "2026-07-22T12:10:00Z"
+          },
+          "confidence": "live",
+          "derivations": []
+        }
+      ]
+    }
+  ]
+}
