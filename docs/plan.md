@@ -572,6 +572,53 @@ embedded authentication, not useful beyond existing sources, or not feasible.
 Only a positive result creates a separate implementation milestone with a
 confirmed source contract and multi-account verification plan.
 
+#### Codex authenticated-web decision
+
+For the one active local Codex CLI identity, the decision is
+**`no-additional-value`**: an authenticated web source is not selected merely
+to duplicate app-server data. This is not a global rejection of web support.
+The app-server source can represent only one active local CLI identity, so a
+future opt-in web fallback may still be valuable for additional independently
+authenticated ChatGPT accounts. That question requires its own evidence-first
+research before a web source can be selected.
+
+AI Limitbar does not currently provide an authenticated Codex web source or
+semantic DOM parser. LMB-10 therefore did not initiate embedded sign-in,
+handle MFA or passkeys, retain a WebKit session, restore a web session after
+relaunch, or create per-account Codex `WKWebsiteDataStore` instances. It also
+does not claim that two-account web isolation has been demonstrated; that is a
+required gate for any future multi-account web fallback.
+
+The documented `codex app-server` account surface is the preferred structured
+local source. In addition to the current rate-limit windows, it documents
+`account/read` (account type and plan when available),
+`account/rateLimits/read` (identified quota buckets, percentages, reset times,
+workspace-credit details when returned, reached-limit state, and earned-reset
+credit counts), and `account/usage/read` (token-activity summaries and optional
+daily buckets). These are distinct native capabilities: plan quota and reset
+windows must not be conflated with workspace credits, earned reset credits, or
+token history.
+
+The documented `account/read` shapes include ChatGPT, API-key, and Amazon
+Bedrock identities; active auth-mode notifications also name externally
+supplied ChatGPT tokens, agent identity, and personal access tokens. Account
+token-activity data requires a Codex-service-backed identity; API-key-only and
+Bedrock authentication do not provide it. AI Limitbar must show
+unavailable/manual state rather than fall back to a web session for an
+unsupported identity.
+
+The current app-server adapter intentionally projects only Codex rate-limit
+windows. Adding plan, credits, or history remains a separate implementation
+decision after a sanitized real-account probe confirms optional-field behavior,
+updates the app-server handshake for the installed CLI protocol if needed, and
+defines native-unit UI and persistence rules. No production web-source Project
+is created from this single-account research result.
+
+References:
+
+- <https://developers.openai.com/codex/app-server/>
+- <https://help.openai.com/en/articles/12642688>
+
 ## App Architecture
 
 The app should be structured around:
@@ -621,6 +668,19 @@ portable integration contract later, but it should not attempt to publish or
 standardize that contract before it has been proven by production adapters. The
 near-term goal is a small, versioned internal contract with explicit semantics,
 not a universal provider description language.
+
+### Multi-account principle
+
+Multiple independently authenticated accounts are a first-class power-user
+scenario. A user may deliberately maintain more than one subscription or
+workspace to sustain a large workload, so provider research and implementation
+must evaluate both the one-account path and the safe path for multiple accounts.
+Each account has an independent authentication boundary, capacity state,
+refresh lifecycle, and diagnostics. A source tied to one local CLI identity
+must expose that limit, must not impersonate several accounts, and must be
+considered alongside safe per-account source or fallback options. Multi-account
+support must never reuse, import, or merge another app's credentials, cookies,
+browser storage, or session state.
 
 The contract separates the following concepts:
 

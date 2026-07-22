@@ -32,4 +32,20 @@ the currently authenticated local Codex CLI identity. If the CLI is missing,
 not authenticated, unsupported, malformed, or times out, the account shows a
 recoverable diagnostic with steps to update or authenticate Codex CLI and retry.
 
+## Authenticated web boundary
+
+AI Limitbar does not currently provide an authenticated Codex web source. The
+documented app-server account API is preferred for the one active local Codex
+CLI identity because it already exposes the relevant account-wide quota, reset,
+plan, credit, and token-activity capabilities when they are available. A future
+expansion of this structured local source may expose additional native metrics
+after a dedicated implementation decision and sanitized real-account
+verification.
+
+The app currently preserves the manual/unavailable workflow for API-key-only
+and Bedrock identities that do not expose ChatGPT account usage. A future
+opt-in web fallback for independently authenticated additional accounts must
+first prove its embedded-auth, multi-account isolation, and semantic-extraction
+contract; it must never import another app's browser session.
+
 Reference: <https://developers.openai.com/codex/app-server/>.

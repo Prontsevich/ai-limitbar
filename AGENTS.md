@@ -91,6 +91,10 @@ AILimitBarClaudeStatusLine (helper)
 - Update the linked Linear issue and documentation alongside implementation
   when behavior, architecture, or milestone status changes. Do not defer either
   to a later cleanup pass.
+- Treat multiple independently authenticated accounts as a first-class
+  power-user scenario in provider research and implementation. A source tied to
+  one local CLI identity must state that limit, must not be presented as several
+  accounts, and must be evaluated alongside safe per-account fallback options.
 - Keep private Linear issue identifiers and URLs out of branch names, commits,
   public GitHub issues, and pull requests. Attach a public pull request URL from
   the private Linear issue instead.
