@@ -599,8 +599,9 @@ that the system cannot express.
 
 `UsageSnapshot` should continue to represent normalized account state, but the
 dashboard needs more than one usage percentage per account. Future snapshot
-versions should add provider-defined limit windows while keeping the existing
-summary fields for compatibility and menu-bar status aggregation.
+versions should evolve from percentage-oriented limit windows toward typed
+provider capacity observations while keeping the existing summary fields for
+compatibility and menu-bar status aggregation.
 
 A limit window should describe one visible quota window, not a hardcoded app
 category. Common examples include a weekly window plus rolling 3-hour, 4-hour,
@@ -612,6 +613,99 @@ metadata inherited from or compatible with the parent snapshot.
 When a provider exposes only one value, the dashboard can render that value as a
 single limit window. When no machine-readable value exists, the account row
 should show an unavailable/manual state instead of inventing progress bars.
+
+## Provider Integration Contract Direction
+
+AI Limitbar should design its internal provider model so that it could become a
+portable integration contract later, but it should not attempt to publish or
+standardize that contract before it has been proven by production adapters. The
+near-term goal is a small, versioned internal contract with explicit semantics,
+not a universal provider description language.
+
+The contract separates the following concepts:
+
+- **Provider** identifies the company or service family.
+- **Product surface** identifies the independently authenticated and billed
+  offering, such as a personal subscription, API platform, enterprise tenant,
+  local CLI identity, or regional deployment. Surfaces from the same provider
+  must not be merged merely because they share branding.
+- **Account context** identifies whose capacity is being observed: a personal
+  account, organization, workspace, project, team, or other provider-defined
+  tenant. It also carries an explicit region when endpoints, credentials, or
+  policies differ by region.
+- **Data source** identifies how the observation was obtained, including a
+  documented remote API, documented structured local interface, local estimate,
+  isolated authenticated web session, or manual provider page.
+- **Auth requirement** declares the credential or session category, required
+  scope, and secure storage boundary. The actual login and refresh flow remains
+  adapter code because OAuth, API keys, subscription keys, CLI sessions,
+  browser sessions, and enterprise credentials have materially different
+  lifecycles and security properties.
+- **Capacity observation** describes a provider fact in its native unit together
+  with its time window, state, provenance, freshness, and confidence.
+
+The minimum contract should initially consist of three implementation-level
+types, with naming finalized during implementation:
+
+1. `ProviderSurface` — stable provider and surface identifiers, interaction
+   model, supported regions, and account-context kinds.
+2. `SourceDescriptor` — source kind, authority, freshness behavior, confidence,
+   and declared auth requirements.
+3. `CapacityMetric` — stable provider-owned metric identifier, optional
+   consumed/remaining/limit quantities, native unit, window and reset semantics,
+   provider display label, and an explicit availability state.
+
+Quantities remain in native units such as percent, currency, tokens, requests,
+or time. A percentage may be derived only when compatible consumed and limit
+values are both known and the derivation is semantically valid. The core must
+not invent a nominal total for an unlimited plan, flatten currency into a usage
+percentage, or treat a missing value as zero. Availability states must
+distinguish at least known, unlimited, unavailable, manual, and unknown; the
+model must also preserve provider-specific overage or boost values greater than
+a nominal limit instead of clamping them to 100 percent.
+
+Source and observation metadata must make these questions answerable without
+provider-specific UI logic:
+
+- Is the value authoritative, delayed, estimated, or manual?
+- When was it observed, and when does it become stale?
+- What account context and product surface does it belong to?
+- Does it reset, renew, expire, or have no meaningful time window?
+- Which native quantity was reported, and which values were derived by AI
+  Limitbar?
+
+Provider manifests, if introduced, are declarative metadata only. Executable
+adapter code performs authentication, endpoint selection, requests, parsing,
+validation, and normalization. The contract must not grow into declarative HTTP,
+DOM-scraping, or credential-exchange rules.
+
+The first validation set deliberately covers different failure modes rather
+than four similar percentage APIs:
+
+- Codex: a documented structured local interface with percentage windows,
+  plan information, credits, and potentially account usage history.
+- Claude: account-wide plan windows where available, while preserving the
+  distinction between authoritative subscription data and machine-local
+  estimates.
+- MiniMax Token Plan: region-specific endpoints and credentials, including
+  unlimited, unavailable, and boost/overage states.
+- OpenRouter: currency-denominated credits and spend, with a strict separation
+  between a normal API key and an elevated management credential.
+
+Only after stable production adapters can express these cases without adding
+provider-specific fields to the shared model should the project consider a
+public JSON Schema, SDK, conformance validator, sanitized fixtures, or provider
+registry. Until then, schema compatibility is internal and versioned through
+normal application migrations.
+
+The following are explicit non-goals for this phase:
+
+- A universal authentication engine.
+- Arbitrary third-party executable plugins.
+- A declarative request or web-scraping runtime.
+- A universal percentage representation.
+- Describing every provider or billing model in advance.
+- A public backward-compatibility promise before the contract is proven.
 
 ## Storage
 
