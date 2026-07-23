@@ -10,15 +10,22 @@ AI provider usage snapshots. Built with SwiftUI on Swift 6.2 / macOS 15+.
 ## Build & Test
 
 ```zsh
-swift build                # Build all targets
-swift test                 # Run full test suite
-./script/build_and_run.sh  # Stage .app bundle and launch
+swift build                                           # Build all targets
+swift test                                            # Run full test suite
+AILIMITBAR_DEVELOPMENT_TEAM=YOUR_TEAM_ID \
+  ./script/build_and_run.sh                           # Stage DEBUG .app and launch
 ```
 
 Useful run modes: `--verify`, `--debug`, `--logs`, `--telemetry`.
 
-The run script builds the SwiftPM product, stages a local ad-hoc signed `.app`
-bundle in `dist/`, and launches it. All modes use the same bundle shape.
+The run script builds the SwiftPM product, stages the DEBUG `.app` bundle in
+`dist/`, and launches it. DEBUG staging requires the caller's explicit
+`AILIMITBAR_DEVELOPMENT_TEAM`; Xcode automatic signing supplies an installed
+Apple Development identity and an Xcode-managed profile that authorizes the
+restricted application-identifier and default Keychain-group entitlements.
+Release staging remains ad-hoc and explicitly non-credential-capable pending
+the separate distribution signing and notarization gate. All run modes use the
+same bundle shape.
 
 ## Architecture
 
@@ -105,9 +112,10 @@ AILimitBarClaudeStatusLine (helper)
 - **Direct UI automation remains unavailable for the production app.** The
   current Codex Computer Use connection cannot discover or inspect its
   `LSUIElement` menu-bar process. Do not retry it against the production app.
-  Use `./script/build_and_run.sh --ui-test-host <scenario>` for app-owned
-  dashboard and Settings AX/visual checks; see `docs/ui-test-host.md`. The host
-  does not cover the production status item, `NSPopover` anchoring,
+  Use `./script/build_and_run.sh --ui-test-host <scenario>` with explicit
+  `AILIMITBAR_DEVELOPMENT_TEAM=YOUR_TEAM_ID` for app-owned dashboard and
+  Settings AX/visual checks; see `docs/ui-test-host.md`. The host does not cover
+  the production status item, `NSPopover` anchoring,
   `LSUIElement` activation/Spaces, OAuth/WebKit, or real providers. Keep those
   on their existing Swift-test, `--verify`, telemetry, staged-app, and explicit
   manual verification paths.

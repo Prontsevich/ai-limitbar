@@ -14,7 +14,11 @@ selected as a fallback for an ordinary key. The first MVP may use `GET
 to the management inventory; it does not auto-import keys or persist provider
 labels, hashes, owner IDs, or workspace IDs.
 
-No production adapter is implemented by this research.
+No production HTTP adapter is implemented by this research. The shared storage
+foundation for this account shape is implemented: validated account-context
+trees, ordinary and management credential roles, independent Keychain items,
+and per-slot refresh and sanitized diagnostic boundaries are available for the
+future adapter and Settings flow.
 
 ## Selected MVP account shape
 
@@ -119,6 +123,32 @@ workspace metrics and must not be combined with account-wide credits.
 Ordinary and management keys are separate Keychain credential slots. The raw
 key is used only in the HTTPS Authorization header and is never written to
 SQLite, `UserDefaults`, logs, fixtures or diagnostics.
+
+Each slot is a device-local, non-synchronizing generic password in the macOS
+Data Protection Keychain. All CRUD queries explicitly target that Keychain;
+creation uses after-first-unlock, this-device-only accessibility. Access stays
+inside the app's provisioned default Keychain group, so local staged
+verification requires Apple Development signing and an embedded authorized
+profile. The local developer supplies its Team ID explicitly through
+`AILIMITBAR_DEVELOPMENT_TEAM`; the repository stores no team-specific value.
+The ad-hoc release bundle remains non-credential-capable until the separate
+production signing and notarization gate is complete.
+
+Each ordinary slot attaches to one app-owned `credential` child context. The
+optional management slot attaches to the saved billing-account root, so its
+future credits metric remains root-scoped rather than becoming a child-key
+metric. SQLite enforces one slot per context and at most one management slot per
+saved account; all reads and writes include the provider, saved-account, and
+slot IDs so identical local child names in two accounts cannot cross their
+credential boundary.
+
+Credential creation, replacement, disabling, and deletion are lifecycle-aware.
+A disabled or incomplete slot cannot be read. Create and delete partial failures
+retain an opaque Keychain reference in an inaccessible retryable SQLite row;
+account removal cannot bypass credential cleanup. Per-account serialization
+keeps create and recovery from racing delete across separate store instances,
+while the persisted lifecycle row remains the crash-recovery boundary. No
+recovery path returns an existing raw key to Settings or diagnostics.
 
 An ordinary key is the narrowest reliable credential boundary:
 

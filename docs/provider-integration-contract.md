@@ -379,7 +379,60 @@ behind fabricated progress meters.
 
 ## Persistence migration direction
 
-A future GRDB migration, not this documentation issue, will:
+Credential-context configuration and secret storage now have a platform-owned
+foundation. Additive GRDB migration v6 stores account contexts, credential
+slots, per-slot refresh state, and sanitized typed diagnostics. Each ordinary
+slot attaches to one `credential` child context; the optional management slot
+attaches to the account root and is constrained to one per saved account.
+Contexts and slots use app-owned stable IDs. SQLite stores only display
+configuration, role, enabled state, lifecycle state, and an opaque local
+Keychain reference.
+
+Every credential is a separate local, non-synchronizing generic password in the
+macOS Data Protection Keychain. Every `SecItem` CRUD query sets
+`kSecUseDataProtectionKeychain = true` and selects non-synchronizing items;
+creation additionally uses
+`kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`. Item queries omit an
+explicit access group and use the provisioned application identifier as the
+app's default private Keychain group. The raw value is represented by a
+redacted wrapper and is returned only to trusted executable adapter code. It is
+never part of context metadata, SQLite, `UserDefaults`, diagnostics, logs,
+error text, or string descriptions. Disabled, missing, pending-creation, and
+pending-deletion credentials fail with fixed typed errors.
+
+Local DEBUG verification uses an Apple Development-signed app with an embedded
+Xcode-managed Mac development provisioning profile that authorizes the exact
+application identifier and default Keychain group. Personal Team profiles are
+valid for seven days and are refreshed through Xcode automatic signing. The
+caller supplies its team explicitly through `AILIMITBAR_DEVELOPMENT_TEAM`; no
+developer Team ID is stored in the repository. The ad-hoc release path claims
+neither restricted entitlement and is explicitly non-credential-capable;
+production credential distribution remains a separate Developer ID
+provisioning and notarization gate.
+
+SQLite and Keychain cannot participate in one atomic transaction, so lifecycle
+states make their partial-failure boundary explicit. All operations for one
+provider account are serialized by a process-wide per-account coordinator,
+including when callers hold separate store instances:
+
+1. Creation first inserts inaccessible `pending-creation` metadata, then creates
+   the Keychain item, then activates the slot. A failure leaves the opaque
+   reference in a row that can be retried or securely deleted.
+2. Replacement uses `SecItemUpdate` on the existing item and does not change its
+   local reference.
+3. Deletion first marks the slot disabled and `pending-deletion`, then removes
+   the Keychain item idempotently, then removes the metadata. A failure leaves a
+   retryable inaccessible tombstone rather than an untracked item.
+4. Account deletion marks every child slot pending before touching Keychain,
+   removes each item, and deletes account metadata only after all items are
+   absent. A retry treats an already missing item as cleaned. Generic account
+   deletion rejects accounts that still own credential slots.
+
+Existing provider accounts and snapshots are not rewritten or removed by v6.
+They continue to load with no context rows until a credential-backed provider
+configuration explicitly creates a validated local tree.
+
+A future native-capacity GRDB migration will:
 
 1. add contract version and stable surface/source references to current
    snapshots and the necessary surface, region, and account-context selection

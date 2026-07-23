@@ -5,6 +5,11 @@ struct AILimitBarApp: App {
     @StateObject private var runtime: AppRuntime
 
     init() {
+#if DEBUG
+        if let verification = KeychainVerificationCommand.parse() {
+            verification.runAndExit()
+        }
+#endif
         _runtime = StateObject(wrappedValue: AppRuntime())
     }
 

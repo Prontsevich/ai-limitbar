@@ -5,9 +5,10 @@
 **Requirements:** macOS 15+, Xcode 26+ (Swift 6.2)
 
 ```zsh
-swift build                # Build all targets
-swift test                 # Run full test suite
-./script/build_and_run.sh  # Stage .app bundle and launch
+swift build                                           # Build all targets
+swift test                                            # Run full test suite
+AILIMITBAR_DEVELOPMENT_TEAM=YOUR_TEAM_ID \
+  ./script/build_and_run.sh                           # Stage DEBUG .app and launch
 ```
 
 ### Run Modes
@@ -19,13 +20,17 @@ swift test                 # Run full test suite
 | `--logs` | Show live app logs |
 | `--telemetry` | Enable telemetry output |
 
-The run script builds the SwiftPM product and stages a local ad-hoc signed
-`.app` bundle in `dist/`. `--verify` first runs the deterministic app-layer
-integration test, then launches the staged bundle through Launch Services with
-disposable storage, verifies startup stability, and terminates only the process
-created by that check. The staged bundle remains in `dist/` for manual QA.
-Interactive menu-bar, Settings, focus, and pointer checks are not inferred from
-the process check and must be performed manually.
+The run script builds the SwiftPM product and stages the DEBUG `.app` bundle in
+`dist/`. DEBUG staging requires the caller's explicit
+`AILIMITBAR_DEVELOPMENT_TEAM`; Xcode automatic signing selects an installed
+Apple Development identity and an Xcode-managed provisioning profile that
+authorizes the restricted application-identifier and default Keychain-group
+entitlements. `--verify` first runs the deterministic app-layer integration
+test, then launches the staged bundle through Launch Services with disposable
+storage, verifies startup stability, and terminates only the process created by
+that check. The staged bundle remains in `dist/` for manual QA. Interactive
+menu-bar, Settings, focus, and pointer checks are not inferred from the process
+check and must be performed manually.
 
 ## Release Packaging
 
@@ -44,6 +49,9 @@ archive automatically. Release tags must point to commits contained in `main`:
 git tag -a v0.2.0 -m "AI Limitbar 0.2.0"
 git push origin v0.2.0
 ```
+
+Release staging remains ad-hoc and non-credential-capable pending the separate
+distribution signing, authorized provisioning, and notarization gate.
 
 ## Architecture
 

@@ -10,6 +10,15 @@ CONFIGURATION="debug"
 VERSION=""
 BUILD_NUMBER=""
 ARCHITECTURE=""
+SIGNING_TEMP_DIRECTORY=""
+
+cleanup() {
+  if [[ -n "$SIGNING_TEMP_DIRECTORY" ]]; then
+    rm -rf "$SIGNING_TEMP_DIRECTORY"
+  fi
+}
+
+trap cleanup EXIT
 
 usage() {
   echo "usage: $0 [--configuration debug|release] [--version MAJOR.MINOR.PATCH --build-number BUILD] [--arch arm64|x86_64]" >&2
@@ -89,6 +98,17 @@ APP_RESOURCES="$APP_CONTENTS/Resources"
 INFO_PLIST="$APP_CONTENTS/Info.plist"
 ASSET_CATALOG="$ROOT_DIR/Resources/Assets.xcassets"
 APP_RESOURCE_BUNDLE="$APP_NAME"_"$APP_NAME".bundle
+LOCAL_SIGNING_PROJECT="$ROOT_DIR/Support/LocalSigning/AILimitBarLocalSigning.xcodeproj"
+LOCAL_SIGNING_SCHEME="AILimitBarLocalSigning"
+LOCAL_SIGNING_DERIVED_DATA="$ROOT_DIR/.build/local-signing"
+DEVELOPMENT_TEAM="${AILIMITBAR_DEVELOPMENT_TEAM:-}"
+
+if [[ "$CONFIGURATION" == "debug" && -z "$DEVELOPMENT_TEAM" ]]; then
+  echo "error: DEBUG staging requires AILIMITBAR_DEVELOPMENT_TEAM." >&2
+  echo "Set it to your Apple Development Team ID, for example:" >&2
+  echo "  AILIMITBAR_DEVELOPMENT_TEAM=YOUR_TEAM_ID $0 --configuration debug" >&2
+  exit 1
+fi
 
 BUILD_ARGS=(--configuration "$CONFIGURATION")
 if [[ -n "$ARCHITECTURE" ]]; then
@@ -213,9 +233,170 @@ if [[ -n "$VERSION" ]]; then
 fi
 
 /usr/bin/plutil -lint "$INFO_PLIST" >/dev/null
-/usr/bin/codesign --force --sign - --timestamp=none "$HELPER_BINARY"
-/usr/bin/codesign --force --sign - --timestamp=none "$APP_BINARY"
-/usr/bin/codesign --force --deep --sign - --timestamp=none "$APP_BUNDLE"
+if [[ "$CONFIGURATION" == "debug" ]]; then
+  [[ -d "$LOCAL_SIGNING_PROJECT" ]] || {
+    echo "error: missing local signing support project" >&2
+    exit 1
+  }
+
+  /usr/bin/xcodebuild \
+    -project "$LOCAL_SIGNING_PROJECT" \
+    -scheme "$LOCAL_SIGNING_SCHEME" \
+    -configuration Debug \
+    -destination "platform=macOS" \
+    -derivedDataPath "$LOCAL_SIGNING_DERIVED_DATA" \
+    -allowProvisioningUpdates \
+    -allowProvisioningDeviceRegistration \
+    DEVELOPMENT_TEAM="$DEVELOPMENT_TEAM" \
+    PRODUCT_BUNDLE_IDENTIFIER="$BUNDLE_ID" \
+    -quiet \
+    build
+
+  SIGNING_TEMPLATE_APP="$LOCAL_SIGNING_DERIVED_DATA/Build/Products/Debug/$LOCAL_SIGNING_SCHEME.app"
+  SIGNING_PROFILE="$SIGNING_TEMPLATE_APP/Contents/embedded.provisionprofile"
+  [[ -f "$SIGNING_PROFILE" ]] || {
+    echo "error: Xcode did not embed a local development provisioning profile" >&2
+    exit 1
+  }
+
+  SIGNING_TEMP_DIRECTORY="$(mktemp -d "${TMPDIR:-/tmp}/AILimitBar-signing.XXXXXX")"
+  SIGNING_ENTITLEMENTS="$SIGNING_TEMP_DIRECTORY/entitlements.plist"
+  SIGNING_PROFILE_PLIST="$SIGNING_TEMP_DIRECTORY/profile.plist"
+  STAGED_ENTITLEMENTS="$SIGNING_TEMP_DIRECTORY/staged-entitlements.plist"
+
+  /usr/bin/codesign \
+    --display \
+    --entitlements - \
+    --xml \
+    "$SIGNING_TEMPLATE_APP" \
+    >"$SIGNING_ENTITLEMENTS" \
+    2>/dev/null
+  /usr/bin/security cms \
+    -D \
+    -i "$SIGNING_PROFILE" \
+    -o "$SIGNING_PROFILE_PLIST"
+  /usr/bin/plutil -lint "$SIGNING_ENTITLEMENTS" "$SIGNING_PROFILE_PLIST" >/dev/null
+
+  PROFILE_TEAM="$(
+    /usr/libexec/PlistBuddy \
+      -c "Print :TeamIdentifier:0" \
+      "$SIGNING_PROFILE_PLIST"
+  )"
+  PROFILE_APP_IDENTIFIER="$(
+    /usr/libexec/PlistBuddy \
+      -c "Print :Entitlements:com.apple.application-identifier" \
+      "$SIGNING_PROFILE_PLIST"
+  )"
+  SIGNED_APP_IDENTIFIER="$(
+    /usr/libexec/PlistBuddy \
+      -c "Print :com.apple.application-identifier" \
+      "$SIGNING_ENTITLEMENTS"
+  )"
+  SIGNED_TEAM="$(
+    /usr/libexec/PlistBuddy \
+      -c "Print :com.apple.developer.team-identifier" \
+      "$SIGNING_ENTITLEMENTS"
+  )"
+  SIGNED_KEYCHAIN_GROUP="$(
+    /usr/libexec/PlistBuddy \
+      -c "Print :keychain-access-groups:0" \
+      "$SIGNING_ENTITLEMENTS"
+  )"
+  EXPECTED_APP_IDENTIFIER="$PROFILE_TEAM.$BUNDLE_ID"
+  PROFILE_KEYCHAIN_GROUPS="$(
+    /usr/bin/plutil \
+      -extract "Entitlements.keychain-access-groups" \
+      json \
+      -o - \
+      "$SIGNING_PROFILE_PLIST"
+  )"
+
+  [[ "$PROFILE_TEAM" == "$DEVELOPMENT_TEAM" ]] || {
+    echo "error: local development profile belongs to an unexpected team" >&2
+    exit 1
+  }
+  [[ "$PROFILE_APP_IDENTIFIER" == "$EXPECTED_APP_IDENTIFIER" ]] || {
+    echo "error: local development profile does not authorize the app identifier" >&2
+    exit 1
+  }
+  [[ "$SIGNED_APP_IDENTIFIER" == "$EXPECTED_APP_IDENTIFIER" ]] || {
+    echo "error: Xcode signing entitlements contain an unexpected app identifier" >&2
+    exit 1
+  }
+  [[ "$SIGNED_TEAM" == "$PROFILE_TEAM" ]] || {
+    echo "error: Xcode signing entitlements contain an unexpected team" >&2
+    exit 1
+  }
+  [[ "$SIGNED_KEYCHAIN_GROUP" == "$EXPECTED_APP_IDENTIFIER" ]] || {
+    echo "error: Xcode signing entitlements contain an unexpected Keychain group" >&2
+    exit 1
+  }
+  if [[ "$PROFILE_KEYCHAIN_GROUPS" != *"\"$EXPECTED_APP_IDENTIFIER\""* &&
+        "$PROFILE_KEYCHAIN_GROUPS" != *"\"$PROFILE_TEAM.*\""* ]]; then
+    echo "error: local development profile does not authorize the Keychain group" >&2
+    exit 1
+  fi
+
+  SIGNING_AUTHORITY="$(
+    /usr/bin/codesign -dvvv "$SIGNING_TEMPLATE_APP" 2>&1 |
+      /usr/bin/sed -n "s/^Authority=//p" |
+      /usr/bin/head -n 1
+  )"
+  [[ "$SIGNING_AUTHORITY" == "Apple Development:"* ]] || {
+    echo "error: Xcode did not select an Apple Development signing identity" >&2
+    exit 1
+  }
+
+  cp "$SIGNING_PROFILE" "$APP_CONTENTS/embedded.provisionprofile"
+  /usr/bin/codesign \
+    --force \
+    --sign "$SIGNING_AUTHORITY" \
+    --timestamp=none \
+    "$HELPER_BINARY"
+  /usr/bin/codesign \
+    --force \
+    --sign "$SIGNING_AUTHORITY" \
+    --entitlements "$SIGNING_ENTITLEMENTS" \
+    --timestamp=none \
+    --generate-entitlement-der \
+    "$APP_BUNDLE"
+else
+  rm -f "$APP_CONTENTS/embedded.provisionprofile"
+  /usr/bin/codesign --force --sign - --timestamp=none "$HELPER_BINARY"
+  /usr/bin/codesign --force --sign - --timestamp=none "$APP_BUNDLE"
+fi
 /usr/bin/codesign --verify --deep --strict "$APP_BUNDLE"
 
-echo "Staged $APP_BUNDLE"
+if [[ "$CONFIGURATION" == "debug" ]]; then
+  /usr/bin/codesign \
+    --display \
+    --entitlements - \
+    --xml \
+    "$APP_BUNDLE" \
+    >"$STAGED_ENTITLEMENTS" \
+    2>/dev/null
+  cmp -s "$SIGNING_ENTITLEMENTS" "$STAGED_ENTITLEMENTS" || {
+    echo "error: staged app entitlements differ from Xcode-authorized entitlements" >&2
+    exit 1
+  }
+  PROFILE_EXPIRATION="$(
+    /usr/libexec/PlistBuddy \
+      -c "Print :ExpirationDate" \
+      "$SIGNING_PROFILE_PLIST"
+  )"
+  echo "Staged $APP_BUNDLE (Apple Development; profile expires $PROFILE_EXPIRATION)"
+else
+  RELEASE_SIGNING_STATE="$(
+    /usr/bin/codesign -dvvv --entitlements :- "$APP_BUNDLE" 2>&1
+  )"
+  [[ ! -e "$APP_CONTENTS/embedded.provisionprofile" ]] || {
+    echo "error: ad-hoc release must not embed a development profile" >&2
+    exit 1
+  }
+  if [[ "$RELEASE_SIGNING_STATE" == *"com.apple.application-identifier"* ||
+        "$RELEASE_SIGNING_STATE" == *"keychain-access-groups"* ]]; then
+    echo "error: ad-hoc release must remain non-credential-capable" >&2
+    exit 1
+  fi
+  echo "Staged $APP_BUNDLE (non-credential-capable ad-hoc release)"
+fi

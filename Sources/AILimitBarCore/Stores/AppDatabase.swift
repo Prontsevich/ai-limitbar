@@ -211,6 +211,115 @@ public final class AppDatabase: @unchecked Sendable {
                 )
                 """)
         }
+
+        migrator.registerMigration("v6-account-credential-contexts") { db in
+            try db.execute(sql: """
+                CREATE TABLE provider_account_contexts (
+                    provider_id TEXT NOT NULL,
+                    account_id TEXT NOT NULL,
+                    context_id TEXT NOT NULL,
+                    kind TEXT NOT NULL,
+                    display_name TEXT,
+                    region_id TEXT NOT NULL,
+                    parent_context_id TEXT,
+                    PRIMARY KEY (provider_id, account_id, context_id),
+                    FOREIGN KEY (provider_id, account_id)
+                        REFERENCES provider_accounts(provider_id, account_id)
+                        ON DELETE CASCADE,
+                    FOREIGN KEY (provider_id, account_id, parent_context_id)
+                        REFERENCES provider_account_contexts(
+                            provider_id, account_id, context_id
+                        )
+                        ON DELETE CASCADE,
+                    CHECK (
+                        parent_context_id IS NULL
+                        OR parent_context_id <> context_id
+                    )
+                )
+                """)
+
+            try db.execute(sql: """
+                CREATE TABLE provider_credential_slots (
+                    provider_id TEXT NOT NULL,
+                    account_id TEXT NOT NULL,
+                    slot_id TEXT NOT NULL,
+                    context_id TEXT NOT NULL,
+                    role TEXT NOT NULL CHECK (role IN ('ordinary', 'management')),
+                    is_enabled INTEGER NOT NULL,
+                    keychain_reference TEXT NOT NULL UNIQUE,
+                    lifecycle_state TEXT NOT NULL CHECK (
+                        lifecycle_state IN (
+                            'active',
+                            'pending-creation',
+                            'pending-deletion'
+                        )
+                    ),
+                    PRIMARY KEY (provider_id, account_id, slot_id),
+                    UNIQUE (provider_id, account_id, context_id),
+                    FOREIGN KEY (provider_id, account_id)
+                        REFERENCES provider_accounts(provider_id, account_id)
+                        ON DELETE CASCADE,
+                    FOREIGN KEY (provider_id, account_id, context_id)
+                        REFERENCES provider_account_contexts(
+                            provider_id, account_id, context_id
+                        )
+                        ON DELETE RESTRICT
+                )
+                """)
+            try db.execute(sql: """
+                CREATE UNIQUE INDEX one_management_credential_per_account
+                ON provider_credential_slots(provider_id, account_id)
+                WHERE role = 'management'
+                """)
+
+            try db.execute(sql: """
+                CREATE TABLE credential_refresh_state (
+                    provider_id TEXT NOT NULL,
+                    account_id TEXT NOT NULL,
+                    slot_id TEXT NOT NULL,
+                    last_attempt_at REAL,
+                    last_successful_refresh_at REAL,
+                    last_failed_refresh_at REAL,
+                    PRIMARY KEY (provider_id, account_id, slot_id),
+                    FOREIGN KEY (provider_id, account_id, slot_id)
+                        REFERENCES provider_credential_slots(
+                            provider_id, account_id, slot_id
+                        )
+                        ON DELETE CASCADE
+                )
+                """)
+
+            try db.execute(sql: """
+                CREATE TABLE credential_diagnostics (
+                    id INTEGER PRIMARY KEY,
+                    provider_id TEXT NOT NULL,
+                    account_id TEXT NOT NULL,
+                    slot_id TEXT NOT NULL,
+                    code TEXT NOT NULL CHECK (
+                        code IN (
+                            'authentication',
+                            'insufficient-privilege',
+                            'throttled',
+                            'transient-failure',
+                            'credential-disabled',
+                            'credential-missing'
+                        )
+                    ),
+                    occurred_at REAL NOT NULL,
+                    FOREIGN KEY (provider_id, account_id, slot_id)
+                        REFERENCES provider_credential_slots(
+                            provider_id, account_id, slot_id
+                        )
+                        ON DELETE CASCADE
+                )
+                """)
+            try db.execute(sql: """
+                CREATE INDEX credential_diagnostics_slot
+                ON credential_diagnostics(
+                    provider_id, account_id, slot_id, occurred_at
+                )
+                """)
+        }
         return migrator
     }
 }

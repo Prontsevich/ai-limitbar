@@ -18,11 +18,16 @@ client, executable override, credential, or personal account value.
 Stage and run a scenario through Launch Services:
 
 ```zsh
-./script/build_and_run.sh --ui-test-host dashboard-healthy \
+AILIMITBAR_DEVELOPMENT_TEAM=YOUR_TEAM_ID \
+  ./script/build_and_run.sh --ui-test-host dashboard-healthy \
   --ui-test-language en \
   --ui-test-appearance dark \
   --ui-test-height standard
 ```
+
+Like every locally staged DEBUG bundle, the host requires an explicit
+caller-owned Apple Development Team ID through
+`AILIMITBAR_DEVELOPMENT_TEAM`; the repository does not store a default.
 
 Supported values:
 

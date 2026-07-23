@@ -156,6 +156,32 @@ public final class DatabaseProviderConfigurationStore: ProviderAccountStore, @un
         }
     }
 
+    public func accountCount() throws -> Int {
+        let database = try requireDatabase()
+        return try database.pool.read { db in
+            try Int.fetchOne(
+                db,
+                sql: "SELECT COUNT(*) FROM provider_accounts"
+            ) ?? 0
+        }
+    }
+
+    public func insertIfEmpty(_ account: ProviderAccount) throws -> Bool {
+        let database = try requireDatabase()
+        let normalizedAccount = try Self.normalized([account])[0]
+        return try database.pool.write { db in
+            let count = try Int.fetchOne(
+                db,
+                sql: "SELECT COUNT(*) FROM provider_accounts"
+            ) ?? 0
+            guard count == 0 else {
+                return false
+            }
+            try Self.write([normalizedAccount], in: db)
+            return true
+        }
+    }
+
     public func save(_ accounts: [ProviderAccount]) throws {
         let database = try requireDatabase()
         let normalizedAccounts = try Self.normalized(accounts)
@@ -166,6 +192,19 @@ public final class DatabaseProviderConfigurationStore: ProviderAccountStore, @un
             let retainedKeys = Set(normalizedAccounts.map(\.accountKey))
             for key in existingKeys.subtracting(retainedKeys) {
                 let components = key.split(separator: ":", maxSplits: 1).map(String.init)
+                let hasCredentialSlots = try Bool.fetchOne(
+                    db,
+                    sql: """
+                        SELECT EXISTS(
+                            SELECT 1 FROM provider_credential_slots
+                            WHERE provider_id = ? AND account_id = ?
+                        )
+                        """,
+                    arguments: [components[0], components[1]]
+                ) ?? false
+                guard !hasCredentialSlots else {
+                    throw StorageValidationError.accountContainsCredentials
+                }
                 try db.execute(
                     sql: "DELETE FROM provider_accounts WHERE provider_id = ? AND account_id = ?",
                     arguments: [components[0], components[1]]
@@ -240,11 +279,14 @@ public final class DatabaseProviderConfigurationStore: ProviderAccountStore, @un
 
 public enum StorageValidationError: LocalizedError, Equatable, Sendable {
     case duplicateDisplayName
+    case accountContainsCredentials
 
     public var errorDescription: String? {
         switch self {
         case .duplicateDisplayName:
             "Account names must be globally unique."
+        case .accountContainsCredentials:
+            "Account credentials must be securely deleted before removing the account."
         }
     }
 }

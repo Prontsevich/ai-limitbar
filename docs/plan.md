@@ -47,8 +47,9 @@ The app ships with:
 - `ClaudeCodeProviderAdapter` with manual and opt-in managed statusLine modes.
 - One app-owned GRDB/SQLite database for persisted accounts, snapshots,
   refresh settings, and safe source diagnostics.
-- A Keychain service interface for future real provider integrations; credential
-  UI remains hidden until a verified provider requirement makes it actionable.
+- Account-owned credential contexts backed by separate real macOS Keychain
+  items; credential UI remains hidden until a provider implementation makes it
+  actionable.
 
 The MVP fetches live data only through explicitly opted-in experimental source
 paths. The Codex app-server source uses the documented local app-server protocol
@@ -743,6 +744,89 @@ during migration, while global diagnostics remain available. An account deletion
 therefore removes its snapshots and diagnostics atomically; late provider or
 connection results for that account are discarded by `AppModel`.
 
+Migration v6 adds normalized account-context trees and credential slots without
+rewriting existing provider accounts or snapshots. Contexts keep app-owned
+stable IDs, local display names, region and parent links. Ordinary credentials
+attach to leaf `credential` contexts; an optional management credential attaches
+to the account root and is unique per saved account. Each slot has its own
+enabled state, opaque Keychain reference, lifecycle state, refresh timestamps,
+and fixed sanitized diagnostic code. Existing accounts load with no contexts
+until a credential-backed source explicitly configures them.
+
+Every raw credential is stored as its own local, non-synchronizing generic
+password in the macOS Data Protection Keychain. SQLite never stores the value.
+All create, read, replace, and delete queries set
+`kSecUseDataProtectionKeychain = true` and explicitly select non-synchronizing
+items. Creation uses
+`kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`, so items remain available
+after the first unlock for background menu-bar refresh but do not synchronize
+or migrate to another device. The app omits `kSecAttrAccessGroup` from item
+queries and therefore uses its provisioned application identifier as the
+default private Keychain access group.
+
+Create, recovery, replacement, delete, and account-delete operations are
+serialized per account across store instances in the process. They use
+inaccessible `pending-creation` and `pending-deletion` metadata to make
+SQLite/Keychain partial failures recoverable: the local reference remains
+tracked until activation or confirmed Keychain deletion. Replacement updates
+the existing Keychain item without changing its reference. Generic account
+deletion refuses to cascade credential rows; secure account deletion first
+disables all slots, removes every Keychain item idempotently, and only then
+removes the account and its database children.
+
+The locally staged DEBUG bundle is signed with an installed Apple Development
+identity and embeds the Xcode-managed Mac development provisioning profile for
+`io.github.Prontsevich.AILimitBar`. A minimal app target under
+`Support/LocalSigning` asks Xcode automatic signing to authorize the exact
+`com.apple.application-identifier` and default `keychain-access-groups` values;
+the staging script copies that profile and Xcode-expanded entitlements to the
+real SwiftPM-built bundle, then requires `codesign --verify --deep --strict`.
+The support target does not build or replace the product executable. DEBUG
+staging requires an explicit caller-owned team ID, for example
+`AILIMITBAR_DEVELOPMENT_TEAM=YOUR_TEAM_ID`; no developer Team ID is stored in
+the repository.
+
+A free Personal Team profile is sufficient for local verification but expires
+seven days after issuance and must be refreshed by Xcode. It is not a
+distribution identity. The existing ad-hoc release path remains explicitly
+non-credential-capable: it embeds no provisioning profile and claims no
+application-identifier or Keychain access-group entitlement. Production
+credential shipping remains gated on the separately chosen Developer ID
+signing, authorized provisioning, notarization, and clean-Mac validation path.
+Platform references:
+[TN3137: On Mac keychain APIs and implementations](https://developer.apple.com/documentation/technotes/tn3137-on-mac-keychains),
+[TN3125: Inside Code Signing: Provisioning Profiles](https://developer.apple.com/documentation/technotes/tn3125-inside-code-signing-provisioning-profiles),
+and [Developer account overview](https://developer.apple.com/help/account/basics/about-your-developer-account).
+
+The DEBUG-only verification seam proves create/read, cross-rebuild replace/read,
+and deletion without printing credential material:
+
+```zsh
+verification_dir="$(mktemp -d)"
+AILIMITBAR_DEVELOPMENT_TEAM=YOUR_TEAM_ID \
+  ./script/stage_app_bundle.sh --configuration debug
+dist/AILimitBar.app/Contents/MacOS/AILimitBar \
+  --ai-limitbar-keychain-verification create \
+  --ai-limitbar-storage-directory "$verification_dir"
+AILIMITBAR_DEVELOPMENT_TEAM=YOUR_TEAM_ID \
+  ./script/stage_app_bundle.sh --configuration debug
+dist/AILimitBar.app/Contents/MacOS/AILimitBar \
+  --ai-limitbar-keychain-verification replace \
+  --ai-limitbar-storage-directory "$verification_dir"
+dist/AILimitBar.app/Contents/MacOS/AILimitBar \
+  --ai-limitbar-keychain-verification delete \
+  --ai-limitbar-storage-directory "$verification_dir"
+```
+
+The seam refuses to create when any account already exists and refuses replace
+or delete unless the database contains exactly its expected disposable account,
+context tree, and slot. The second staging step is part of the verification: a
+same-build read is insufficient evidence that the provisioned application
+identifier and default Keychain access group remain stable across a changed
+code-directory hash. The command requires an Apple Account configured in Xcode;
+`AILIMITBAR_DEVELOPMENT_TEAM` selects that account's team, and automatic signing
+registers the local Mac and refreshes the development profile when needed.
+
 Account display names are globally unique across all saved accounts, including
 disabled accounts, because the menu-bar dashboard uses the account name as its
 primary identifier. Before persistence, AI Limitbar trims leading/trailing
@@ -805,6 +889,19 @@ by default and are surfaced immediately without retry.
 ## Security
 
 - Store provider credentials in Keychain.
+- Use one Keychain item per credential slot. Keep only an opaque local reference
+  and non-sensitive context configuration in SQLite.
+- Treat disabled, missing, pending-creation, and pending-deletion credentials as
+  sanitized typed failures. Never return a stored secret through metadata,
+  diagnostics, logs, or error descriptions.
+- Preserve a retryable inaccessible tombstone when SQLite and Keychain cleanup
+  do not both succeed; account deletion must not silently orphan credential
+  items.
+- Require Apple Development signing, an embedded authorized profile, and the
+  exact default Keychain group for local staged DEBUG credential verification.
+- Keep ad-hoc release bundles explicitly non-credential-capable; require the
+  future Developer ID provisioning and notarization gate before credentials
+  ship in a production build.
 - Do not log secrets.
 - Do not store raw provider responses if they may contain sensitive account
   details.
@@ -953,12 +1050,13 @@ not an always-on-top panel.
 
 ## Daily-Use Smoke Verification
 
-Milestone 22.2 keeps `./script/build_and_run.sh --verify` as the single public
-smoke command. The command first exercises an app-layer integration scenario
-with a deterministic fake provider and disposable storage: create an account,
-change the refresh schedule, refresh, persist a normalized snapshot, recreate
-`AppModel`, and verify that account configuration, settings, and snapshot state
-reload. The targeted test is
+Milestone 22.2 keeps
+`AILIMITBAR_DEVELOPMENT_TEAM=YOUR_TEAM_ID ./script/build_and_run.sh --verify`
+as the single public smoke command. The command first exercises an app-layer
+integration scenario with a deterministic fake provider and disposable
+storage: create an account, change the refresh schedule, refresh, persist a
+normalized snapshot, recreate `AppModel`, and verify that account
+configuration, settings, and snapshot state reload. The targeted test is
 `AILimitBarTests.AppModelTests/testDailyUseSmokePersistsAccountSettingsAndSnapshot`.
 It then stages the normal debug `.app`, launches it through Launch Services with
 the internal `--ai-limitbar-storage-directory` argument, waits for a new
@@ -1087,5 +1185,6 @@ swift test
 Run and verify the menu bar app process:
 
 ```zsh
-./script/build_and_run.sh --verify
+AILIMITBAR_DEVELOPMENT_TEAM=YOUR_TEAM_ID \
+  ./script/build_and_run.sh --verify
 ```
