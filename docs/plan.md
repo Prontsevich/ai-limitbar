@@ -679,11 +679,21 @@ continues to own authentication, transport, parsing, validation, and
 normalization; declarative metadata never becomes a request, scraping, or
 credential-exchange runtime.
 
+Currency codes receive structural validation only: exactly three ASCII uppercase
+letters. Trusted adapters perform semantic normalization of their native
+currency instead of consulting a frozen contract registry; OpenRouter native
+currency is `USD`.
+
 The implementation-level field semantics, compatibility mapping from
 `UsageSnapshot`, persistence migration direction, portable Core ownership,
 sanitized Codex/Claude/MiniMax/OpenRouter fixtures, and evidence gate for any
 future public schema or SDK are defined in
 [`docs/provider-integration-contract.md`](provider-integration-contract.md).
+Contract v1 is implemented in `AILimitBarCore` as portable `Codable` domain
+models, pure validation, and a one-way legacy percentage bridge. The live
+`ProviderAdapter` API, `UsageSnapshot` dashboard projection, and existing GRDB
+snapshot schema remain backward compatible; native contract persistence and
+presentation require their dedicated migration work.
 Until that gate passes in a separate architecture decision, compatibility is
 internal and no public manifest, registry, validator, SDK, or backward-
 compatibility promise exists.

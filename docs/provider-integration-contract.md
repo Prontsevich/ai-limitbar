@@ -12,6 +12,13 @@ authentication, endpoint and command selection, requests, process execution,
 DOM access, parsing, validation, retry behavior, and normalization. Declarative
 metadata never contains executable request rules or credential values.
 
+Version 1 is implemented in `AILimitBarCore` as portable `Codable` domain
+models, pure validation rules, and a one-way legacy percentage bridge. The
+implementation has no SQLite, Keychain, URLSession, AppKit, or SwiftUI
+dependency. The current provider adapters, dashboard, and persisted snapshots
+continue to use `UsageSnapshot`; native contract persistence and presentation
+remain separate migration work.
+
 The contract separates six responsibilities:
 
 | Responsibility | Owner |
@@ -247,7 +254,11 @@ observation.
 `tokens`, `requests`, `characters`, `generations`, `images`, `media-minutes`,
 `compute-units`, `time`, and `provider-defined`.
 
-- `currency` requires an uppercase ISO 4217 `currencyCode`.
+- `currency` requires a `currencyCode` of exactly three ASCII uppercase letters
+  (`^[A-Z]{3}$`). This is structural validation only: the contract has no
+  runtime or frozen currency registry and no currency-code/version coupling.
+  Trusted provider adapters own semantic normalization of their native currency;
+  OpenRouter native currency is `USD`.
 - `time` requires a fixed duration unit such as `seconds` or `minutes`.
 - `provider-defined` requires a stable namespaced `providerUnitID`; it adds a
   unit, not arbitrary fields or semantics.
@@ -315,22 +326,35 @@ Derived values are allowed only through explicit adapter-selected rules:
 
 Each derivation names its target role or presentation value and its inputs.
 Derived outputs are tagged `derived`. The Core performs no implicit derivation
-based only on field presence. Utilization may exceed 100 percent and is never
-persisted as a replacement for native values.
+based only on field presence. A derived consumed or remaining quantity must
+equal the rule's exact `Decimal` result. Version 1 has no derivation that
+targets `limit`, so a limit cannot be tagged `derived`. Utilization may exceed
+100 percent and is never persisted as a replacement for native values.
 
 ## Compatibility with the current application
 
-This decision does not change the current runtime API:
+The version 1 implementation does not change the current runtime API:
 
 ```swift
 func fetchSnapshot(account: ProviderAccount) async throws -> UsageSnapshot
 ```
 
-The first implementation phase keeps `UsageSnapshot` as the account-level
-envelope and adds contract version, surface/source references, account
-contexts, and capacity metrics. Existing summary fields and
-`UsageLimitWindow` remain a compatibility projection while adapters, storage,
-dashboard presentation, thresholds, and CLI consumers migrate.
+`CapacitySnapshot` is the portable account-level envelope for contract version,
+surface/source references, account contexts, and capacity metrics.
+`UsageSnapshot` and `UsageLimitWindow` remain the live compatibility path while
+adapters, storage, dashboard presentation, thresholds, and CLI consumers
+migrate. `LegacyUsageSnapshotBridge` performs the deterministic one-way
+projection into contract v1. There is intentionally no reverse bridge that
+could hide native currency, credit, token, request, generation, or media
+metrics behind fabricated legacy percentages.
+
+Contract decoding ignores additive unknown object members. An unknown required
+metric discriminator drops only that metric and records a sanitized local
+diagnostic containing an error code and field path; malformed required fields
+still reject the snapshot. `ProviderContractValidator` checks version
+compatibility, registry references, source capabilities, native-unit
+invariants, freshness, derivations, and the locally identified acyclic
+account-context tree without retaining rejected input.
 
 Legacy projection rules are deterministic:
 
