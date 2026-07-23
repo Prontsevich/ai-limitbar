@@ -192,19 +192,30 @@ AccountContext
 ```
 
 Initial kinds are `personal`, `organization`, `workspace`, `project`, `team`,
-and `local-identity`. A context ID is local to the saved account. Parent links
-form an acyclic tree, allowing a project or team metric to remain distinct from
-its workspace or organization metric. The root has no parent.
+`credential`, and `local-identity`. A context ID is local to the saved account.
+Parent links form an acyclic tree, allowing a project, team, or credential
+metric to remain distinct from its workspace or organization metric. The root
+has no parent.
+
+A `credential` context represents a locally configured credential-scoped pool,
+such as one API key with its own spending cap and usage counters. Its context
+ID and display name are app-owned. The upstream key, hash, owner ID, and other
+opaque identifiers are not snapshot fields. A saved account may have several
+credential contexts, each with an independent Keychain item, refresh result,
+and diagnostic, while account-wide metrics remain attached to their shared
+parent context.
 
 Display names are optional, user-visible, and already sanitized or
 user-configured. The model does not persist upstream opaque IDs. Every context
 has an explicit region selected from its surface so region-specific endpoints,
 credentials, and policies cannot become hidden adapter state.
 
-Multiple independently authenticated accounts have independent saved account
-IDs, credential or browser-session boundaries, refresh lifecycles, snapshots,
-and diagnostics. A source tied to one active local identity declares that limit
-and cannot represent several saved accounts.
+Multiple independently authenticated or billed accounts have independent saved
+account IDs, credential or browser-session boundaries, refresh lifecycles,
+snapshots, and diagnostics. Several credentials intentionally grouped under one
+saved billing account remain separate child contexts rather than pretending to
+be several upstream accounts. A source tied to one active local identity
+declares that limit and cannot represent several saved accounts.
 
 ## `CapacityMetric`
 

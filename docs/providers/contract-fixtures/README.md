@@ -32,8 +32,10 @@ The four examples exercise different contract boundaries:
   provider-reported versus local-estimate observations;
 - `minimax.json`: explicit regions, independent account contexts, multimodal
   native units, unlimited/unavailable, boost, and overage;
-- `openrouter.json`: ordinary versus elevated credentials, currency limits and
-  spend, BYOK usage, and a missing limit without fabricated utilization.
+- `openrouter.json`: one billing account with child API-key credential contexts,
+  an optional elevated account-credits source, per-key and account-wide currency
+  observations, a workspace budget without fabricated spend, BYOK usage, and a
+  missing key limit without fabricated unlimited capacity or utilization.
 
 Passing these fixtures demonstrates that the shared model can express the
 evidence. It does not approve a source, prove authentication feasibility, or
