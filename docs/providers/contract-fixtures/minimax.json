@@ -17,21 +17,14 @@
         },
         {
           "regionID": "china",
-          "displayName": "China"
+          "displayName": "Mainland China"
         }
       ],
       "accountContextKinds": [
-        "personal",
-        "team",
-        "workspace"
+        "team"
       ],
       "capabilities": [
         "quota-windows",
-        "credits",
-        "requests",
-        "characters",
-        "generations",
-        "images",
         "reset-schedule"
       ]
     }
@@ -47,16 +40,10 @@
       "maturity": "experimental",
       "defaultConfidence": "live",
       "freshnessPolicy": {
-        "kind": "maximum-age",
-        "maxAgeSeconds": 600
+        "kind": "unknown"
       },
       "capabilities": [
         "quota-windows",
-        "credits",
-        "requests",
-        "characters",
-        "generations",
-        "images",
         "reset-schedule"
       ],
       "authRequirement": {
@@ -71,36 +58,37 @@
     {
       "providerID": "minimax",
       "surfaceID": "token-plan",
-      "savedAccountID": "minimax-global-team",
+      "savedAccountID": "minimax-global-default-team",
       "accountContexts": [
         {
           "contextID": "team",
           "kind": "team",
-          "displayName": "Global team",
+          "displayName": "Personal subscription",
           "regionID": "global"
         }
       ],
-      "observedAt": "2026-07-22T12:00:00Z",
+      "observedAt": "2026-07-23T12:00:00Z",
       "metrics": [
         {
-          "metricID": "coding-requests-five-hour",
+          "metricID": "included-usage-five-hour",
           "accountContextID": "team",
           "sourceID": "token-plan-remains-api",
-          "capability": "requests",
-          "displayName": "Coding requests — 5 hours",
+          "capability": "quota-windows",
+          "displayName": "Included usage — 5 hours",
           "availability": "known",
           "conditions": [],
           "unit": {
-            "kind": "requests"
+            "kind": "provider-defined",
+            "providerUnitID": "minimax.included-usage"
           },
           "values": {
             "consumed": {
-              "value": "750",
-              "origin": "derived"
+              "value": "280",
+              "origin": "reported"
             },
             "remaining": {
-              "value": "250",
-              "origin": "reported"
+              "value": "720",
+              "origin": "derived"
             },
             "limit": {
               "value": "1000",
@@ -108,47 +96,45 @@
             }
           },
           "window": {
-            "kind": "fixed",
-            "durationSeconds": 18000,
-            "nextTransition": {
-              "kind": "reset",
-              "at": "2026-07-22T15:00:00Z"
-            }
+            "kind": "rolling",
+            "durationSeconds": 18000
           },
           "freshness": {
-            "observedAt": "2026-07-22T12:00:00Z",
-            "validUntil": "2026-07-22T12:10:00Z"
+            "observedAt": "2026-07-23T12:00:00Z"
           },
           "confidence": "live",
           "derivations": [
             {
-              "kind": "consumed-from-limit-minus-remaining",
-              "target": "consumed",
+              "kind": "remaining-from-limit-minus-consumed",
+              "target": "remaining",
               "inputs": [
                 "limit",
-                "remaining"
+                "consumed"
               ]
             }
           ]
         },
         {
-          "metricID": "coding-requests-weekly",
+          "metricID": "included-usage-weekly",
           "accountContextID": "team",
           "sourceID": "token-plan-remains-api",
-          "capability": "requests",
-          "displayName": "Coding requests — weekly",
+          "capability": "quota-windows",
+          "displayName": "Included usage — weekly boost",
           "availability": "known",
-          "conditions": [],
+          "conditions": [
+            "boost"
+          ],
           "unit": {
-            "kind": "requests"
+            "kind": "provider-defined",
+            "providerUnitID": "minimax.included-usage"
           },
           "values": {
             "consumed": {
-              "value": "4200",
+              "value": "3200",
               "origin": "reported"
             },
             "remaining": {
-              "value": "5800",
+              "value": "6800",
               "origin": "derived"
             },
             "limit": {
@@ -158,6 +144,8 @@
           },
           "window": {
             "kind": "fixed",
+            "startsAt": "2026-07-20T00:00:00Z",
+            "endsAt": "2026-07-27T00:00:00Z",
             "durationSeconds": 604800,
             "nextTransition": {
               "kind": "reset",
@@ -165,8 +153,7 @@
             }
           },
           "freshness": {
-            "observedAt": "2026-07-22T12:00:00Z",
-            "validUntil": "2026-07-22T12:10:00Z"
+            "observedAt": "2026-07-23T12:00:00Z"
           },
           "confidence": "live",
           "derivations": [
@@ -179,247 +166,42 @@
               ]
             }
           ]
-        },
-        {
-          "metricID": "speech-characters-daily",
-          "accountContextID": "team",
-          "sourceID": "token-plan-remains-api",
-          "capability": "characters",
-          "displayName": "Speech characters — daily",
-          "availability": "known",
-          "conditions": [],
-          "unit": {
-            "kind": "characters"
-          },
-          "values": {
-            "consumed": {
-              "value": "125000",
-              "origin": "reported"
-            },
-            "remaining": {
-              "value": "875000",
-              "origin": "derived"
-            },
-            "limit": {
-              "value": "1000000",
-              "origin": "reported"
-            }
-          },
-          "window": {
-            "kind": "fixed",
-            "durationSeconds": 86400,
-            "nextTransition": {
-              "kind": "reset",
-              "at": "2026-07-23T00:00:00Z"
-            }
-          },
-          "freshness": {
-            "observedAt": "2026-07-22T12:00:00Z",
-            "validUntil": "2026-07-22T12:10:00Z"
-          },
-          "confidence": "live",
-          "derivations": [
-            {
-              "kind": "remaining-from-limit-minus-consumed",
-              "target": "remaining",
-              "inputs": [
-                "limit",
-                "consumed"
-              ]
-            }
-          ]
-        },
-        {
-          "metricID": "image-generations-daily",
-          "accountContextID": "team",
-          "sourceID": "token-plan-remains-api",
-          "capability": "images",
-          "displayName": "Image generations — daily",
-          "availability": "known",
-          "conditions": [],
-          "unit": {
-            "kind": "images"
-          },
-          "values": {
-            "consumed": {
-              "value": "6",
-              "origin": "reported"
-            },
-            "remaining": {
-              "value": "14",
-              "origin": "derived"
-            },
-            "limit": {
-              "value": "20",
-              "origin": "reported"
-            }
-          },
-          "window": {
-            "kind": "fixed",
-            "durationSeconds": 86400,
-            "nextTransition": {
-              "kind": "reset",
-              "at": "2026-07-23T00:00:00Z"
-            }
-          },
-          "freshness": {
-            "observedAt": "2026-07-22T12:00:00Z",
-            "validUntil": "2026-07-22T12:10:00Z"
-          },
-          "confidence": "live",
-          "derivations": [
-            {
-              "kind": "remaining-from-limit-minus-consumed",
-              "target": "remaining",
-              "inputs": [
-                "limit",
-                "consumed"
-              ]
-            }
-          ]
-        },
-        {
-          "metricID": "video-generations-daily",
-          "accountContextID": "team",
-          "sourceID": "token-plan-remains-api",
-          "capability": "generations",
-          "displayName": "Video generations — boosted daily capacity",
-          "availability": "known",
-          "conditions": [
-            "boost"
-          ],
-          "unit": {
-            "kind": "generations"
-          },
-          "values": {
-            "consumed": {
-              "value": "4",
-              "origin": "reported"
-            },
-            "remaining": {
-              "value": "11",
-              "origin": "derived"
-            },
-            "limit": {
-              "value": "15",
-              "origin": "reported"
-            }
-          },
-          "window": {
-            "kind": "fixed",
-            "durationSeconds": 86400,
-            "nextTransition": {
-              "kind": "reset",
-              "at": "2026-07-23T00:00:00Z"
-            }
-          },
-          "freshness": {
-            "observedAt": "2026-07-22T12:00:00Z",
-            "validUntil": "2026-07-22T12:10:00Z"
-          },
-          "confidence": "live",
-          "derivations": [
-            {
-              "kind": "remaining-from-limit-minus-consumed",
-              "target": "remaining",
-              "inputs": [
-                "limit",
-                "consumed"
-              ]
-            }
-          ]
-        },
-        {
-          "metricID": "song-generations",
-          "accountContextID": "team",
-          "sourceID": "token-plan-remains-api",
-          "capability": "generations",
-          "displayName": "Song generations",
-          "availability": "unlimited",
-          "conditions": [],
-          "unit": {
-            "kind": "provider-defined",
-            "providerUnitID": "minimax.songs"
-          },
-          "values": {
-            "consumed": {
-              "value": "3",
-              "origin": "reported"
-            }
-          },
-          "window": {
-            "kind": "none"
-          },
-          "freshness": {
-            "observedAt": "2026-07-22T12:00:00Z",
-            "validUntil": "2026-07-22T12:10:00Z"
-          },
-          "confidence": "live",
-          "derivations": []
-        },
-        {
-          "metricID": "token-plan-credits",
-          "accountContextID": "team",
-          "sourceID": "token-plan-remains-api",
-          "capability": "credits",
-          "displayName": "Token Plan credits",
-          "availability": "known",
-          "conditions": [],
-          "unit": {
-            "kind": "credits"
-          },
-          "values": {
-            "remaining": {
-              "value": "40",
-              "origin": "reported"
-            }
-          },
-          "window": {
-            "kind": "none"
-          },
-          "freshness": {
-            "observedAt": "2026-07-22T12:00:00Z",
-            "validUntil": "2026-07-22T12:10:00Z"
-          },
-          "confidence": "live",
-          "derivations": []
         }
       ]
     },
     {
       "providerID": "minimax",
       "surfaceID": "token-plan",
-      "savedAccountID": "minimax-china-personal",
+      "savedAccountID": "minimax-china-team",
       "accountContexts": [
         {
-          "contextID": "personal",
-          "kind": "personal",
-          "displayName": "China personal account",
+          "contextID": "team",
+          "kind": "team",
+          "displayName": "Team subscription",
           "regionID": "china"
         }
       ],
-      "observedAt": "2026-07-22T12:00:00Z",
+      "observedAt": "2026-07-23T12:00:00Z",
       "metrics": [
         {
-          "metricID": "coding-requests-five-hour",
-          "accountContextID": "personal",
+          "metricID": "included-usage-five-hour",
+          "accountContextID": "team",
           "sourceID": "token-plan-remains-api",
-          "capability": "requests",
-          "displayName": "Coding requests — overage",
+          "capability": "quota-windows",
+          "displayName": "Included usage — 5 hours",
           "availability": "known",
-          "conditions": [
-            "overage"
-          ],
+          "conditions": [],
           "unit": {
-            "kind": "requests"
+            "kind": "provider-defined",
+            "providerUnitID": "minimax.included-usage"
           },
           "values": {
             "consumed": {
-              "value": "1200",
+              "value": "450",
               "origin": "reported"
             },
             "remaining": {
-              "value": "-200",
+              "value": "550",
               "origin": "derived"
             },
             "limit": {
@@ -428,16 +210,11 @@
             }
           },
           "window": {
-            "kind": "fixed",
-            "durationSeconds": 18000,
-            "nextTransition": {
-              "kind": "reset",
-              "at": "2026-07-22T15:00:00Z"
-            }
+            "kind": "rolling",
+            "durationSeconds": 18000
           },
           "freshness": {
-            "observedAt": "2026-07-22T12:00:00Z",
-            "validUntil": "2026-07-22T12:10:00Z"
+            "observedAt": "2026-07-23T12:00:00Z"
           },
           "confidence": "live",
           "derivations": [
@@ -452,23 +229,29 @@
           ]
         },
         {
-          "metricID": "image-generations-daily",
-          "accountContextID": "personal",
+          "metricID": "included-usage-weekly",
+          "accountContextID": "team",
           "sourceID": "token-plan-remains-api",
-          "capability": "images",
-          "displayName": "Image generations — daily",
-          "availability": "unavailable",
+          "capability": "quota-windows",
+          "displayName": "Included usage — weekly",
+          "availability": "unlimited",
           "conditions": [],
           "unit": {
-            "kind": "images"
+            "kind": "provider-defined",
+            "providerUnitID": "minimax.included-usage"
           },
           "window": {
             "kind": "fixed",
-            "durationSeconds": 86400
+            "startsAt": "2026-07-20T00:00:00Z",
+            "endsAt": "2026-07-27T00:00:00Z",
+            "durationSeconds": 604800,
+            "nextTransition": {
+              "kind": "reset",
+              "at": "2026-07-27T00:00:00Z"
+            }
           },
           "freshness": {
-            "observedAt": "2026-07-22T12:00:00Z",
-            "validUntil": "2026-07-22T12:10:00Z"
+            "observedAt": "2026-07-23T12:00:00Z"
           },
           "confidence": "live",
           "derivations": []

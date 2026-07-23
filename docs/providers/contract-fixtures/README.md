@@ -30,8 +30,9 @@ The four examples exercise different contract boundaries:
   for one local identity;
 - `claude.json`: separate subscription, API, and organization surfaces plus
   provider-reported versus local-estimate observations;
-- `minimax.json`: explicit regions, independent account contexts, multimodal
-  native units, unlimited/unavailable, boost, and overage;
+- `minimax.json`: explicit regional Team contexts, provider-defined 5-hour and
+  weekly included-usage windows, unlimited capacity, and weekly boost without
+  preserving obsolete model-specific quota assumptions;
 - `openrouter.json`: one billing account with child API-key credential contexts,
   an optional elevated account-credits source, per-key and account-wide currency
   observations, a workspace budget without fabricated spend, BYOK usage, and a
@@ -45,6 +46,8 @@ Evidence references:
 
 - [Codex app-server](https://developers.openai.com/codex/app-server/)
 - [Claude paid-plan usage credits](https://support.claude.com/en/articles/12429409-manage-usage-credits-for-paid-claude-plans)
-- [MiniMax Token Plan](https://platform.minimaxi.com/docs/token-plan/intro)
+- [MiniMax Token Plan](https://platform.minimax.io/docs/token-plan/intro)
+- [MiniMax Token Plan for Teams](https://platform.minimax.io/docs/guides/pricing-token-plan-team)
+- [MiniMax CLI quota types](https://github.com/MiniMax-AI/cli/blob/3615170a2e26ec6003c4550cd1324b55ec8ad677/src/types/api.ts)
 - [OpenRouter current API key](https://openrouter.ai/docs/api/api-reference/api-keys/get-current-key)
 - [OpenRouter management API keys](https://openrouter.ai/docs/guides/overview/auth/management-api-keys)
