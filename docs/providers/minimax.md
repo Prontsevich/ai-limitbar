@@ -2,13 +2,17 @@
 
 ## Status and decision
 
-MiniMax has a supported `documented-interface` result for discovery, but it is
-not implementation-ready. The provider documents
-`GET /v1/token_plan/remains`, and its official `mmx` CLI uses that endpoint for
-`mmx quota`. The source is privacy-compatible and distribution-compatible for
-a macOS app, but an implementation Project must not be opened until sanitized
-credential-backed probes establish the current success response for each
-supported region and account shape.
+MiniMax passes the `documented-interface` decision for a finite experimental
+MVP: Global personal Default Team quota windows through
+`GET /v1/token_plan/remains`. The official `mmx` CLI uses the same endpoint for
+`mmx quota`. Sanitized probes verified the active success schema, canonical
+host, unavailable-subscription failure, and simultaneous isolation of two
+independently owned credentials on 2026-07-24.
+
+The scoped source is privacy-compatible and distribution-compatible for a
+macOS app. Purchased Credits, regular Teams, and Mainland China are not part of
+the MVP because their machine-readable behavior is not verified. Their absence
+does not block implementation of the verified Global Default Team source.
 
 The supported account boundary is one user-declared MiniMax Subscription Key in
 one explicit service region and Team. It is not a MiniMax user profile, and it
@@ -17,8 +21,9 @@ must not merge several Teams or regions:
 ```text
 Saved MiniMax account
 └── one region + one Team + one Subscription Key
-    ├── included usage — 5-hour rolling window
-    └── included usage — weekly window
+    └── one or more provider model rows
+        ├── included usage — current rolling window
+        └── included usage — weekly window
 ```
 
 Several saved accounts can coexist only as independent local contexts with
@@ -27,10 +32,11 @@ endpoint does not document an upstream user or Team identifier, so AI Limitbar
 cannot verify or infer that two keys belong to the same person, different
 people, or different Teams.
 
-No production adapter or credential-backed proof of concept is implemented by
-this research.
+No production adapter is implemented by this research. Local Keychain,
+refresh, snapshot, and diagnostics isolation remains an implementation
+acceptance criterion.
 
-## Why the decision remains gated
+## Scoped implementation boundary
 
 MiniMax changed the Token Plan semantics while this research was active. The
 current Global documentation describes:
@@ -44,14 +50,25 @@ current Global documentation describes:
 
 Earlier documentation and the Mainland China documentation observed during this
 research describe model-specific request and daily creative quotas. The public
-official CLI still exposes an array named `model_remains` with per-row interval
-and weekly counts. This means the existence of a documented source is clear,
-but the precise mapping between the current Global usage bar, region-specific
-products, the CLI response rows, purchased Credits, and Team assignment is not
-safe to infer without real read-only responses.
+official CLI exposes an array named `model_remains` with per-row interval and
+weekly counts. The active Global probe confirmed that those rows are real,
+carry unique model names, and do not all share the same current or weekly quota
+values. Current rolling-window boundaries also differed across rows, while the
+weekly boundaries matched for this one account.
 
-The implementation gate therefore requires evidence, not another speculative
-parser.
+The live API representation is therefore model-specific even though the
+current Global product documentation describes a unified included-usage pool.
+AI Limitbar must preserve separate reviewed model rows and must not aggregate
+them into one synthetic meter.
+
+The experimental MVP is intentionally narrower than the full product:
+
+- Global region only;
+- personal Default Team, classified from owner-supplied context;
+- current and weekly quota windows only;
+- no Credits metric;
+- no regular Team or Mainland China claims;
+- no silent region, credential, CLI, web, or pay-as-you-go fallback.
 
 ## Documented sources
 
@@ -78,10 +95,11 @@ Official references:
 - [Official CLI sanitized quota fixture](https://github.com/MiniMax-AI/cli/blob/3615170a2e26ec6003c4550cd1324b55ec8ad677/test/fixtures/quota-response.json)
 
 The FAQ examples use `www.minimax.io` and `www.minimaxi.com`. The official CLI
-uses `api.minimax.io` and `api.minimaxi.com`. Both host families are
-provider-owned and answered the unauthenticated probe, but a credential-backed
-probe must confirm equivalent successful response behavior before an adapter
-selects canonical hosts.
+uses `api.minimax.io` and `api.minimaxi.com`. A successful Global probe found
+the same schema and stable payload on `api.minimax.io` and `www.minimax.io`;
+only volatile countdown fields differed between the sequential requests.
+AI Limitbar should use the official CLI's `api` host as canonical. The `www`
+host is verification evidence, not a runtime fallback.
 
 ## Authentication and region boundary
 
@@ -162,17 +180,26 @@ weekly boost multiplier only to display percentage. These are official CLI
 implementation semantics, not a complete API reference. A production parser
 must still validate every type and range.
 
-Current Global product documentation no longer establishes that row counts are
+The active Global success response contained every required CLI field as the
+documented JSON type, no unknown row fields, unique model names, known status
+values, and ordered interval bounds. The optional `weekly_boost_permille` field
+was absent in this account. Both current and weekly quota values differed
+across rows; current window boundaries differed, while weekly boundaries were
+shared. These are observations for one account, not universal invariants.
+
+Current Global product documentation does not establish that row counts are
 requests, characters, images, or generations. AI Limitbar therefore preserves
-them as a provider-defined included-usage unit until a sanitized successful
-response and current provider documentation establish a narrower native unit.
-It must not label them as requests or fabricate modality-specific meters.
+them as provider-defined included-usage units per reviewed model row. It must
+not label them as requests, fabricate modality-specific meters, or combine
+separate rows into a unified total.
 
 Mapping rules:
 
 - the current interval is a rolling window, not a fixed reset period;
 - the weekly interval is a separate window and is never merged with the
   5-hour value;
+- each reviewed `model_remains` row produces its own current and weekly
+  metrics; values and current windows are not assumed to match other rows;
 - reported usage and total counts remain native provider-defined values;
 - remaining may be derived only as `limit - consumed`, with an explicit
   derivation;
@@ -192,9 +219,9 @@ Mapping rules:
 
 | Capability | Result |
 | --- | --- |
-| Quota windows | Supported by the remains endpoint after success-shape verification |
+| Quota windows | Supported for the verified active Global response; other regions and account shapes remain gated |
 | Reset schedule | Supported as provider interval/window time fields after unit verification |
-| Credits balance | Product capability documented; machine-readable remains field not established |
+| Credits balance | Unsupported by the scoped source; no machine-readable field is established |
 | Pay-as-you-go balance or spend | Unsupported by this source |
 | Requests, characters, images, generations | Legacy/region-specific semantics; not safe as the current universal mapping |
 | History | Unsupported |
@@ -249,8 +276,51 @@ missing and fixed invalid credentials produced `1004` and omitted
 `model_remains`, which is a distinct response shape.
 
 The official CLI repository supplies a public sanitized success fixture and
-typed success model, which are sufficient for fixture design but do not replace
-credential-backed Global, China, Team, and multi-account probes.
+typed success model. A live Global personal Default Team response verifies that
+contract for the scoped MVP. Mainland China, regular Team, and Credits behavior
+remain unverified and excluded.
+
+The credential owner confirmed that the active key belongs to a different
+MiniMax account and user than the expired key. This establishes two independent
+upstream owners with distinct observed states: one unavailable subscription and
+one active personal Default Team subscription. The Team classification is
+owner-supplied because the response does not identify it.
+
+On 2026-07-24, an active Global Subscription Key was loaded from the
+mode-`0600` global Codex environment file and used only in process memory. A
+second probe explicitly removed the stale parent-process environment value so
+the current file value could not be shadowed. Both Global hosts returned:
+
+- HTTP 200 JSON with business status `0`;
+- top-level `base_resp` and non-empty `model_remains` fields;
+- the same row field names and JSON types as the official CLI model;
+- only known row fields, complete required fields, unique model names, known
+  status values, and ordered window bounds;
+- different current and weekly quota values across model rows;
+- different current-window boundaries and shared weekly boundaries across rows
+  for this account;
+- no `weekly_boost_permille` field in the observed rows;
+- identical sanitized shapes and stable payloads after excluding volatile
+  countdown fields.
+
+The sequential raw payloads were not byte-identical because countdown fields
+changed between requests. No credential, raw body, provider message, quota
+quantity, model name, Team metadata, timestamp, opaque identifier, or
+unredacted capture was emitted or retained.
+
+A separate simultaneous probe read the two distinct Global credentials from
+the mode-`0600` environment file and sent both requests concurrently to the
+canonical `api.minimax.io` endpoint. The active second-owner credential
+returned business status `0` with a non-empty row array while the expired
+original-owner credential returned `2062` with `model_remains: null`. This
+verifies distinct provider-edge authentication and response state. It does not
+substitute for implementation tests of separate Keychain items, saved-account
+IDs, refresh lifecycles, snapshots, and diagnostics.
+
+The simultaneous probe emitted only credential labels, HTTP and business
+status codes, top-level field names, type/presence flags, and relationship
+booleans. It did not emit or retain credentials, raw responses, quantities,
+model names, timestamps, Team metadata, or provider messages.
 
 ## Refresh, failure, and privacy behavior
 
@@ -313,17 +383,18 @@ include:
   duplicate rows, unknown fields, wrong types, malformed numbers, and
   non-finite values;
 - 5-hour rolling and weekly windows with independently changing usage;
+- distinct model rows with different current and weekly values, different
+  current windows, and a shared weekly boundary;
 - timestamp and duration values in the verified unit, including past, zero, and
   inconsistent bounds;
 - limited, exhausted, unlimited, unavailable, and boosted statuses;
 - reported percentages that disagree with counts, without silent correction;
-- purchased Credits absent from the quota response;
-- Global and China endpoint selection with no cross-region fallback after
-  account setup;
-- Default Team and regular Team contexts;
-- two keys for one user in separate Teams and two independently authenticated
-  users, with separate Keychain items, refresh results, snapshots, and
-  diagnostics;
+- purchased Credits absent from the quota response and from product
+  presentation;
+- Global endpoint selection with no cross-region fallback;
+- personal Default Team context with owner-supplied display metadata;
+- two independently owned keys with active and unavailable response states,
+  separate Keychain items, refresh results, snapshots, and diagnostics;
 - cancellation, timeout, offline, 429/5xx transport failures, and a non-JSON
   response;
 - absence of credentials, raw messages, upstream user/Team identifiers,
@@ -334,42 +405,50 @@ shared model can express regional Team contexts, provider-defined quota
 windows, unlimited capacity, and boost. It does not prove authentication,
 response shape, account ownership, or Team isolation.
 
-## Remaining implementation gate
+## Implementation readiness and deferred variants
 
-Before a separate implementation Project can be created, run sanitized probes
-that emit schema and relationship facts only:
+The research gate passes for the scoped experimental MVP:
 
-1. One active Global Subscription Key in a Default Team.
-2. One active Global Subscription Key in a regular Team, when available.
-3. One active Mainland China Subscription Key, when available.
-4. Two Subscription Keys for one user in different Teams.
-5. Two independently authenticated users.
-6. A key with purchased Credits and, separately, a key with no assigned paid
-   resource. The expired Global key already covers the unavailable-subscription
-   response variant but not a valid key with active Credits-only access.
-7. Natural exhausted, unlimited, boosted, partial, and throttled variants when
-   encountered; do not generate paid usage or load to force them.
-8. The same successful key against the documented `www` host and official CLI
-   `api` host to select one canonical endpoint. Host equivalence is verified
-   only for invalid and expired-resource responses so far.
+1. Active Global personal Default Team success: verified.
+2. Success row schema and field types: verified.
+3. `api.minimax.io` canonical host and `www` stable-field equivalence:
+   verified.
+4. Missing, invalid, and expired/unavailable credential behavior: verified.
+5. Two independently owned credentials read simultaneously with distinct
+   active and unavailable result classes: verified.
+6. Privacy-safe direct API and distribution compatibility: verified.
 
-The probe must output only field names, JSON types, null/presence flags,
-business status codes, equality booleans, region/host labels, and coarse
-relationship results. It must not output credentials, quantities, plan names,
-model names, Team names or IDs, timestamps, raw responses, or provider
-messages.
+Implementation must prove the remaining local isolation contract:
+
+- each saved account has its own account ID and Keychain item;
+- concurrent refresh preserves the active snapshot when another account
+  returns `2062`;
+- failures and diagnostics remain attached to the correct account;
+- reconnecting or deleting one account does not mutate another;
+- the source never falls back across credentials, regions, CLI, web, or
+  pay-as-you-go surfaces.
+
+Deferred variants are non-blocking and must not be presented as supported:
+
+- regular Team Subscription Keys;
+- Mainland China endpoints and products;
+- purchased Credits or Credits-only access;
+- two active owners and two Teams belonging to one owner;
+- natural exhausted, unlimited, boosted, partial, and throttled success rows
+  not yet encountered.
 
 ## Recommendation
 
-Keep LMB-11 as a completed research decision only after review of this limited
-result:
+Approve a finite MiniMax implementation Project with this contract:
 
 - decision vocabulary: `documented-interface`;
 - default confidence after a successful parse: `live`;
-- source maturity until credential-backed verification: `experimental`;
-- supported boundary: one explicit region + Team + Subscription Key per saved
-  account;
-- production recommendation: do not implement yet;
-- next action: collect the bounded sanitized matrix above, then either approve
-  a finite quota-window MVP or record a negative result if the account boundary
-  or response contract cannot be established.
+- source maturity: `experimental`;
+- supported boundary: one Global personal Default Team Subscription Key per
+  saved account;
+- supported capability: per-model current and weekly quota windows;
+- unsupported capabilities: Credits, regular Team, and Mainland China;
+- required implementation proof: local multi-account isolation with the
+  active and unavailable credential states;
+- next action: shape the finite adapter, persistence, refresh, UI, privacy, and
+  verification scope through the rolling provider decision gate.

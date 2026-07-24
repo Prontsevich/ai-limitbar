@@ -31,8 +31,9 @@ The four examples exercise different contract boundaries:
 - `claude.json`: separate subscription, API, and organization surfaces plus
   provider-reported versus local-estimate observations;
 - `minimax.json`: explicit regional Team contexts, provider-defined 5-hour and
-  weekly included-usage windows, unlimited capacity, and weekly boost without
-  preserving obsolete model-specific quota assumptions;
+  weekly included-usage windows, unlimited capacity, and weekly boost; the
+  provider note separately records the verified per-model response structure
+  without assigning legacy request or modality units;
 - `openrouter.json`: one billing account with child API-key credential contexts,
   an optional elevated account-credits source, per-key and account-wide currency
   observations, a workspace budget without fabricated spend, BYOK usage, and a
