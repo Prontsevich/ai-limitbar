@@ -59,6 +59,14 @@ struct AccountDetailView: View {
                         }
                     }
 
+                    if currentAccount.providerID
+                        == OpenRouterProviderContract.providerID {
+                        OpenRouterCredentialsSettingsView(
+                            appModel: appModel,
+                            account: currentAccount
+                        )
+                    }
+
                     if !appModel.migrationDiagnostics(for: currentAccount).isEmpty {
                         TerminalFieldset(title: AppStrings.Settings.Detail.migration.localized(locale: locale)) {
                             EmptyView()
@@ -660,6 +668,12 @@ struct AccountEditorView: View {
                 }
             }
             .padding(.top, 4)
+        } else if draft.providerID == OpenRouterProviderContract.providerID {
+            Text(AppStrings.OpenRouter.sourceDescription.resource(locale: locale))
+                .font(TerminalTheme.captionFont)
+                .foregroundStyle(TerminalTheme.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.top, 4)
         }
     }
 

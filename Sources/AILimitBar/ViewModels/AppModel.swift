@@ -15,6 +15,10 @@ final class AppModel: ObservableObject {
     @Published var accountRefreshIssues: [String: AccountRefreshIssue] = [:]
     @Published var sourceDiagnostics: [SourceDiagnostic] = []
     @Published var sourceRefreshStates: [String: SourceRefreshState] = [:]
+    @Published var nativeCapacitySnapshots: [String: CapacitySnapshot] = [:]
+    @Published var credentialContextsByAccount: [String: [ProviderCredentialContext]] = [:]
+    @Published var credentialRefreshStatesByAccount: [String: [CredentialContextRefreshState]] = [:]
+    @Published var credentialDiagnosticsByAccount: [String: [CredentialContextDiagnostic]] = [:]
     @Published var refreshSettings = RefreshSettings()
     @Published var usageDisplayMode: UsageDisplayMode = .used
     @Published var usageDisplayOverrides: [UsageDisplayOverrideKey: UsageDisplayMode] = [:]
@@ -38,6 +42,7 @@ final class AppModel: ObservableObject {
     var globalRefreshTask: Task<Void, Never>?
     var accountRefreshTasks: [String: Task<Void, Never>] = [:]
     var accountRefreshTaskIDs: [String: UUID] = [:]
+    var openRouterRefreshGenerations: [String: UInt64] = [:]
 
     init(
         registry: ProviderRegistry? = nil,
@@ -120,6 +125,7 @@ final class AppModel: ObservableObject {
         loadUsageDisplayPreferences()
         loadSnapshots()
         loadDiagnostics()
+        loadOpenRouterPresentationData()
         configureScheduledRefresh()
     }
 
@@ -237,6 +243,8 @@ final class AppModel: ObservableObject {
             AppStrings.Storage.temporaryStorage.localized(locale: locale)
         case "AI Limitbar storage is unavailable. Changes cannot be saved.":
             AppStrings.Storage.storageUnavailable.localized(locale: locale)
+        case "OpenRouter credential metadata could not be loaded.":
+            AppStrings.Storage.openRouterCredentials.localized(locale: locale)
         default:
             storageWarning
         }

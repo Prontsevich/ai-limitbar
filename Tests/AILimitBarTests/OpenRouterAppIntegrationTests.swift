@@ -286,17 +286,13 @@ final class OpenRouterAppIntegrationTests: XCTestCase {
         model: AppModel,
         account: ProviderAccount
     ) throws {
-        let rootContextID = "\(account.accountID)-root"
-        let childContextID = "\(account.accountID)-ordinary"
-        try model.accountCredentialStore.createContext(
-            ProviderAccountContextConfiguration(
+        let rootContextID = try XCTUnwrap(
+            model.accountCredentialStore.loadContexts(
                 providerID: account.providerID,
-                accountID: account.accountID,
-                contextID: rootContextID,
-                kind: .personal,
-                regionID: "global"
-            )
+                accountID: account.accountID
+            ).first(where: { $0.parentContextID == nil })?.contextID
         )
+        let childContextID = "\(account.accountID)-ordinary"
         try model.accountCredentialStore.createContext(
             ProviderAccountContextConfiguration(
                 providerID: account.providerID,

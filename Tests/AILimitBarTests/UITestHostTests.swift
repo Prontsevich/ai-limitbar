@@ -111,6 +111,93 @@ final class UITestHostTests: XCTestCase {
         )
     }
 
+    func testOpenRouterFixturePreservesNativeHierarchyAndPrivacyBoundary() throws {
+        let anchor = Date(timeIntervalSince1970: 1_800_000_000)
+        let fixture = UITestHostFixture.make(
+            scenario: .dashboardOpenRouter,
+            anchor: anchor
+        )
+        let account = try XCTUnwrap(fixture.accounts.first)
+        let snapshot = try XCTUnwrap(fixture.nativeCapacitySnapshots[account.id])
+        let credentials = try XCTUnwrap(fixture.credentialContexts[account.id])
+        let diagnostics = try XCTUnwrap(fixture.credentialDiagnostics[account.id])
+
+        XCTAssertEqual(account.providerID, OpenRouterProviderContract.providerID)
+        XCTAssertEqual(
+            snapshot.metrics.filter { $0.metricID == "account-credits" }.count,
+            1
+        )
+        XCTAssertEqual(credentials.filter { $0.slot.role == .ordinary }.count, 3)
+        XCTAssertEqual(credentials.filter { $0.slot.role == .management }.count, 1)
+        XCTAssertEqual(diagnostics.map(\.code), [.authentication])
+        XCTAssertTrue(credentials.allSatisfy {
+            $0.slot.keychainReference.hasPrefix("synthetic-reference-")
+                && !$0.slot.keychainReference.contains("sk-")
+        })
+
+        let presentation = OpenRouterCapacityPresentation(
+            account: account,
+            snapshot: snapshot,
+            credentialContexts: credentials,
+            refreshStates: fixture.credentialRefreshStates[account.id] ?? [],
+            diagnostics: diagnostics,
+            now: anchor,
+            locale: Locale(identifier: "en_US")
+        )
+        XCTAssertEqual(presentation.state, .partial)
+        XCTAssertTrue(presentation.sharedCredits.valueText.contains("USD 87.5 remaining"))
+        XCTAssertTrue(presentation.sharedCredits.valueText.contains("USD 100 total"))
+        XCTAssertFalse(presentation.sharedCredits.valueText.contains("%"))
+        XCTAssertTrue(presentation.credentials.contains { $0.state == .stale })
+        XCTAssertTrue(presentation.credentials.contains { $0.state == .partial })
+        XCTAssertTrue(presentation.credentials.contains {
+            $0.metrics.contains { $0.state == .unknown }
+                && $0.metrics.contains { $0.state == .unlimited }
+        })
+    }
+
+    @MainActor
+    func testOpenRouterHostRefreshPreservesSyntheticNativeFixture() async throws {
+        let storageDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "ai-limitbar-ui-test-openrouter-\(UUID().uuidString)"
+            )
+        let options = AppLaunchOptions(
+            arguments: [
+                "app",
+                UITestHostConfiguration.modeArgument,
+                UITestHostScenario.dashboardOpenRouter.rawValue,
+                AppLaunchOptions.storageDirectoryArgument,
+                storageDirectory.path
+            ],
+            bundleIdentifier: UITestHostConfiguration.bundleIdentifier
+        )
+        let runtime = AppRuntime(launchOptions: options)
+        let session = try XCTUnwrap(runtime.uiTestHostSession)
+        defer { session.cleanup() }
+        let account = try XCTUnwrap(runtime.appModel.providerAccounts.first)
+        let before = try XCTUnwrap(
+            runtime.appModel.openRouterCapacityPresentation(
+                for: account,
+                locale: Locale(identifier: "en_US")
+            )
+        )
+
+        runtime.appModel.refresh()
+        await runtime.appModel.waitForRefreshCompletionForTesting()
+
+        let after = try XCTUnwrap(
+            runtime.appModel.openRouterCapacityPresentation(
+                for: account,
+                locale: Locale(identifier: "en_US")
+            )
+        )
+        XCTAssertEqual(after.sharedCredits, before.sharedCredits)
+        XCTAssertEqual(after.credentials, before.credentials)
+        XCTAssertEqual(after.credentials.count, 3)
+        XCTAssertNil(runtime.appModel.accountRefreshIssues[account.id])
+    }
+
     @MainActor
     func testHostRuntimeUsesIsolatedStoragePreferencesAndNoStatusItem() throws {
         let storageDirectory = FileManager.default.temporaryDirectory
@@ -156,6 +243,12 @@ final class UITestHostTests: XCTestCase {
         XCTAssertFalse(workspace.editorSession.isDirty)
         XCTAssertEqual(
             UITestHostScenario.settings.initialSettingsWorkspace(firstAccountID: "account"),
+            SettingsWorkspaceState()
+        )
+        XCTAssertEqual(
+            UITestHostScenario.settingsOpenRouter.initialSettingsWorkspace(
+                firstAccountID: "openrouter:account"
+            ),
             SettingsWorkspaceState()
         )
     }

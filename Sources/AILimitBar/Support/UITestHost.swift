@@ -8,14 +8,17 @@ enum UITestHostScenario: String, CaseIterable {
     case dashboardEmpty = "dashboard-empty"
     case dashboardHealthy = "dashboard-healthy"
     case dashboardMixed = "dashboard-mixed"
+    case dashboardOpenRouter = "dashboard-openrouter"
     case settings
     case settingsDirtyEditor = "settings-dirty-editor"
+    case settingsOpenRouter = "settings-openrouter"
 
     var initialSurface: UITestHostSurface {
         switch self {
-        case .dashboardEmpty, .dashboardHealthy, .dashboardMixed:
+        case .dashboardEmpty, .dashboardHealthy, .dashboardMixed,
+             .dashboardOpenRouter:
             .dashboard
-        case .settings, .settingsDirtyEditor:
+        case .settings, .settingsDirtyEditor, .settingsOpenRouter:
             .settings
         }
     }
@@ -280,6 +283,30 @@ struct UITestHostFixture {
     let accounts: [ProviderAccount]
     let snapshots: [UsageSnapshot]
     let refreshIssues: [String: AccountRefreshIssue]
+    let nativeCapacitySnapshots: [String: CapacitySnapshot]
+    let credentialContexts: [String: [ProviderCredentialContext]]
+    let credentialRefreshStates: [String: [CredentialContextRefreshState]]
+    let credentialDiagnostics: [String: [CredentialContextDiagnostic]]
+
+    init(
+        adapters: [any ProviderAdapter],
+        accounts: [ProviderAccount],
+        snapshots: [UsageSnapshot],
+        refreshIssues: [String: AccountRefreshIssue],
+        nativeCapacitySnapshots: [String: CapacitySnapshot] = [:],
+        credentialContexts: [String: [ProviderCredentialContext]] = [:],
+        credentialRefreshStates: [String: [CredentialContextRefreshState]] = [:],
+        credentialDiagnostics: [String: [CredentialContextDiagnostic]] = [:]
+    ) {
+        self.adapters = adapters
+        self.accounts = accounts
+        self.snapshots = snapshots
+        self.refreshIssues = refreshIssues
+        self.nativeCapacitySnapshots = nativeCapacitySnapshots
+        self.credentialContexts = credentialContexts
+        self.credentialRefreshStates = credentialRefreshStates
+        self.credentialDiagnostics = credentialDiagnostics
+    }
 
     @MainActor
     func apply(to appModel: AppModel) {
@@ -291,6 +318,10 @@ struct UITestHostFixture {
         _ = appModel.saveConfiguration()
         _ = appModel.saveSnapshots()
         _ = appModel.saveRefreshSettings()
+        appModel.nativeCapacitySnapshots = nativeCapacitySnapshots
+        appModel.credentialContextsByAccount = credentialContexts
+        appModel.credentialRefreshStatesByAccount = credentialRefreshStates
+        appModel.credentialDiagnosticsByAccount = credentialDiagnostics
     }
 
     static func make(scenario: UITestHostScenario, anchor: Date) -> UITestHostFixture {
@@ -302,6 +333,8 @@ struct UITestHostFixture {
             return healthyFixture(anchor: anchor)
         case .dashboardMixed:
             return mixedFixture(anchor: anchor)
+        case .dashboardOpenRouter, .settingsOpenRouter:
+            return openRouterFixture(anchor: anchor)
         }
     }
 
@@ -389,6 +422,267 @@ struct UITestHostFixture {
             accounts: accounts,
             snapshots: snapshots,
             refreshIssues: [accounts[3].id: failedIssue]
+        )
+    }
+
+    private static func openRouterFixture(anchor: Date) -> UITestHostFixture {
+        let account = ProviderAccount(
+            providerID: OpenRouterProviderContract.providerID,
+            accountID: "synthetic-openrouter",
+            displayName: "Synthetic OpenRouter",
+            isEnabled: true,
+            sourceMode: .openRouterAPI
+        )
+        let root = AccountContext(
+            contextID: "account",
+            kind: .personal,
+            regionID: "global"
+        )
+        let primary = AccountContext(
+            contextID: "primary",
+            kind: .credential,
+            displayName: "Primary",
+            regionID: "global",
+            parentContextID: root.contextID
+        )
+        let stale = AccountContext(
+            contextID: "stale",
+            kind: .credential,
+            displayName: "Stale key",
+            regionID: "global",
+            parentContextID: root.contextID
+        )
+        let failed = AccountContext(
+            contextID: "failed",
+            kind: .credential,
+            displayName: "Authentication issue",
+            regionID: "global",
+            parentContextID: root.contextID
+        )
+        let nativeSnapshot = CapacitySnapshot(
+            providerID: account.providerID,
+            surfaceID: OpenRouterProviderContract.surfaceID,
+            savedAccountID: account.accountID,
+            accountContexts: [root, primary, stale, failed],
+            observedAt: anchor,
+            metrics: [
+                openRouterMetric(
+                    id: "account-credits",
+                    contextID: root.contextID,
+                    sourceID: OpenRouterProviderContract.managementSourceID,
+                    values: CapacityValues(
+                        consumed: CapacityValue(value: 12.5, origin: .reported),
+                        remaining: CapacityValue(value: 87.5, origin: .derived),
+                        limit: CapacityValue(value: 100, origin: .reported)
+                    ),
+                    observedAt: anchor
+                ),
+                openRouterMetric(
+                    id: "key-credit-limit",
+                    contextID: primary.contextID,
+                    values: CapacityValues(
+                        remaining: CapacityValue(value: 8.75, origin: .reported),
+                        limit: CapacityValue(value: 10, origin: .reported)
+                    ),
+                    observedAt: anchor,
+                    window: CapacityWindow(
+                        kind: .fixed,
+                        nextTransition: CapacityTransition(
+                            kind: .reset,
+                            at: anchor.addingTimeInterval(3_600)
+                        )
+                    )
+                ),
+                openRouterMetric(
+                    id: "key-total-usage",
+                    contextID: primary.contextID,
+                    values: CapacityValues(
+                        consumed: CapacityValue(value: 1.25, origin: .reported)
+                    ),
+                    observedAt: anchor
+                ),
+                openRouterMetric(
+                    id: "key-weekly-usage",
+                    contextID: primary.contextID,
+                    availability: .unknown,
+                    values: nil,
+                    observedAt: anchor
+                ),
+                openRouterMetric(
+                    id: "key-monthly-byok-usage",
+                    contextID: primary.contextID,
+                    availability: .unlimited,
+                    values: nil,
+                    observedAt: anchor
+                ),
+                openRouterMetric(
+                    id: "key-total-usage",
+                    contextID: stale.contextID,
+                    values: CapacityValues(
+                        consumed: CapacityValue(value: 4.5, origin: .reported)
+                    ),
+                    observedAt: anchor.addingTimeInterval(-20 * 60)
+                ),
+                openRouterMetric(
+                    id: "key-total-usage",
+                    contextID: failed.contextID,
+                    values: CapacityValues(
+                        consumed: CapacityValue(value: 2, origin: .reported)
+                    ),
+                    observedAt: anchor
+                )
+            ]
+        )
+        let credentials = [
+            openRouterCredential(
+                account: account,
+                context: primary,
+                slotID: primary.contextID,
+                role: .ordinary
+            ),
+            openRouterCredential(
+                account: account,
+                context: stale,
+                slotID: stale.contextID,
+                role: .ordinary
+            ),
+            openRouterCredential(
+                account: account,
+                context: failed,
+                slotID: failed.contextID,
+                role: .ordinary
+            ),
+            openRouterCredential(
+                account: account,
+                context: root,
+                slotID: "management",
+                role: .management
+            )
+        ]
+        let compatibilitySnapshot = UsageSnapshot(
+            providerID: account.providerID,
+            accountID: account.accountID,
+            accountDisplayName: account.displayName,
+            displayName: "OpenRouter",
+            status: .warning,
+            planName: "API account",
+            periodLabel: "Native capacity",
+            usedPercent: 0,
+            remainingLabel: "Native capacity",
+            resetAt: nil,
+            limitWindows: [],
+            lastUpdatedAt: anchor,
+            confidence: .live,
+            source: "Synthetic UI test fixture"
+        )
+        let adapter = UITestScriptedProviderAdapter(
+            id: OpenRouterProviderContract.providerID,
+            displayName: "OpenRouter",
+            capabilities: ProviderCapabilities(sources: [
+                ProviderSourceCapability(
+                    mode: .openRouterAPI,
+                    kind: .live,
+                    summary: "Synthetic OpenRouter data for UI verification."
+                )
+            ]),
+            responses: [
+                account.accountID: .snapshot(
+                    compatibilitySnapshot,
+                    delayNanoseconds: 150_000_000
+                )
+            ],
+            preservesNativePresentationFixture: true
+        )
+        return UITestHostFixture(
+            adapters: [adapter],
+            accounts: [account],
+            snapshots: [compatibilitySnapshot],
+            refreshIssues: [:],
+            nativeCapacitySnapshots: [account.id: nativeSnapshot],
+            credentialContexts: [account.id: credentials],
+            credentialRefreshStates: [
+                account.id: [
+                    CredentialContextRefreshState(
+                        providerID: account.providerID,
+                        accountID: account.accountID,
+                        slotID: primary.contextID,
+                        lastAttemptAt: anchor,
+                        lastSuccessfulRefreshAt: anchor,
+                        lastFailedRefreshAt: nil
+                    ),
+                    CredentialContextRefreshState(
+                        providerID: account.providerID,
+                        accountID: account.accountID,
+                        slotID: stale.contextID,
+                        lastAttemptAt: anchor.addingTimeInterval(-20 * 60),
+                        lastSuccessfulRefreshAt: anchor.addingTimeInterval(-20 * 60),
+                        lastFailedRefreshAt: nil
+                    )
+                ]
+            ],
+            credentialDiagnostics: [
+                account.id: [
+                    CredentialContextDiagnostic(
+                        providerID: account.providerID,
+                        accountID: account.accountID,
+                        slotID: failed.contextID,
+                        code: .authentication,
+                        occurredAt: anchor
+                    )
+                ]
+            ]
+        )
+    }
+
+    private static func openRouterCredential(
+        account: ProviderAccount,
+        context: AccountContext,
+        slotID: String,
+        role: ProviderCredentialRole
+    ) -> ProviderCredentialContext {
+        ProviderCredentialContext(
+            context: ProviderAccountContextConfiguration(
+                providerID: account.providerID,
+                accountID: account.accountID,
+                contextID: context.contextID,
+                kind: context.kind,
+                displayName: context.displayName,
+                regionID: context.regionID,
+                parentContextID: context.parentContextID
+            ),
+            slot: ProviderCredentialSlot(
+                providerID: account.providerID,
+                accountID: account.accountID,
+                slotID: slotID,
+                contextID: context.contextID,
+                role: role,
+                isEnabled: true,
+                keychainReference: "synthetic-reference-\(slotID)"
+            )
+        )
+    }
+
+    private static func openRouterMetric(
+        id: String,
+        contextID: String,
+        sourceID: String = OpenRouterProviderContract.currentKeySourceID,
+        availability: CapacityAvailability = .known,
+        values: CapacityValues?,
+        observedAt: Date,
+        window: CapacityWindow = CapacityWindow(kind: .lifetime)
+    ) -> CapacityMetric {
+        CapacityMetric(
+            metricID: id,
+            accountContextID: contextID,
+            sourceID: sourceID,
+            capability: id.contains("usage") ? "spend" : "credits",
+            displayName: "Synthetic",
+            availability: availability,
+            unit: CapacityUnit(kind: .currency, currencyCode: "USD"),
+            values: values,
+            window: window,
+            freshness: ObservationFreshness(observedAt: observedAt),
+            confidence: .live
         )
     }
 
@@ -484,6 +778,22 @@ struct UITestScriptedProviderAdapter: ProviderAdapter {
     let usageURL: URL? = nil
     let capabilities: ProviderCapabilities
     let responses: [String: UITestScriptedProviderResponse]
+    let preservesNativePresentationFixture: Bool
+
+    init(
+        id: String,
+        displayName: String,
+        capabilities: ProviderCapabilities,
+        responses: [String: UITestScriptedProviderResponse],
+        preservesNativePresentationFixture: Bool = false
+    ) {
+        self.id = id
+        self.displayName = displayName
+        self.capabilities = capabilities
+        self.responses = responses
+        self.preservesNativePresentationFixture =
+            preservesNativePresentationFixture
+    }
 
     func fetchSnapshot(account: ProviderAccount) async throws -> UsageSnapshot {
         guard let response = responses[account.accountID] else {

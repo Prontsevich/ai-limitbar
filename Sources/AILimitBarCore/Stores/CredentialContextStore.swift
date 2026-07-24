@@ -246,10 +246,17 @@ public final class AccountCredentialStore: @unchecked Sendable {
             slotID: slotID
         )
         do {
-            try keychainService.replaceCredential(
-                credential,
-                reference: slot.keychainReference
-            )
+            do {
+                try keychainService.replaceCredential(
+                    credential,
+                    reference: slot.keychainReference
+                )
+            } catch KeychainServiceError.credentialNotFound {
+                try keychainService.createCredential(
+                    credential,
+                    reference: slot.keychainReference
+                )
+            }
         } catch {
             throw mapKeychainError(error)
         }

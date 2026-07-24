@@ -28,7 +28,8 @@ the current validated Contract v1 snapshot and normalized metric JSON while
 leaving the legacy snapshot columns untouched. Refresh state and sanitized
 diagnostics remain per credential slot. The initialized runtime explicitly
 starts one idempotent launch refresh after `AppModel` construction. Native
-currency and credit presentation in the dashboard remains separate work.
+currency and credit presentation is implemented in the dashboard, account
+details, and Settings.
 
 ## Selected MVP account shape
 
@@ -56,6 +57,35 @@ refresh results and diagnostics.
 Keys from a genuinely different billing owner belong to another saved AI
 Limitbar account. Without management inventory evidence, grouping is an
 explicit user choice rather than a provider-verified ownership claim.
+
+## Settings and presentation
+
+Settings creates each ordinary key as a locally named child credential context
+and allows rename, replacement, enable/disable, recovery, and secure deletion.
+The optional management credential is a separate elevated slot attached to the
+account root. It has an explicit disclosure and is never shown as an ordinary
+key. Raw values are accepted only by a secure editor, written to Keychain, then
+cleared; the app never reads them back into Settings. Replacing an active slot
+also recovers a missing Keychain item without changing the local context.
+Deleting an OpenRouter account first securely removes all of its credential
+items and then removes its local capacity state.
+
+The dashboard renders shared credits once at the saved-account root. Each
+ordinary key has its own nested native USD metrics, refresh state, and fixed
+diagnostic. Known USD values are not converted to percentages or progress bars.
+Finite reset windows use localized relative reset text; lifetime, unknown,
+unlimited, unavailable, partial, stale, disabled, recovery-required, and
+credential-error states remain explicit. Presentation uses app-owned metric
+names and never exposes provider labels, hashes, opaque IDs, messages, headers,
+or raw responses.
+
+Saved root credits and management diagnostics are visible only while the
+current metadata contains one active, enabled management slot. Missing,
+disabled, pending-creation, or pending-deletion management metadata makes
+shared credits unavailable even if an older root observation or diagnostic
+remains in storage. Freshness applies to every known observation, including an
+unlimited value: the value may still read `Unlimited`, but an observation older
+than the ten-minute source policy is stale and contributes stale account state.
 
 ## Documented sources
 
@@ -383,6 +413,18 @@ The existing synthetic contract fixture continues to demonstrate native
 currency, privilege-separated sources, null limits and account/workspace
 separation. Neither the contract fixture nor the client fixtures count as
 authentication or live provider verification.
+
+On 2026-07-24, the user launched the Apple Development-signed DEBUG app through
+`./script/build_and_run.sh`, added their own OpenRouter keys in Settings, and
+successfully received the expected OpenRouter data. This verifies real Keychain
+credential input and creation plus provider refresh and data retrieval; it does
+not verify credential replacement, deletion, recovery, visual or AX behavior,
+or any specific management-versus-ordinary credential path.
+
+Debug UI-host scenarios `dashboard-openrouter` and `settings-openrouter` render
+the real dashboard and Settings views with synthetic normalized capacity,
+credential metadata, per-slot freshness, and fixed diagnostics. They contain no
+credential values and perform no provider or Keychain access.
 
 A DEBUG-only deterministic end-to-end seam exercises the registered adapter,
 hierarchical coordinator, partial child failure, Contract v1 validation,

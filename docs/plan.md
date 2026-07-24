@@ -739,6 +739,15 @@ disabled while its request was in flight causes that same refresh to replace
 known root credits with exactly one unavailable sentinel after a final
 generation check.
 
+The app layer maintains an additional per-account OpenRouter refresh generation.
+Global Refresh All, individual Refresh, and Test Connection capture it before
+awaiting adapter work. Every ordinary or management credential add, rename,
+replace, enable/disable, recovery, or delete advances it. A compatibility
+snapshot returning with an older generation is discarded before app-level
+success/failure state, diagnostics, or legacy snapshot persistence can change;
+this prevents a cancelled global refresh from recording a false late failure
+after Settings mutates a credential.
+
 The implementation-level field semantics, compatibility mapping from
 `UsageSnapshot`, persistence migration direction, portable Core ownership,
 sanitized Codex/Claude/MiniMax/OpenRouter fixtures, and evidence gate for any
@@ -748,8 +757,11 @@ Contract v1 is implemented in `AILimitBarCore` as portable `Codable` domain
 models, pure validation, and a one-way legacy percentage bridge. The live
 `ProviderAdapter` API, `UsageSnapshot` dashboard projection, and existing GRDB
 snapshot schema remain backward compatible. OpenRouter native persistence is
-implemented by additive migration v7; native currency/credit presentation
-remains separate work.
+implemented by additive migration v7. The app layer observes the native
+snapshot plus per-slot credential metadata, refresh state, and diagnostics, and
+projects them into a root shared-credit row with nested ordinary-key USD
+metrics. Unknown, unlimited, unavailable, partial, stale, and credential-error
+states remain native presentation states rather than fabricated percentages.
 Until that gate passes in a separate architecture decision, compatibility is
 internal and no public manifest, registry, validator, SDK, or backward-
 compatibility promise exists.
@@ -1071,6 +1083,11 @@ The settings UI should support:
   preferences. Thresholds and appearance choices remain future work.
 - An Accounts master-detail layout with an account-name-first list, provider as
   secondary text, footer add/delete controls, and selected-account detail pane.
+- OpenRouter account details with locally named ordinary credential CRUD,
+  replacement/recovery, enable/disable, secure deletion, and one separately
+  disclosed optional elevated management credential. Secret fields never
+  support readback, and deleting the account securely removes its credential
+  items before local account state.
 - Enabling/disabling providers.
 - Ordering accounts through native drag-and-drop, with Move Up/Down context-menu
   actions as a keyboard/accessibility fallback.
@@ -1154,9 +1171,10 @@ tooling inspect app-owned SwiftUI presentation and keyboard behavior while the
 production app remains running. Stable language-independent identifiers cover
 dashboard actions and meters, Settings navigation and options, account-name
 editing, and the discard confirmation flow. Scenarios cover empty, healthy,
-mixed-state, Settings, and dirty-editor presentation across explicit language,
-appearance, and dashboard-height variants. The full command and AX contract is
-documented in [`docs/ui-test-host.md`](ui-test-host.md).
+mixed-state, OpenRouter native capacity, Settings, OpenRouter credential
+settings, and dirty-editor presentation across explicit language, appearance,
+and dashboard-height variants. The full command and AX contract is documented
+in [`docs/ui-test-host.md`](ui-test-host.md).
 
 This host does not represent the production `NSStatusItem`, `NSPopover`
 anchoring, `LSUIElement` activation or Spaces behavior, OAuth/WebKit, Keychain,

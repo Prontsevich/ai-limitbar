@@ -219,6 +219,19 @@ extension AppModel {
             providerAccounts = previousAccounts
             return nil
         }
+        if providerID == OpenRouterProviderContract.providerID {
+            do {
+                try initializeOpenRouterAccount(account)
+            } catch {
+                try? accountCredentialStore.deleteAccount(
+                    providerID: providerID,
+                    accountID: account.accountID
+                )
+                providerAccounts = previousAccounts
+                storageWarning = "OpenRouter credential metadata could not be loaded."
+                return nil
+            }
+        }
         return account
     }
 
@@ -255,6 +268,10 @@ extension AppModel {
         providerRefreshStatuses.removeValue(forKey: accountKey)
         accountRefreshIssues.removeValue(forKey: accountKey)
         sourceRefreshStates.removeValue(forKey: accountKey)
+        nativeCapacitySnapshots.removeValue(forKey: accountKey)
+        credentialContextsByAccount.removeValue(forKey: accountKey)
+        credentialRefreshStatesByAccount.removeValue(forKey: accountKey)
+        credentialDiagnosticsByAccount.removeValue(forKey: accountKey)
         guard providerID == OpenRouterProviderContract.providerID
                 || saveConfiguration() else {
             providerAccounts = previousAccounts

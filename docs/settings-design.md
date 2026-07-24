@@ -148,6 +148,16 @@ single current sources. Claude Code exposes a compact terminal selector for
 Manual, managed `statusLine`, and experimental `/usage` CLI; source-specific
 controls appear below it without changing the surrounding fieldset layout.
 
+OpenRouter account detail adds two terminal fieldsets below its source:
+ordinary API keys and the optional management credential. Ordinary keys use a
+local unique name and support add, rename, replace/recover, enable/disable, and
+secure delete. The management credential is a single separately disclosed
+elevated slot and supports add, replace/recover, enable/disable, and secure
+delete. Credential editors use `SecureField`, clear submitted input on success
+or failure, support Return and Escape, and never read an existing Keychain value
+back into the UI. Account deletion explicitly warns that all associated
+OpenRouter credentials and native capacity data are securely removed.
+
 ## Interaction And Accessibility
 
 - Opening Settings from behind another application activates AI Limitbar and
@@ -158,6 +168,8 @@ controls appear below it without changing the surrounding fieldset layout.
   fixed intrinsic height instead of stretching into unused window space.
 - Every compact icon and text action has a visible hover target and preserves its
   descriptive accessibility label and help text.
+- OpenRouter credential rows, toggles, add actions, secure editor fields, and
+  save actions retain stable language-independent accessibility identifiers.
 - Add, delete, reorder, enable/disable, refresh, test connection, open usage,
   source selection, helper installation, Edit, Save, and Cancel remain reachable
   by their existing pointer and keyboard paths.

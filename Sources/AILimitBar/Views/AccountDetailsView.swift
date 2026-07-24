@@ -79,7 +79,19 @@ struct AccountDetailsView: View {
         }
         TerminalRule()
 
-        if let snapshot = row.snapshot {
+        if let openRouterPresentation = appModel.openRouterCapacityPresentation(
+            for: currentAccount,
+            locale: locale
+        ) {
+            TerminalInspectorRow(
+                label: AppStrings.AccountDetails.source.localized(locale: locale),
+                value: currentAccount.sourceMode.localizedDisplayName(locale: locale)
+            )
+            TerminalRule()
+            OpenRouterCapacityDetailsContent(
+                presentation: openRouterPresentation
+            )
+        } else if let snapshot = row.snapshot {
             TerminalInspectorRow(label: AppStrings.AccountDetails.source.localized(locale: locale), value: snapshot.source)
             TerminalRule()
             TerminalInspectorRow(

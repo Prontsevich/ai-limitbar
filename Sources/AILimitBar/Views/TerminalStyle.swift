@@ -461,6 +461,36 @@ struct TerminalTextField: View {
     }
 }
 
+struct TerminalSecureField: View {
+    let title: String
+    @Binding var text: String
+    @FocusState private var isFocused: Bool
+
+    init(_ title: String, text: Binding<String>) {
+        self.title = title
+        _text = text
+    }
+
+    var body: some View {
+        SecureField(title, text: $text)
+            .textFieldStyle(.plain)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+            .background(TerminalTheme.surface)
+            .overlay {
+                RoundedRectangle(cornerRadius: 3, style: .continuous)
+                    .strokeBorder(
+                        isFocused ? TerminalTheme.primary : TerminalTheme.border.opacity(0.72),
+                        lineWidth: isFocused ? 2 : 1
+                    )
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
+            .focused($isFocused)
+            .accessibilityLabel(title)
+            .animation(.easeOut(duration: 0.12), value: isFocused)
+    }
+}
+
 struct TerminalNoteBox<Content: View>: View {
     let title: String
     @ViewBuilder let content: () -> Content

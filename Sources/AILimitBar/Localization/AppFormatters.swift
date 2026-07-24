@@ -12,6 +12,23 @@ enum AppFormatters {
             ?? "\(usedPercent)%"
     }
 
+    static func currency(
+        _ value: Decimal,
+        code: String,
+        locale: Locale
+    ) -> String {
+        let formatter = NumberFormatter()
+        formatter.locale = locale
+        formatter.numberStyle = .decimal
+        formatter.minimumFractionDigits = 0
+        formatter.maximumFractionDigits = 6
+        formatter.usesGroupingSeparator = true
+
+        let number = formatter.string(from: NSDecimalNumber(decimal: value))
+            ?? NSDecimalNumber(decimal: value).stringValue
+        return "\(code.uppercased()) \(number)"
+    }
+
     static func relativeDate(_ date: Date, relativeTo referenceDate: Date, locale: Locale) -> String {
         let formatter = RelativeDateTimeFormatter()
         formatter.locale = locale

@@ -32,13 +32,19 @@ struct AccountsSettingsPane: View {
             Button(AppStrings.Common.cancel.localized(locale: locale), role: .cancel) {}
         } message: {
             Text(
-                AppStrings.Settings.Accounts.deleteMessage.formatted(
+                deleteMessage.formatted(
                     locale: locale,
                     selectedAccount?.displayName
                         ?? AppStrings.Common.selectedAccount.localized(locale: locale)
                 )
             )
         }
+    }
+
+    private var deleteMessage: AppString {
+        selectedAccount?.providerID == OpenRouterProviderContract.providerID
+            ? AppStrings.Settings.Accounts.deleteOpenRouterMessage
+            : AppStrings.Settings.Accounts.deleteMessage
     }
 
     private var accountList: some View {

@@ -139,6 +139,14 @@ change severity, thresholds, notifications, analytics, or menu-bar state.
   label is informational. Amber warning state is reserved for real usage
   thresholds, stale data, or failed refreshes.
 
+OpenRouter is the native-unit exception to percentage meters. Its account
+fieldset renders account-wide credits once, followed by one nested section per
+ordinary API key. Each child shows its own USD usage, key limit, BYOK usage,
+reset semantics, freshness, and fixed diagnostic. It uses no progress fill or
+Used/Left toggle. Partial, stale, unavailable, unknown, unlimited, disabled,
+recovery-required, and credential-error states are visible in text and
+accessibility values without hiding healthy sibling keys.
+
 The dashboard should not scroll for common setups of three to five accounts.
 
 ## Account Details Popover
@@ -152,6 +160,8 @@ inner bordered block and use a `NOTE`-style label.
 It contains:
 
 - Account identity and current refresh state.
+- For OpenRouter, the same root-credit and ordinary-key hierarchy in a roomier
+  read-only layout; it does not flatten shared credits into every key.
 - The precise last-updated date and time.
 - Source and confidence.
 - A Use global / Used / Left control for every percentage-based limit window.

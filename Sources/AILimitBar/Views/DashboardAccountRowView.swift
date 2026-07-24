@@ -31,6 +31,13 @@ struct DashboardAccountRowView: View {
         )
     }
 
+    private var openRouterPresentation: OpenRouterCapacityPresentation? {
+        appModel.openRouterCapacityPresentation(
+            for: row.account,
+            locale: locale
+        )
+    }
+
     var body: some View {
         TerminalFieldset(
             title: presentation.accountName,
@@ -92,44 +99,50 @@ struct DashboardAccountRowView: View {
 
     @ViewBuilder
     private var accountContent: some View {
-        if let statusText = presentation.statusText {
-            Label(statusText, systemImage: statusSymbol)
-                .font(TerminalTheme.captionFont)
-                .foregroundStyle(statusColor)
-                .accessibilityLabel(statusText)
-        }
+        if let openRouterPresentation {
+            OpenRouterCapacityDashboardContent(
+                presentation: openRouterPresentation
+            )
+        } else {
+            if let statusText = presentation.statusText {
+                Label(statusText, systemImage: statusSymbol)
+                    .font(TerminalTheme.captionFont)
+                    .foregroundStyle(statusColor)
+                    .accessibilityLabel(statusText)
+            }
 
-        if !presentation.windows.isEmpty {
-            ForEach(presentation.windows) { window in
-                LimitWindowProgressRow(
-                    window: window,
-                    tint: progressTint,
-                    onToggle: {
-                        appModel.toggleUsageDisplayMode(for: row.account, windowID: window.id)
-                    },
-                    focusTarget: DashboardLimitWindowFocusTarget(
-                        providerID: row.account.providerID,
-                        accountID: row.account.accountID,
-                        windowID: window.id
-                    ),
-                    focusedLimitWindow: $focusedLimitWindow,
-                    showsKeyboardFocus: $showsKeyboardFocus,
-                    onClearFocus: onClearLimitWindowFocus
-                )
+            if !presentation.windows.isEmpty {
+                ForEach(presentation.windows) { window in
+                    LimitWindowProgressRow(
+                        window: window,
+                        tint: progressTint,
+                        onToggle: {
+                            appModel.toggleUsageDisplayMode(for: row.account, windowID: window.id)
+                        },
+                        focusTarget: DashboardLimitWindowFocusTarget(
+                            providerID: row.account.providerID,
+                            accountID: row.account.accountID,
+                            windowID: window.id
+                        ),
+                        focusedLimitWindow: $focusedLimitWindow,
+                        showsKeyboardFocus: $showsKeyboardFocus,
+                        onClearFocus: onClearLimitWindowFocus
+                    )
 
-                if window.id != presentation.windows.last?.id ?? "" {
-                    TerminalRule()
-                        .padding(.vertical, 1)
+                    if window.id != presentation.windows.last?.id ?? "" {
+                        TerminalRule()
+                            .padding(.vertical, 1)
+                    }
                 }
             }
-        }
 
-        if let bodyMessage = presentation.bodyMessage {
-            Text(bodyMessage)
-                .font(TerminalTheme.bodyFont)
-                .foregroundStyle(messageColor)
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            if let bodyMessage = presentation.bodyMessage {
+                Text(bodyMessage)
+                    .font(TerminalTheme.bodyFont)
+                    .foregroundStyle(messageColor)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
         }
     }
 

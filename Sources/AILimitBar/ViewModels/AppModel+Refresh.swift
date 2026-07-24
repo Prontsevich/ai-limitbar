@@ -57,6 +57,10 @@ extension AppModel {
         setRefreshStatus(.refreshing, for: account.id)
         AppTelemetry.refresh.info("Refreshing one account")
         let taskID = UUID()
+        let openRouterGeneration = account.providerID
+            == OpenRouterProviderContract.providerID
+            ? openRouterRefreshGeneration(for: account.id)
+            : nil
         accountRefreshTaskIDs[account.id] = taskID
 
         accountRefreshTasks[account.id] = Task { [weak self] in
@@ -68,7 +72,10 @@ extension AppModel {
             guard !Task.isCancelled, self.account(providerID: providerID, accountID: accountID) != nil else {
                 return
             }
-            if handleRefreshedSnapshot(snapshot) {
+            if handleRefreshedSnapshot(
+                snapshot,
+                expectedOpenRouterGeneration: openRouterGeneration
+            ) {
                 saveSnapshots()
             }
         }
@@ -81,6 +88,10 @@ extension AppModel {
         setRefreshStatus(.refreshing, for: account.id)
         AppTelemetry.refresh.info("Testing one account connection")
         let taskID = UUID()
+        let openRouterGeneration = account.providerID
+            == OpenRouterProviderContract.providerID
+            ? openRouterRefreshGeneration(for: account.id)
+            : nil
         accountRefreshTaskIDs[account.id] = taskID
 
         accountRefreshTasks[account.id] = Task { [weak self] in
@@ -92,7 +103,10 @@ extension AppModel {
             guard !Task.isCancelled, self.account(providerID: providerID, accountID: accountID) != nil else {
                 return
             }
-            if handleRefreshedSnapshot(snapshot) {
+            if handleRefreshedSnapshot(
+                snapshot,
+                expectedOpenRouterGeneration: openRouterGeneration
+            ) {
                 saveSnapshots()
             }
         }
@@ -111,12 +125,25 @@ extension AppModel {
             guard let adapter = registry.adaptersByID[account.providerID] else { return nil }
             return ProviderRefreshRequest(adapter: adapter, account: account)
         }
+        let openRouterGenerations = Dictionary(
+            uniqueKeysWithValues: enabledAccounts.compactMap { account in
+                account.providerID == OpenRouterProviderContract.providerID
+                    ? (
+                        account.id,
+                        openRouterRefreshGeneration(for: account.id)
+                    )
+                    : nil
+            }
+        )
         let refreshedSnapshots = await refreshCoordinator.refresh(requests)
         guard !Task.isCancelled else { return }
 
         var didChangeSnapshots = false
         for snapshot in refreshedSnapshots {
-            didChangeSnapshots = handleRefreshedSnapshot(snapshot) || didChangeSnapshots
+            didChangeSnapshots = handleRefreshedSnapshot(
+                snapshot,
+                expectedOpenRouterGeneration: openRouterGenerations[snapshot.id]
+            ) || didChangeSnapshots
         }
         if didChangeSnapshots {
             saveSnapshots()
@@ -124,7 +151,16 @@ extension AppModel {
     }
 
     @discardableResult
-    func handleRefreshedSnapshot(_ snapshot: UsageSnapshot) -> Bool {
+    func handleRefreshedSnapshot(
+        _ snapshot: UsageSnapshot,
+        expectedOpenRouterGeneration: UInt64? = nil
+    ) -> Bool {
+        if snapshot.providerID == OpenRouterProviderContract.providerID,
+           let expectedOpenRouterGeneration,
+           openRouterRefreshGeneration(for: snapshot.id)
+               != expectedOpenRouterGeneration {
+            return false
+        }
         guard account(
             providerID: snapshot.providerID,
             accountID: snapshot.accountID
@@ -145,7 +181,25 @@ extension AppModel {
             clearPersistedRefreshIssue(for: snapshot)
             setRefreshStatus(.succeeded(snapshot.lastUpdatedAt), for: snapshot.id)
         }
+        if snapshot.providerID == OpenRouterProviderContract.providerID,
+           let account = account(
+               providerID: snapshot.providerID,
+               accountID: snapshot.accountID
+           ) {
+#if DEBUG
+            if let syntheticAdapter = adapter(for: snapshot.providerID)
+                as? UITestScriptedProviderAdapter,
+               syntheticAdapter.preservesNativePresentationFixture {
+                return true
+            }
+#endif
+            reloadOpenRouterPresentationData(for: account)
+        }
         return true
+    }
+
+    func openRouterRefreshGeneration(for accountKey: String) -> UInt64 {
+        openRouterRefreshGenerations[accountKey, default: 0]
     }
 
     func handleFailedSnapshot(_ snapshot: UsageSnapshot) {
