@@ -78,4 +78,23 @@ final class AppRuntime: ObservableObject {
         uiTestHostSession = nil
 #endif
     }
+
+#if DEBUG
+    init(appModelForTesting appModel: AppModel) {
+        self.appModel = appModel
+        appLanguagePreference = AppLanguagePreference(
+            userDefaults: appModel.userDefaults
+        )
+        menuBarStatusItemController = nil
+        uiTestHostConfiguration = nil
+        uiTestHostSession = nil
+    }
+#endif
+
+    func start() {
+#if DEBUG
+        guard uiTestHostConfiguration == nil else { return }
+#endif
+        appModel.startLaunchRefresh()
+    }
 }

@@ -9,8 +9,13 @@ struct AILimitBarApp: App {
         if let verification = KeychainVerificationCommand.parse() {
             verification.runAndExit()
         }
+        if let verification = OpenRouterVerificationCommand.parse() {
+            verification.runAndExit()
+        }
 #endif
-        _runtime = StateObject(wrappedValue: AppRuntime())
+        let runtime = AppRuntime()
+        _runtime = StateObject(wrappedValue: runtime)
+        runtime.start()
     }
 
     @SceneBuilder

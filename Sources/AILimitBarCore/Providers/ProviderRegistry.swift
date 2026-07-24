@@ -15,14 +15,17 @@ public struct ProviderRegistry: Sendable {
         ollamaWebPageClient: any OllamaWebPageClient,
         codexAppServerClient: any CodexAppServerClient = ProcessCodexAppServerClient(),
         claudeUsageCLIClient: any ClaudeUsageCLIClient = ProcessClaudeUsageCLIClient(),
-        claudeSnapshotStore: (any CurrentSnapshotStore)? = nil
+        claudeSnapshotStore: (any CurrentSnapshotStore)? = nil,
+        openRouterRefreshCoordinator: any OpenRouterAccountRefreshing =
+            UnavailableOpenRouterRefreshCoordinator()
     ) {
         self.init(
             adapters: Self.adapters(
                 ollamaWebPageClient: ollamaWebPageClient,
                 codexAppServerClient: codexAppServerClient,
                 claudeUsageCLIClient: claudeUsageCLIClient,
-                claudeSnapshotStore: claudeSnapshotStore
+                claudeSnapshotStore: claudeSnapshotStore,
+                openRouterRefreshCoordinator: openRouterRefreshCoordinator
             )
         )
     }
@@ -32,14 +35,16 @@ public struct ProviderRegistry: Sendable {
             ollamaWebPageClient: UnavailableOllamaWebPageClient(),
             codexAppServerClient: ProcessCodexAppServerClient(),
             claudeUsageCLIClient: ProcessClaudeUsageCLIClient(),
-            claudeSnapshotStore: nil
+            claudeSnapshotStore: nil,
+            openRouterRefreshCoordinator: UnavailableOpenRouterRefreshCoordinator()
         )
 
     private static func adapters(
         ollamaWebPageClient: any OllamaWebPageClient,
         codexAppServerClient: any CodexAppServerClient,
         claudeUsageCLIClient: any ClaudeUsageCLIClient,
-        claudeSnapshotStore: (any CurrentSnapshotStore)?
+        claudeSnapshotStore: (any CurrentSnapshotStore)?,
+        openRouterRefreshCoordinator: any OpenRouterAccountRefreshing
     ) -> [any ProviderAdapter] {
         [
             MockProviderAdapter(),
@@ -48,7 +53,10 @@ public struct ProviderRegistry: Sendable {
                 snapshotStore: claudeSnapshotStore,
                 usageCLIClient: claudeUsageCLIClient
             ),
-            OllamaCloudProviderAdapter(client: ollamaWebPageClient)
+            OllamaCloudProviderAdapter(client: ollamaWebPageClient),
+            OpenRouterProviderAdapter(
+                refreshCoordinator: openRouterRefreshCoordinator
+            )
         ]
     }
 }

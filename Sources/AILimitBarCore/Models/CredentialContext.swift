@@ -66,6 +66,7 @@ public struct ProviderCredentialSlot: Codable, Identifiable, Equatable, Sendable
     public var isEnabled: Bool
     public let keychainReference: String
     public var lifecycleState: CredentialLifecycleState
+    public let credentialRevision: Int
 
     public init(
         providerID: String,
@@ -75,7 +76,8 @@ public struct ProviderCredentialSlot: Codable, Identifiable, Equatable, Sendable
         role: ProviderCredentialRole,
         isEnabled: Bool,
         keychainReference: String,
-        lifecycleState: CredentialLifecycleState = .active
+        lifecycleState: CredentialLifecycleState = .active,
+        credentialRevision: Int = 1
     ) {
         self.providerID = providerID
         self.accountID = accountID
@@ -85,6 +87,7 @@ public struct ProviderCredentialSlot: Codable, Identifiable, Equatable, Sendable
         self.isEnabled = isEnabled
         self.keychainReference = keychainReference
         self.lifecycleState = lifecycleState
+        self.credentialRevision = max(1, credentialRevision)
     }
 }
 
@@ -110,6 +113,9 @@ public struct CredentialContextRefreshState: Equatable, Sendable {
     public let lastAttemptAt: Date?
     public let lastSuccessfulRefreshAt: Date?
     public let lastFailedRefreshAt: Date?
+    public let lastCompletedAt: Date?
+    public let retryNotBefore: Date?
+    public let consecutiveFailureCount: Int
 
     public init(
         providerID: String,
@@ -117,7 +123,10 @@ public struct CredentialContextRefreshState: Equatable, Sendable {
         slotID: String,
         lastAttemptAt: Date?,
         lastSuccessfulRefreshAt: Date?,
-        lastFailedRefreshAt: Date?
+        lastFailedRefreshAt: Date?,
+        lastCompletedAt: Date? = nil,
+        retryNotBefore: Date? = nil,
+        consecutiveFailureCount: Int = 0
     ) {
         self.providerID = providerID
         self.accountID = accountID
@@ -125,6 +134,9 @@ public struct CredentialContextRefreshState: Equatable, Sendable {
         self.lastAttemptAt = lastAttemptAt
         self.lastSuccessfulRefreshAt = lastSuccessfulRefreshAt
         self.lastFailedRefreshAt = lastFailedRefreshAt
+        self.lastCompletedAt = lastCompletedAt
+        self.retryNotBefore = retryNotBefore
+        self.consecutiveFailureCount = max(0, consecutiveFailureCount)
     }
 }
 

@@ -17,9 +17,10 @@ models, pure validation rules, and a one-way legacy percentage bridge. That
 domain-model implementation has no SQLite, Keychain, URLSession, AppKit, or
 SwiftUI dependency. Trusted provider clients may depend on platform transport
 while producing these domain values; the strict OpenRouter `URLSession` client
-is the first native-monetary example. The current provider adapters, dashboard,
-and persisted snapshots continue to use `UsageSnapshot`; native contract
-persistence and presentation remain separate migration work.
+is the first native-monetary example. OpenRouter now persists current native
+Contract v1 snapshots while returning a percentage-free `UsageSnapshot` status
+projection through the existing adapter API. Native dashboard presentation for
+currency and credits remains separate work.
 
 The contract separates six responsibilities:
 
@@ -335,26 +336,48 @@ targets `limit`, so a limit cannot be tagged `derived`. Utilization may exceed
 
 ## Compatibility with the current application
 
-The version 1 implementation does not change the current runtime API:
+The version 1 implementation preserves the current runtime API:
 
 ```swift
 func fetchSnapshot(account: ProviderAccount) async throws -> UsageSnapshot
 ```
 
-The OpenRouter transport is intentionally narrower than a live
-`ProviderAdapter`. It exposes separate ordinary-current-key and elevated-
-management-credits operations, and accepts distinct redacted credential
+The OpenRouter transport exposes separate ordinary-current-key and elevated-
+management-credits operations and accepts distinct redacted credential
 wrappers constructed from a `CredentialSecret` only after validating the
 `ProviderCredentialSlot` provider and role. Each wrapper privately retains the
-slot's provider, account, context, and slot identity; fetch operations accept
-no caller-supplied context ID, so normalized metrics are bound to the
-credential's validated context. It returns Contract v1 USD metrics plus only
+slot's provider, account, context, slot identity, and persisted credential
+revision; fetch operations accept no caller-supplied context ID, so normalized
+metrics are bound to the credential's validated context. It returns Contract v1 USD metrics plus only
 documented safe key metadata. It has fixed HTTPS endpoints, rejects redirects,
 uses response/data delegate callbacks for bounded streaming, discards
 non-success bodies, and does not provide a configurable URL, generic request
-executor, `/api/v1/keys` inventory, persistence, refresh scheduling, or a
-percentage projection. Null or absent key limits produce no limit metric; they
-never produce `unlimited`.
+executor, `/api/v1/keys` inventory, or a percentage projection. Null or absent
+key limits produce no limit metric; they never produce `unlimited`.
+
+`OpenRouterProviderAdapter` registers the stable `openrouter-api` source mode
+and delegates manual, scheduled, and launch refreshes to a hierarchical account
+coordinator. The coordinator bounds one account to four concurrent credential
+requests across overlapping refresh invocations, cancels superseded account
+tasks, performs no same-refresh retries, persists `retryNotBefore` and bounded
+backoff per slot, and replaces only the successful source/context metric set.
+Different accounts retain independent limiters. Failures and deferrals preserve
+the last valid source metrics.
+Disable, delete, cancellation, and superseding refreshes suppress late results;
+the native store verifies the enabled account, exact credential identity,
+credential revision, and refresh generation on transaction entry and
+immediately before commit. Its compatibility `UsageSnapshot` contains status
+and timestamps only and never fabricates percentage usage. Only current-run
+successes count as success: zero successes is an error even when last-valid
+native metrics remain, while mixed success and failure is a warning.
+
+Every account refresh ends with a lifecycle-locked conditional management
+transaction. It re-reads current slot state rather than relying on the
+pre-request source list. A still-enabled active management slot is a benign
+no-op, preserving last-valid credits after a request failure. If the slot was
+deleted or disabled in flight, the same refresh source-locally removes known
+management credits and commits exactly one unavailable root sentinel after a
+final generation check.
 
 `CapacitySnapshot` is the portable account-level envelope for contract version,
 surface/source references, account contexts, and capacity metrics.
@@ -389,10 +412,10 @@ Legacy projection rules are deterministic:
    legacy presentation during the transition; they do not become native
    quantities.
 
-The current dashboard continues to render only the compatible percentage
-projection. Native currency, credits, tokens, requests, generations, and media
-metrics require a separate UI implementation decision; they are never hidden
-behind fabricated progress meters.
+The current dashboard continues to render only the compatible status
+projection for OpenRouter. Native currency, credits, tokens, requests,
+generations, and media metrics require a separate UI implementation decision;
+they are never hidden behind fabricated progress meters.
 
 ## Persistence migration direction
 
@@ -435,8 +458,9 @@ including when callers hold separate store instances:
 1. Creation first inserts inaccessible `pending-creation` metadata, then creates
    the Keychain item, then activates the slot. A failure leaves the opaque
    reference in a row that can be retried or securely deleted.
-2. Replacement uses `SecItemUpdate` on the existing item and does not change its
-   local reference.
+2. Replacement increments the persisted credential revision, then uses
+   `SecItemUpdate` on the existing item without changing its local reference.
+   A request carrying the previous revision cannot commit after this boundary.
 3. Deletion first marks the slot disabled and `pending-deletion`, then removes
    the Keychain item idempotently, then removes the metadata. A failure leaves a
    retryable inaccessible tombstone rather than an untracked item.
@@ -449,27 +473,27 @@ Existing provider accounts and snapshots are not rewritten or removed by v6.
 They continue to load with no context rows until a credential-backed provider
 configuration explicitly creates a validated local tree.
 
-A future native-capacity GRDB migration will:
+Additive GRDB migration v7 adds current native-capacity snapshot metadata and
+normalized metric rows plus a defaulted credential revision on every existing
+slot. The snapshot row stores Contract v1 version, surface, observation, and
+completion metadata; each metric row is keyed by provider, saved account,
+context, source, and metric ID. Its validated Contract model is encoded as
+normalized JSON, which preserves `Decimal` values as canonical plain base-10
+strings. A successful source commits its matching `(contextID, sourceID)` rows,
+refresh state, and diagnostic clearing in one short transaction. A failed
+source commits only failed refresh state, retry boundary, and sanitized
+diagnostic in one transaction; deferred sources perform a validated read and
+no mutation. Each outcome shares the credential lifecycle lock and revalidates
+identity and generation before commit.
 
-1. add contract version and stable surface/source references to current
-   snapshots and the necessary surface, region, and account-context selection
-   to saved account configuration;
-2. add normalized child storage for account contexts, capacity metrics, native
-   values, conditions, windows, transitions, freshness, confidence, and
-   derivation metadata;
-3. backfill each existing limit window with the deterministic percentage
-   mapping above in one short transaction;
-4. dual-read the new representation and retain the legacy projection until all
-   current adapters and dashboard consumers have migrated;
-5. preserve the last valid snapshot when a new snapshot cannot be decoded or
-   validated.
-
-Decimal values are persisted losslessly as canonical decimal text or an
-equally exact representation selected by the implementation issue. The
-migration stores normalized contract data only. It does not add history,
-persist raw responses, copy credential material, or remove legacy columns.
-History and legacy-column removal require separate product and migration
-decisions.
+Migration v7 also extends each credential refresh state with completion time,
+`retryNotBefore`, and consecutive failure count. It does not backfill legacy
+percentage windows, add history, persist raw responses or credentials, or
+remove legacy tables and columns. Existing legacy snapshots remain available
+to all existing adapters. A failed, deferred, cancelled, stale-generation, or
+invalid native refresh leaves the last valid native metric rows unchanged.
+Backfilling legacy snapshots, native presentation for other providers, history,
+and legacy-column removal require separate decisions.
 
 ## Portable Core and CLI mapping
 

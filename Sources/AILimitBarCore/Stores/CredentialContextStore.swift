@@ -149,6 +149,11 @@ public final class AccountCredentialStore: @unchecked Sendable {
 
         do {
             if let credential {
+                try metadataStore.incrementCredentialRevision(
+                    providerID: providerID,
+                    accountID: accountID,
+                    slotID: slotID
+                )
                 do {
                     _ = try keychainService.readCredential(
                         reference: slot.keychainReference
@@ -235,6 +240,11 @@ public final class AccountCredentialStore: @unchecked Sendable {
             throw CredentialStoreError.credentialPendingDeletion
         }
 
+        try metadataStore.incrementCredentialRevision(
+            providerID: providerID,
+            accountID: accountID,
+            slotID: slotID
+        )
         do {
             try keychainService.replaceCredential(
                 credential,
@@ -384,13 +394,11 @@ public final class AccountCredentialStore: @unchecked Sendable {
         )
         operationLock.lock()
         defer { operationLock.unlock() }
-        try metadataStore.upsertRefreshState(
+        try metadataStore.recordRefreshAttempt(
             providerID: providerID,
             accountID: accountID,
             slotID: slotID,
-            lastAttemptAt: occurredAt,
-            lastSuccessfulRefreshAt: nil,
-            lastFailedRefreshAt: nil
+            occurredAt: occurredAt
         )
     }
 
@@ -398,7 +406,8 @@ public final class AccountCredentialStore: @unchecked Sendable {
         providerID: String,
         accountID: String,
         slotID: String,
-        occurredAt: Date
+        occurredAt: Date,
+        completedAt: Date? = nil
     ) throws {
         let operationLock = accountOperationLock(
             providerID: providerID,
@@ -406,13 +415,12 @@ public final class AccountCredentialStore: @unchecked Sendable {
         )
         operationLock.lock()
         defer { operationLock.unlock() }
-        try metadataStore.upsertRefreshState(
+        try metadataStore.recordRefreshSuccess(
             providerID: providerID,
             accountID: accountID,
             slotID: slotID,
-            lastAttemptAt: occurredAt,
-            lastSuccessfulRefreshAt: occurredAt,
-            lastFailedRefreshAt: nil
+            occurredAt: occurredAt,
+            completedAt: completedAt ?? occurredAt
         )
     }
 
@@ -421,7 +429,9 @@ public final class AccountCredentialStore: @unchecked Sendable {
         accountID: String,
         slotID: String,
         code: CredentialContextDiagnosticCode,
-        occurredAt: Date
+        occurredAt: Date,
+        completedAt: Date? = nil,
+        retryNotBefore: Date? = nil
     ) throws {
         let operationLock = accountOperationLock(
             providerID: providerID,
@@ -429,13 +439,13 @@ public final class AccountCredentialStore: @unchecked Sendable {
         )
         operationLock.lock()
         defer { operationLock.unlock() }
-        try metadataStore.upsertRefreshState(
+        try metadataStore.recordRefreshFailure(
             providerID: providerID,
             accountID: accountID,
             slotID: slotID,
-            lastAttemptAt: occurredAt,
-            lastSuccessfulRefreshAt: nil,
-            lastFailedRefreshAt: occurredAt
+            occurredAt: occurredAt,
+            completedAt: completedAt ?? occurredAt,
+            retryNotBefore: retryNotBefore
         )
         try metadataStore.replaceDiagnostic(
             providerID: providerID,
@@ -541,7 +551,7 @@ public final class AccountCredentialStore: @unchecked Sendable {
     }
 }
 
-private final class CredentialAccountOperationCoordinator: @unchecked Sendable {
+final class CredentialAccountOperationCoordinator: @unchecked Sendable {
     static let shared = CredentialAccountOperationCoordinator()
 
     private struct AccountKey: Hashable {
@@ -591,6 +601,11 @@ protocol CredentialMetadataStore: Sendable {
         accountID: String,
         slotID: String
     ) throws
+    func incrementCredentialRevision(
+        providerID: String,
+        accountID: String,
+        slotID: String
+    ) throws
     func markSlotPendingDeletion(
         providerID: String,
         accountID: String,
@@ -618,6 +633,27 @@ protocol CredentialMetadataStore: Sendable {
         lastSuccessfulRefreshAt: Date?,
         lastFailedRefreshAt: Date?
     ) throws
+    func recordRefreshAttempt(
+        providerID: String,
+        accountID: String,
+        slotID: String,
+        occurredAt: Date
+    ) throws
+    func recordRefreshSuccess(
+        providerID: String,
+        accountID: String,
+        slotID: String,
+        occurredAt: Date,
+        completedAt: Date
+    ) throws
+    func recordRefreshFailure(
+        providerID: String,
+        accountID: String,
+        slotID: String,
+        occurredAt: Date,
+        completedAt: Date,
+        retryNotBefore: Date?
+    ) throws
     func replaceDiagnostic(
         providerID: String,
         accountID: String,
@@ -629,6 +665,65 @@ protocol CredentialMetadataStore: Sendable {
         providerID: String,
         accountID: String
     ) throws -> [CredentialContextDiagnostic]
+}
+
+extension CredentialMetadataStore {
+    func incrementCredentialRevision(
+        providerID: String,
+        accountID: String,
+        slotID: String
+    ) throws {}
+
+    func recordRefreshAttempt(
+        providerID: String,
+        accountID: String,
+        slotID: String,
+        occurredAt: Date
+    ) throws {
+        try upsertRefreshState(
+            providerID: providerID,
+            accountID: accountID,
+            slotID: slotID,
+            lastAttemptAt: occurredAt,
+            lastSuccessfulRefreshAt: nil,
+            lastFailedRefreshAt: nil
+        )
+    }
+
+    func recordRefreshSuccess(
+        providerID: String,
+        accountID: String,
+        slotID: String,
+        occurredAt: Date,
+        completedAt: Date
+    ) throws {
+        try upsertRefreshState(
+            providerID: providerID,
+            accountID: accountID,
+            slotID: slotID,
+            lastAttemptAt: occurredAt,
+            lastSuccessfulRefreshAt: completedAt,
+            lastFailedRefreshAt: nil
+        )
+    }
+
+    func recordRefreshFailure(
+        providerID: String,
+        accountID: String,
+        slotID: String,
+        occurredAt: Date,
+        completedAt: Date,
+        retryNotBefore: Date?
+    ) throws {
+        try upsertRefreshState(
+            providerID: providerID,
+            accountID: accountID,
+            slotID: slotID,
+            lastAttemptAt: occurredAt,
+            lastSuccessfulRefreshAt: nil,
+            lastFailedRefreshAt: completedAt
+        )
+    }
 }
 
 final class DatabaseCredentialMetadataStore: CredentialMetadataStore, @unchecked Sendable {
@@ -678,7 +773,8 @@ final class DatabaseCredentialMetadataStore: CredentialMetadataStore, @unchecked
                             slot.role,
                             slot.is_enabled,
                             slot.keychain_reference,
-                            slot.lifecycle_state
+                            slot.lifecycle_state,
+                            slot.credential_revision
                         FROM provider_credential_slots AS slot
                         JOIN provider_account_contexts AS context
                           ON context.provider_id = slot.provider_id
@@ -720,7 +816,8 @@ final class DatabaseCredentialMetadataStore: CredentialMetadataStore, @unchecked
                         role: role,
                         isEnabled: row["is_enabled"],
                         keychainReference: row["keychain_reference"],
-                        lifecycleState: lifecycleState
+                        lifecycleState: lifecycleState,
+                        credentialRevision: row["credential_revision"]
                     )
                     return ProviderCredentialContext(context: context, slot: slot)
                 }
@@ -877,8 +974,9 @@ final class DatabaseCredentialMetadataStore: CredentialMetadataStore, @unchecked
                     sql: """
                         INSERT INTO provider_credential_slots (
                             provider_id, account_id, slot_id, context_id, role,
-                            is_enabled, keychain_reference, lifecycle_state
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                            is_enabled, keychain_reference, lifecycle_state,
+                            credential_revision
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """,
                     arguments: [
                         slot.providerID,
@@ -888,7 +986,8 @@ final class DatabaseCredentialMetadataStore: CredentialMetadataStore, @unchecked
                         slot.role.rawValue,
                         slot.isEnabled,
                         slot.keychainReference,
-                        slot.lifecycleState.rawValue
+                        slot.lifecycleState.rawValue,
+                        slot.credentialRevision
                     ]
                 )
             }
@@ -958,6 +1057,24 @@ final class DatabaseCredentialMetadataStore: CredentialMetadataStore, @unchecked
                   AND lifecycle_state = 'active'
                 """,
             leadingArguments: [isEnabled]
+        )
+    }
+
+    func incrementCredentialRevision(
+        providerID: String,
+        accountID: String,
+        slotID: String
+    ) throws {
+        try updateSlot(
+            providerID: providerID,
+            accountID: accountID,
+            slotID: slotID,
+            requiredState: nil,
+            sql: """
+                UPDATE provider_credential_slots
+                SET credential_revision = credential_revision + 1
+                WHERE provider_id = ? AND account_id = ? AND slot_id = ?
+                """
         )
     }
 
@@ -1120,7 +1237,10 @@ final class DatabaseCredentialMetadataStore: CredentialMetadataStore, @unchecked
                     sql: """
                         SELECT slot_id, last_attempt_at,
                                last_successful_refresh_at,
-                               last_failed_refresh_at
+                               last_failed_refresh_at,
+                               last_completed_at,
+                               retry_not_before,
+                               consecutive_failure_count
                         FROM credential_refresh_state
                         WHERE provider_id = ? AND account_id = ?
                         ORDER BY slot_id ASC
@@ -1139,9 +1259,46 @@ final class DatabaseCredentialMetadataStore: CredentialMetadataStore, @unchecked
                         ).map(Date.init(timeIntervalSince1970:)),
                         lastFailedRefreshAt: (
                             row["last_failed_refresh_at"] as Double?
-                        ).map(Date.init(timeIntervalSince1970:))
+                        ).map(Date.init(timeIntervalSince1970:)),
+                        lastCompletedAt: (
+                            row["last_completed_at"] as Double?
+                        ).map(Date.init(timeIntervalSince1970:)),
+                        retryNotBefore: (
+                            row["retry_not_before"] as Double?
+                        ).map(Date.init(timeIntervalSince1970:)),
+                        consecutiveFailureCount: row["consecutive_failure_count"] as Int
                     )
                 }
+            }
+        } catch {
+            throw CredentialStoreError.storageUnavailable
+        }
+    }
+
+    func recordRefreshAttempt(
+        providerID: String,
+        accountID: String,
+        slotID: String,
+        occurredAt: Date
+    ) throws {
+        let database = try requireDatabase()
+        do {
+            try database.pool.write { db in
+                try db.execute(
+                    sql: """
+                        INSERT INTO credential_refresh_state (
+                            provider_id, account_id, slot_id, last_attempt_at
+                        ) VALUES (?, ?, ?, ?)
+                        ON CONFLICT(provider_id, account_id, slot_id) DO UPDATE SET
+                            last_attempt_at = excluded.last_attempt_at
+                        """,
+                    arguments: [
+                        providerID,
+                        accountID,
+                        slotID,
+                        occurredAt.timeIntervalSince1970
+                    ]
+                )
             }
         } catch {
             throw CredentialStoreError.storageUnavailable
@@ -1156,33 +1313,117 @@ final class DatabaseCredentialMetadataStore: CredentialMetadataStore, @unchecked
         lastSuccessfulRefreshAt: Date?,
         lastFailedRefreshAt: Date?
     ) throws {
+        if let lastSuccessfulRefreshAt {
+            try recordRefreshSuccess(
+                providerID: providerID,
+                accountID: accountID,
+                slotID: slotID,
+                occurredAt: lastAttemptAt,
+                completedAt: lastSuccessfulRefreshAt
+            )
+        } else if let lastFailedRefreshAt {
+            try recordRefreshFailure(
+                providerID: providerID,
+                accountID: accountID,
+                slotID: slotID,
+                occurredAt: lastAttemptAt,
+                completedAt: lastFailedRefreshAt,
+                retryNotBefore: nil
+            )
+        } else {
+            try recordRefreshAttempt(
+                providerID: providerID,
+                accountID: accountID,
+                slotID: slotID,
+                occurredAt: lastAttemptAt
+            )
+        }
+    }
+
+    func recordRefreshSuccess(
+        providerID: String,
+        accountID: String,
+        slotID: String,
+        occurredAt: Date,
+        completedAt: Date
+    ) throws {
         let database = try requireDatabase()
         do {
             try database.pool.write { db in
                 try db.execute(
                     sql: """
                         INSERT INTO credential_refresh_state (
-                            provider_id, account_id, slot_id, last_attempt_at,
-                            last_successful_refresh_at, last_failed_refresh_at
-                        ) VALUES (?, ?, ?, ?, ?, ?)
+                            provider_id,
+                            account_id,
+                            slot_id,
+                            last_attempt_at,
+                            last_successful_refresh_at,
+                            last_completed_at,
+                            retry_not_before,
+                            consecutive_failure_count
+                        ) VALUES (?, ?, ?, ?, ?, ?, NULL, 0)
                         ON CONFLICT(provider_id, account_id, slot_id) DO UPDATE SET
                             last_attempt_at = excluded.last_attempt_at,
-                            last_successful_refresh_at = COALESCE(
+                            last_successful_refresh_at =
                                 excluded.last_successful_refresh_at,
-                                credential_refresh_state.last_successful_refresh_at
-                            ),
-                            last_failed_refresh_at = COALESCE(
-                                excluded.last_failed_refresh_at,
-                                credential_refresh_state.last_failed_refresh_at
-                            )
+                            last_completed_at = excluded.last_completed_at,
+                            retry_not_before = NULL,
+                            consecutive_failure_count = 0
                         """,
                     arguments: [
                         providerID,
                         accountID,
                         slotID,
-                        lastAttemptAt.timeIntervalSince1970,
-                        lastSuccessfulRefreshAt?.timeIntervalSince1970,
-                        lastFailedRefreshAt?.timeIntervalSince1970
+                        occurredAt.timeIntervalSince1970,
+                        completedAt.timeIntervalSince1970,
+                        completedAt.timeIntervalSince1970
+                    ]
+                )
+            }
+        } catch {
+            throw CredentialStoreError.storageUnavailable
+        }
+    }
+
+    func recordRefreshFailure(
+        providerID: String,
+        accountID: String,
+        slotID: String,
+        occurredAt: Date,
+        completedAt: Date,
+        retryNotBefore: Date?
+    ) throws {
+        let database = try requireDatabase()
+        do {
+            try database.pool.write { db in
+                try db.execute(
+                    sql: """
+                        INSERT INTO credential_refresh_state (
+                            provider_id,
+                            account_id,
+                            slot_id,
+                            last_attempt_at,
+                            last_failed_refresh_at,
+                            last_completed_at,
+                            retry_not_before,
+                            consecutive_failure_count
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, 1)
+                        ON CONFLICT(provider_id, account_id, slot_id) DO UPDATE SET
+                            last_attempt_at = excluded.last_attempt_at,
+                            last_failed_refresh_at = excluded.last_failed_refresh_at,
+                            last_completed_at = excluded.last_completed_at,
+                            retry_not_before = excluded.retry_not_before,
+                            consecutive_failure_count =
+                                credential_refresh_state.consecutive_failure_count + 1
+                        """,
+                    arguments: [
+                        providerID,
+                        accountID,
+                        slotID,
+                        occurredAt.timeIntervalSince1970,
+                        completedAt.timeIntervalSince1970,
+                        completedAt.timeIntervalSince1970,
+                        retryNotBefore?.timeIntervalSince1970
                     ]
                 )
             }
@@ -1274,7 +1515,7 @@ final class DatabaseCredentialMetadataStore: CredentialMetadataStore, @unchecked
         providerID: String,
         accountID: String,
         slotID: String,
-        requiredState: CredentialLifecycleState,
+        requiredState: CredentialLifecycleState?,
         sql: String,
         leadingArguments: StatementArguments = []
     ) throws {
@@ -1289,7 +1530,7 @@ final class DatabaseCredentialMetadataStore: CredentialMetadataStore, @unchecked
                 ) else {
                     throw CredentialStoreError.slotNotFound
                 }
-                guard slot.lifecycleState == requiredState else {
+                if let requiredState, slot.lifecycleState != requiredState {
                     switch slot.lifecycleState {
                     case .active:
                         throw CredentialStoreError.storageUnavailable
@@ -1410,7 +1651,7 @@ final class DatabaseCredentialMetadataStore: CredentialMetadataStore, @unchecked
             db,
             sql: """
                 SELECT context_id, role, is_enabled, keychain_reference,
-                       lifecycle_state
+                       lifecycle_state, credential_revision
                 FROM provider_credential_slots
                 WHERE provider_id = ? AND account_id = ? AND slot_id = ?
                 """,
@@ -1434,7 +1675,8 @@ final class DatabaseCredentialMetadataStore: CredentialMetadataStore, @unchecked
             role: role,
             isEnabled: row["is_enabled"],
             keychainReference: row["keychain_reference"],
-            lifecycleState: lifecycleState
+            lifecycleState: lifecycleState,
+            credentialRevision: row["credential_revision"]
         )
     }
 
@@ -1447,7 +1689,7 @@ final class DatabaseCredentialMetadataStore: CredentialMetadataStore, @unchecked
             db,
             sql: """
                 SELECT slot_id, context_id, role, is_enabled,
-                       keychain_reference, lifecycle_state
+                       keychain_reference, lifecycle_state, credential_revision
                 FROM provider_credential_slots
                 WHERE provider_id = ? AND account_id = ?
                 ORDER BY rowid ASC
@@ -1470,7 +1712,8 @@ final class DatabaseCredentialMetadataStore: CredentialMetadataStore, @unchecked
                 role: role,
                 isEnabled: row["is_enabled"],
                 keychainReference: row["keychain_reference"],
-                lifecycleState: lifecycleState
+                lifecycleState: lifecycleState,
+                credentialRevision: row["credential_revision"]
             )
         }
     }

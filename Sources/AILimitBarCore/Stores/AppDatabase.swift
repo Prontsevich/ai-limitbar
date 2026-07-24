@@ -7,7 +7,11 @@ public final class AppDatabase: @unchecked Sendable {
     public let url: URL
     let pool: DatabasePool
 
-    public init(directory: URL) throws {
+    public convenience init(directory: URL) throws {
+        try self.init(directory: directory, migrationTarget: nil)
+    }
+
+    init(directory: URL, migrationTarget: String?) throws {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         url = directory.appendingPathComponent(Self.filename)
 
@@ -20,7 +24,11 @@ public final class AppDatabase: @unchecked Sendable {
             try db.execute(sql: "PRAGMA foreign_keys = ON")
         }
 
-        try makeMigrator().migrate(pool)
+        if let migrationTarget {
+            try makeMigrator().migrate(pool, upTo: migrationTarget)
+        } else {
+            try makeMigrator().migrate(pool)
+        }
     }
 
     private func makeMigrator() -> DatabaseMigrator {
@@ -318,6 +326,78 @@ public final class AppDatabase: @unchecked Sendable {
                 ON credential_diagnostics(
                     provider_id, account_id, slot_id, occurred_at
                 )
+                """)
+        }
+
+        migrator.registerMigration("v7-native-capacity-snapshots") { db in
+            try db.execute(sql: """
+                ALTER TABLE provider_credential_slots
+                ADD COLUMN credential_revision INTEGER NOT NULL DEFAULT 1
+                """)
+            try db.execute(sql: """
+                CREATE TABLE native_capacity_snapshots (
+                    provider_id TEXT NOT NULL,
+                    account_id TEXT NOT NULL,
+                    contract_major INTEGER NOT NULL,
+                    contract_minor INTEGER NOT NULL,
+                    surface_id TEXT NOT NULL,
+                    observed_at REAL NOT NULL,
+                    completed_at REAL NOT NULL,
+                    PRIMARY KEY (provider_id, account_id),
+                    FOREIGN KEY (provider_id, account_id)
+                        REFERENCES provider_accounts(provider_id, account_id)
+                        ON DELETE CASCADE
+                )
+                """)
+
+            try db.execute(sql: """
+                CREATE TABLE native_capacity_metrics (
+                    provider_id TEXT NOT NULL,
+                    account_id TEXT NOT NULL,
+                    context_id TEXT NOT NULL,
+                    source_id TEXT NOT NULL,
+                    metric_id TEXT NOT NULL,
+                    normalized_metric_json TEXT NOT NULL,
+                    observed_at REAL NOT NULL,
+                    completed_at REAL NOT NULL,
+                    PRIMARY KEY (
+                        provider_id,
+                        account_id,
+                        context_id,
+                        source_id,
+                        metric_id
+                    ),
+                    FOREIGN KEY (provider_id, account_id)
+                        REFERENCES native_capacity_snapshots(provider_id, account_id)
+                        ON DELETE CASCADE,
+                    FOREIGN KEY (provider_id, account_id, context_id)
+                        REFERENCES provider_account_contexts(
+                            provider_id, account_id, context_id
+                        )
+                        ON DELETE CASCADE
+                )
+                """)
+            try db.execute(sql: """
+                CREATE INDEX native_capacity_metrics_source
+                ON native_capacity_metrics(
+                    provider_id,
+                    account_id,
+                    source_id,
+                    context_id
+                )
+                """)
+
+            try db.execute(sql: """
+                ALTER TABLE credential_refresh_state
+                ADD COLUMN last_completed_at REAL
+                """)
+            try db.execute(sql: """
+                ALTER TABLE credential_refresh_state
+                ADD COLUMN retry_not_before REAL
+                """)
+            try db.execute(sql: """
+                ALTER TABLE credential_refresh_state
+                ADD COLUMN consecutive_failure_count INTEGER NOT NULL DEFAULT 0
                 """)
         }
         return migrator

@@ -24,12 +24,14 @@ private struct OpenRouterCredentialIdentity: Sendable {
     let accountID: String
     let contextID: String
     let slotID: String
+    let credentialRevision: Int
 
     init(slot: ProviderCredentialSlot) {
         providerID = slot.providerID
         accountID = slot.accountID
         contextID = slot.contextID
         slotID = slot.slotID
+        credentialRevision = slot.credentialRevision
     }
 }
 
@@ -64,7 +66,9 @@ public struct OpenRouterOrdinaryCredential:
         try secret.withUTF8String(body)
     }
 
-    fileprivate var accountContextID: String { identity.contextID }
+    var accountContextID: String { identity.contextID }
+    var credentialSlotID: String { identity.slotID }
+    var credentialRevision: Int { identity.credentialRevision }
 }
 
 public struct OpenRouterManagementCredential:
@@ -98,7 +102,9 @@ public struct OpenRouterManagementCredential:
         try secret.withUTF8String(body)
     }
 
-    fileprivate var accountContextID: String { identity.contextID }
+    var accountContextID: String { identity.contextID }
+    var credentialSlotID: String { identity.slotID }
+    var credentialRevision: Int { identity.credentialRevision }
 }
 
 public struct OpenRouterCurrentKeyCapacity: Equatable, Sendable {

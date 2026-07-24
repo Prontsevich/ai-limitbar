@@ -28,10 +28,13 @@ final class AppModel: ObservableObject {
     let refreshSettingsStore: any RefreshSettingsStoreProtocol
     let usageDisplayOverrideStore: any UsageDisplayOverrideStore
     let diagnosticStore: any SourceDiagnosticStore
+    let accountCredentialStore: AccountCredentialStore
+    let nativeCapacitySnapshotStore: any NativeCapacitySnapshotStore
     let userDefaults: UserDefaults
     let refreshCoordinator: ProviderRefreshCoordinator
     let ollamaWebPageClient: OllamaWebPageClientController?
     var scheduledRefreshTimer: Timer?
+    var hasStartedLaunchRefresh = false
     var globalRefreshTask: Task<Void, Never>?
     var accountRefreshTasks: [String: Task<Void, Never>] = [:]
     var accountRefreshTaskIDs: [String: UUID] = [:]
@@ -42,7 +45,10 @@ final class AppModel: ObservableObject {
         directoryResolver: ApplicationSupportDirectoryResolver = ApplicationSupportDirectoryResolver(),
         storageDirectory: URL? = nil,
         userDefaults: UserDefaults = .standard,
-        refreshCoordinator: ProviderRefreshCoordinator = ProviderRefreshCoordinator()
+        refreshCoordinator: ProviderRefreshCoordinator = ProviderRefreshCoordinator(),
+        openRouterAPIClient: any OpenRouterAPIClient = URLSessionOpenRouterAPIClient(),
+        credentialKeychainService: any KeychainService = MacOSKeychainService(),
+        openRouterRefreshPolicy: OpenRouterRefreshPolicy = OpenRouterRefreshPolicy()
     ) {
         self.ollamaWebPageClient = ollamaWebPageClient
         let resolvedClient: any OllamaWebPageClient = ollamaWebPageClient ?? UnavailableOllamaWebPageClient()
@@ -77,10 +83,25 @@ final class AppModel: ObservableObject {
         self.refreshSettingsStore = DatabaseRefreshSettingsStore(database: database)
         self.usageDisplayOverrideStore = DatabaseUsageDisplayOverrideStore(database: database)
         self.diagnosticStore = DatabaseSourceDiagnosticStore(database: database)
+        let accountCredentialStore = AccountCredentialStore(
+            database: database,
+            keychainService: credentialKeychainService
+        )
+        let nativeCapacitySnapshotStore = DatabaseCapacitySnapshotStore(
+            database: database
+        )
+        self.accountCredentialStore = accountCredentialStore
+        self.nativeCapacitySnapshotStore = nativeCapacitySnapshotStore
         self.storageWarning = initialStorageWarning
         self.registry = registry ?? ProviderRegistry(
             ollamaWebPageClient: resolvedClient,
-            claudeSnapshotStore: snapshotStore
+            claudeSnapshotStore: snapshotStore,
+            openRouterRefreshCoordinator: OpenRouterRefreshCoordinator(
+                credentialStore: accountCredentialStore,
+                capacityStore: nativeCapacitySnapshotStore,
+                client: openRouterAPIClient,
+                policy: openRouterRefreshPolicy
+            )
         )
 
         if let database {
@@ -360,7 +381,7 @@ final class AppModel: ObservableObject {
             "Refresh this account to read the experimental local Codex app-server source."
         case .claudeUsageCLI:
             "Refresh this account to read the experimental local Claude /usage source."
-        case .manual, .claudeStatusLine:
+        case .manual, .claudeStatusLine, .openRouterAPI:
             "Refresh or test this account to load a snapshot."
         }
     }
@@ -373,7 +394,7 @@ final class AppModel: ObservableObject {
             AppStrings.AccountDetails.codexRefreshFirst.localized(locale: locale)
         case .claudeUsageCLI:
             AppStrings.AccountDetails.claudeUsageRefreshFirst.localized(locale: locale)
-        case .manual, .claudeStatusLine:
+        case .manual, .claudeStatusLine, .openRouterAPI:
             AppStrings.AccountDetails.refreshOrTestFirst.localized(locale: locale)
         }
     }

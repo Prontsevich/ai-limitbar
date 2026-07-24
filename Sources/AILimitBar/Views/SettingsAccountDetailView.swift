@@ -618,7 +618,7 @@ struct AccountEditorView: View {
                     }
                 }
                 .padding(.top, 4)
-            case .ollamaWebPage, .appServer:
+            case .ollamaWebPage, .appServer, .openRouterAPI:
                 EmptyView()
             }
         } else if draft.providerID == "ollama-cloud" {

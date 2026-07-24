@@ -20,6 +20,10 @@ extension AppModel {
         providerAccounts[index].isEnabled = enabled
         if !enabled {
             cancelAccountRefresh(for: providerAccounts[index].id)
+            if let openRouterAdapter = adapter(for: providerID)
+                as? OpenRouterProviderAdapter {
+                openRouterAdapter.invalidateAccount(accountID: accountID)
+            }
         }
         if !saveConfiguration() {
             providerAccounts = previousAccounts
@@ -230,12 +234,29 @@ extension AppModel {
         }) else { return }
 
         cancelAccountRefresh(for: accountKey)
+        if let openRouterAdapter = adapter(for: providerID)
+            as? OpenRouterProviderAdapter {
+            openRouterAdapter.invalidateAccount(accountID: accountID)
+        }
+
+        if providerID == OpenRouterProviderContract.providerID {
+            do {
+                try accountCredentialStore.deleteAccount(
+                    providerID: providerID,
+                    accountID: accountID
+                )
+            } catch {
+                storageWarning = "Provider settings could not be saved."
+                return
+            }
+        }
         providerAccounts.removeAll { $0.providerID == providerID && $0.accountID == accountID }
         snapshots.removeAll { $0.id == accountKey }
         providerRefreshStatuses.removeValue(forKey: accountKey)
         accountRefreshIssues.removeValue(forKey: accountKey)
         sourceRefreshStates.removeValue(forKey: accountKey)
-        guard saveConfiguration() else {
+        guard providerID == OpenRouterProviderContract.providerID
+                || saveConfiguration() else {
             providerAccounts = previousAccounts
             snapshots = previousSnapshots
             providerRefreshStatuses = previousStatuses

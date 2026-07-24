@@ -6,6 +6,7 @@ public enum ProviderSourceMode: String, Codable, CaseIterable, Sendable {
     case claudeUsageCLI = "claude-usage-cli"
     case ollamaWebPage = "ollama-web-page"
     case appServer = "app-server"
+    case openRouterAPI = "openrouter-api"
 
     public var displayName: String {
         switch self {
@@ -14,6 +15,7 @@ public enum ProviderSourceMode: String, Codable, CaseIterable, Sendable {
         case .claudeUsageCLI: "/usage CLI (Experimental)"
         case .ollamaWebPage: "Experimental web page"
         case .appServer: "Experimental app-server"
+        case .openRouterAPI: "OpenRouter API"
         }
     }
 
@@ -21,7 +23,7 @@ public enum ProviderSourceMode: String, Codable, CaseIterable, Sendable {
         switch self {
         case .claudeUsageCLI, .ollamaWebPage, .appServer:
             true
-        case .manual, .claudeStatusLine:
+        case .manual, .claudeStatusLine, .openRouterAPI:
             false
         }
     }
@@ -34,6 +36,8 @@ public enum ProviderSourceMode: String, Codable, CaseIterable, Sendable {
             .ollamaWebPage
         case "openai-codex":
             .appServer
+        case "openrouter":
+            .openRouterAPI
         default:
             .manual
         }
@@ -47,6 +51,10 @@ public enum ProviderSourceMode: String, Codable, CaseIterable, Sendable {
            let requestedMode,
            [.manual, .claudeStatusLine, .claudeUsageCLI].contains(requestedMode) {
             return requestedMode
+        }
+
+        if providerID == "openrouter" {
+            return .openRouterAPI
         }
 
         let providerDefault = defaultMode(for: providerID)

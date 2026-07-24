@@ -685,8 +685,8 @@ letters. Trusted adapters perform semantic normalization of their native
 currency instead of consulting a frozen contract registry; OpenRouter native
 currency is `USD`.
 
-`AILimitBarCore` now contains a strict OpenRouter `URLSession` client as the
-first native-currency transport built on Contract v1. Ordinary credentials have
+`AILimitBarCore` contains a strict OpenRouter `URLSession` client as the first
+native-currency transport built on Contract v1. Ordinary credentials have
 one fixed capability, `GET https://openrouter.ai/api/v1/key`; elevated
 management credentials have the separate fixed capability, `GET
 https://openrouter.ai/api/v1/credits`. The client performs bounded,
@@ -703,9 +703,41 @@ management-key classification flags, rejects a management credential shape on
 the ordinary endpoint, emits native USD metrics, keeps null or absent key
 limits unavailable, strictly parses ASCII delta-seconds and canonical
 HTTP-dates in `Retry-After` without retrying, and projects failures into fixed
-sanitized types. It does not implement key inventory, persistence, refresh
-orchestration, Settings, dashboard presentation, or a legacy percentage
+sanitized types. It does not implement key inventory or a legacy percentage
 bridge.
+
+The stable `openrouter-api` source mode registers a live provider adapter and a
+hierarchical account refresh coordinator. Each enabled ordinary slot calls only
+`GET /api/v1/key`; the optional enabled management slot calls only `GET
+/api/v1/credits`. The implementation does not call `/api/v1/keys`. Manual,
+scheduled, and launch refreshes share the same path, with at most four
+concurrent credential requests across all overlapping invocations for one
+account and no same-refresh retry or sleeper loop. A newer account refresh
+cancels the prior network tasks while both retain the same account-wide permit
+pool; different accounts have independent pools. The initialized app runtime
+starts one idempotent launch refresh after constructing `AppModel`.
+`Retry-After` or bounded exponential backoff becomes a persisted per-slot
+`retryNotBefore` eligibility check for a later refresh.
+
+Successful sources replace only their own context/source metric rows. A failed
+or deferred child retains its last valid metrics without erasing siblings or
+the root management metric. Success commits metrics, successful refresh state,
+and diagnostic clearing atomically; failure commits failed state, retry
+boundary, and its sanitized diagnostic atomically; deferral validates identity
+without mutation. Disable, delete, credential replacement, cancellation, and a
+newer refresh suppress stale results through generation, persisted credential
+revision, and transactional source-identity checks at entry and immediately
+before commit. The legacy adapter reports error when no source succeeds in the
+current run, preserving the prior legacy snapshot and last-success timestamp;
+mixed success is a warning. Native USD values are never converted into a
+fabricated progress value.
+
+Every OpenRouter account refresh finishes with a lifecycle-locked conditional
+management write that re-reads current slot state. A still-active management
+slot is a no-op, preserving last-valid credits after failure. A slot deleted or
+disabled while its request was in flight causes that same refresh to replace
+known root credits with exactly one unavailable sentinel after a final
+generation check.
 
 The implementation-level field semantics, compatibility mapping from
 `UsageSnapshot`, persistence migration direction, portable Core ownership,
@@ -715,8 +747,9 @@ future public schema or SDK are defined in
 Contract v1 is implemented in `AILimitBarCore` as portable `Codable` domain
 models, pure validation, and a one-way legacy percentage bridge. The live
 `ProviderAdapter` API, `UsageSnapshot` dashboard projection, and existing GRDB
-snapshot schema remain backward compatible; native contract persistence and
-presentation require their dedicated migration work.
+snapshot schema remain backward compatible. OpenRouter native persistence is
+implemented by additive migration v7; native currency/credit presentation
+remains separate work.
 Until that gate passes in a separate architecture decision, compatibility is
 internal and no public manifest, registry, validator, SDK, or backward-
 compatibility promise exists.
@@ -774,6 +807,18 @@ to the account root and is unique per saved account. Each slot has its own
 enabled state, opaque Keychain reference, lifecycle state, refresh timestamps,
 and fixed sanitized diagnostic code. Existing accounts load with no contexts
 until a credential-backed source explicitly configures them.
+
+Migration v7 adds current native Contract v1 snapshot metadata and normalized
+metric rows without rewriting or removing legacy snapshots. It also extends
+per-slot refresh state with completion time, `retryNotBefore`, and consecutive
+failure count, and adds a defaulted persisted credential revision to existing
+slots. OpenRouter success updates one context/source metric set, state, and
+diagnostic in one transaction; failure updates state and diagnostic in one
+transaction. Both validate the complete snapshot or outcome, enabled account,
+exact credential identity, revision, and refresh generation under the account
+lifecycle lock. Exact `Decimal` values use canonical plain-text JSON
+representation. Storage contains no history, raw provider payload, provider
+error text, upstream opaque ID, or credential material.
 
 Every raw credential is stored as its own local, non-synchronizing generic
 password in the macOS Data Protection Keychain. SQLite never stores the value.

@@ -9,10 +9,9 @@ using `GET /api/v1/key` for its own limits and usage. An optional management key
 adds the single account-wide credits metric through `GET /api/v1/credits`.
 
 The management credential is explicitly elevated and opt-in. It is never
-selected as a fallback for an ordinary key. The first MVP may use `GET
-/api/v1/keys` only to verify in memory that a configured ordinary key belongs
-to the management inventory; it does not auto-import keys or persist provider
-labels, hashes, owner IDs, or workspace IDs.
+selected as a fallback for an ordinary key. The implemented MVP does not call
+`GET /api/v1/keys`, auto-import keys, or persist provider labels, hashes, owner
+IDs, or workspace IDs.
 
 The strict production HTTP client is implemented in `AILimitBarCore`. Its two
 explicit capabilities cannot substitute for each other: an ordinary credential
@@ -21,14 +20,15 @@ request only `GET /api/v1/credits`. Both use fixed trusted HTTPS URLs, a bounded
 timeout, streaming response-size enforcement, task cancellation, strict
 lossless `Decimal` decoding, and sanitized typed failures. Redirects are
 rejected, and the default ephemeral session has no cookie, URL-cache, or URL
-credential storage. The client emits native USD Contract v1 metrics but is not
-yet connected to persistence, refresh orchestration, Settings, or dashboard
-presentation.
+credential storage. The client emits native USD Contract v1 metrics.
 
-The shared storage foundation for this account shape is also implemented:
-validated account-context trees, ordinary and management credential roles,
-independent Keychain items, and per-slot refresh and sanitized diagnostic
-boundaries are available for the future orchestration and Settings flow.
+The registered `openrouter-api` source mode connects that client to the app's
+manual, scheduled, and launch refresh paths. Additive GRDB migration v7 stores
+the current validated Contract v1 snapshot and normalized metric JSON while
+leaving the legacy snapshot columns untouched. Refresh state and sanitized
+diagnostics remain per credential slot. The initialized runtime explicitly
+starts one idempotent launch refresh after `AppModel` construction. Native
+currency and credit presentation in the dashboard remains separate work.
 
 ## Selected MVP account shape
 
@@ -172,7 +172,11 @@ retain an opaque Keychain reference in an inaccessible retryable SQLite row;
 account removal cannot bypass credential cleanup. Per-account serialization
 keeps create and recovery from racing delete across separate store instances,
 while the persisted lifecycle row remains the crash-recovery boundary. No
-recovery path returns an existing raw key to Settings or diagnostics.
+recovery path returns an existing raw key to Settings or diagnostics. Each slot
+also has a persisted `credentialRevision`. Replacement or credential-bearing
+creation recovery increments that revision before changing Keychain material,
+so a request started with an older secret cannot commit metrics, refresh state,
+or diagnostics after the replacement.
 
 An ordinary key is the narrowest reliable credential boundary:
 
@@ -189,12 +193,10 @@ An ordinary key is the narrowest reliable credential boundary:
 
 Management keys are account-level administrative credentials. OpenRouter
 documents that they operate across workspaces and cannot call completion
-endpoints. In the MVP they provide shared credits and optional in-memory key
-membership verification only. Key inventory may contain key hashes, user IDs,
-names, and workspace IDs; those fields and raw rows are discarded before a
-normalized snapshot is created. A management source represents one explicitly
-selected billing account and does not create multiple saved accounts from the
-keys it can enumerate.
+endpoints. In the implemented MVP they provide shared credits only. Key
+inventory is outside the runtime scope. A management source represents one
+explicitly selected billing account and does not create multiple saved
+accounts.
 
 OpenRouter organizations are separate from personal accounts, can share one
 credit pool, and can contain members in several workspaces. A user may belong
@@ -276,14 +278,25 @@ macOS architecture through a trusted `URLSession` adapter. No browser session,
 CLI, helper process or additional dependency is needed.
 
 The provider does not document an observation expiry for these reads. The
-client marks successful metrics with their fetch completion time. Future
-orchestration owns the app's bounded polling policy. The client parses standard
-`Retry-After` values on HTTP 429 and 503 and returns that semantic value to the
-caller without retrying or busy waiting. Delta-seconds accept only nonempty
-ASCII digits within `UInt`; signs, embedded whitespace, Unicode digits, and
-overflow fail closed. Dates accept only the three canonical HTTP-date forms,
-with literal `GMT` on the two zoned forms; arbitrary `PST`, `UTC`, or other
-`z`-parsed zones are rejected. Outer HTTP optional whitespace remains allowed.
+source descriptor therefore applies a ten-minute maximum age, and the client
+marks successful metrics with their fetch completion time. The account
+coordinator runs at most four credential requests concurrently across all
+overlapping refresh invocations for that saved account. Starting a newer
+refresh cancels the prior account's network tasks; requests that do not
+cooperate with cancellation retain their shared permits until they actually
+finish, so overlap cannot exceed the bound. Different saved accounts have
+independent limiters. Each source performs one request per eligible refresh;
+there are no hidden retry loops or sleeping tasks.
+
+The client parses standard `Retry-After` values on HTTP 429 and 503 and returns
+that semantic value to the coordinator without retrying or busy waiting. The
+coordinator persists `retryNotBefore` and bounded exponential backoff per slot;
+a later manual, scheduled, or launch refresh retries only when that timestamp
+is eligible. Delta-seconds accept only nonempty ASCII digits within `UInt`;
+signs, embedded whitespace, Unicode digits, and overflow fail closed. Dates
+accept only the three canonical HTTP-date forms, with literal `GMT` on the two
+zoned forms; arbitrary `PST`, `UTC`, or other `z`-parsed zones are rejected.
+Outer HTTP optional whitespace remains allowed.
 
 Responses are consumed by a per-request `URLSessionDataDelegate`. Its response
 callback cancels a declared `Content-Length` above the configured bound before
@@ -300,9 +313,34 @@ insufficient privilege for 403, insufficient credits for 402, throttled for
 429, service unavailable for 503, and sanitized server failure for other 5xx.
 Timeout, cancellation, transport, response-size and decoding failures remain
 distinct. Provider messages, metadata, headers and response bodies are never
-returned, logged or persisted. Future refresh orchestration remains responsible
-for preserving the last valid snapshot and recording failure separately from
-last success.
+returned, logged or persisted.
+
+A successful source replaces only its own `(contextID, sourceID)` metric set.
+Its metric replacement, successful refresh state, and diagnostic clearing are
+one GRDB transaction under the same account lifecycle lock. A failure preserves
+last-valid metrics while committing its failed refresh state, retry boundary,
+and fixed diagnostic in one transaction. A deferred source performs no
+mutation, but revalidates the account, slot identity, credential revision, and
+refresh generation before being counted. Ordinary sibling keys and the
+root-scoped management metric therefore survive an unrelated child failure.
+When no enabled management slot exists, the root credits metric is explicitly
+unavailable instead of inferred or copied. At the end of every account refresh,
+a lifecycle-locked conditional transaction re-reads the current management
+slot: an enabled active slot is a benign no-op, while an absent or disabled slot
+source-locally replaces any known credits with exactly one unavailable
+sentinel. Disable, delete, cancellation, and a newer account refresh invalidate
+older generations; SQLite revalidates the account, exact slot identity,
+credential revision, and generation both on transaction entry and immediately
+before commit.
+
+The compatibility result counts only sources that succeeded during the current
+refresh. Last-valid native observations remain available separately and the
+synthetic unavailable-management sentinel is never counted as usable
+freshness. Zero current successes is therefore an error, including first
+failure, total failure after earlier success, all-deferred, and
+management-absent-only outcomes. `AppModel` preserves the prior compatibility
+snapshot and its last-success timestamp on those errors. A mixed current
+success/failure result is a warning.
 
 ## Fixture and test strategy
 
@@ -331,16 +369,13 @@ and `URLProtocol`-style client coverage now includes:
 - error rendering that excludes credentials, raw bodies, headers and monetary
   values, plus recursive and pattern-based fixture privacy scans.
 
-Deferred activity, workspace, persistence and orchestration coverage still
-includes:
+Deferred activity and workspace coverage still includes:
 
 - empty and populated management activity with completed-day freshness;
 - both documented date-only and observed UTC-midnight timestamp activity dates,
   including a variable number of returned completed days;
 - account-wide credits separated from workspace budgets and per-key usage;
-- one billing account with several credential contexts proving independent
-  Keychain items, metrics, refresh results and diagnostics, plus two genuinely
-  separate billing accounts when that expansion is researched;
+- two genuinely separate billing accounts when that expansion is researched;
 - absence of credentials, labels, hashes, upstream user/workspace IDs, model
   names and raw errors from persistence, logs and diagnostics.
 
@@ -348,3 +383,25 @@ The existing synthetic contract fixture continues to demonstrate native
 currency, privilege-separated sources, null limits and account/workspace
 separation. Neither the contract fixture nor the client fixtures count as
 authentication or live provider verification.
+
+A DEBUG-only deterministic end-to-end seam exercises the registered adapter,
+hierarchical coordinator, partial child failure, Contract v1 validation,
+per-slot diagnostics, and native SQLite persistence without provider traffic
+or real credentials:
+
+```zsh
+verification_dir="${TMPDIR%/}/ailimitbar-openrouter-verification-$(uuidgen | tr -d '-').disposable"
+AILIMITBAR_DEVELOPMENT_TEAM=YOUR_TEAM_ID \
+  ./script/stage_app_bundle.sh --configuration debug
+dist/AILimitBar.app/Contents/MacOS/AILimitBar \
+  --ai-limitbar-openrouter-verification \
+  --ai-limitbar-storage-directory "$verification_dir"
+```
+
+The command accepts only a non-existing direct child of the canonical system
+temporary directory whose basename matches the verification prefix and
+`.disposable` sentinel. It rejects existing paths, symlink parents, production
+storage, the workspace, home, and broad filesystem roots. The command itself
+creates the directory and removes it after both success and failure. It writes
+synthetic secrets to an in-memory test Keychain implementation, never to the
+real Keychain or SQLite.

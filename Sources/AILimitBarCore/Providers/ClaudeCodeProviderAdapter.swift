@@ -55,7 +55,7 @@ public struct ClaudeCodeProviderAdapter: ProviderAdapter {
             return try managedStatusLineSnapshot(account: account)
         case .claudeUsageCLI:
             return try await usageCLISnapshot(account: account)
-        case .ollamaWebPage, .appServer:
+        case .ollamaWebPage, .appServer, .openRouterAPI:
             throw ProviderAdapterError(
                 providerID: id,
                 message: "Claude Code account has an unsupported source configuration.",

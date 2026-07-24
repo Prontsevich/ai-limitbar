@@ -32,6 +32,12 @@ extension AppModel {
         configureScheduledRefresh()
     }
 
+    func startLaunchRefresh() {
+        guard !hasStartedLaunchRefresh else { return }
+        hasStartedLaunchRefresh = true
+        refresh()
+    }
+
     func refresh() {
         guard globalRefreshTask == nil, !isRefreshing, !hasActiveProviderRefresh else { return }
         isRefreshing = true
@@ -119,7 +125,10 @@ extension AppModel {
 
     @discardableResult
     func handleRefreshedSnapshot(_ snapshot: UsageSnapshot) -> Bool {
-        guard account(providerID: snapshot.providerID, accountID: snapshot.accountID) != nil else {
+        guard account(
+            providerID: snapshot.providerID,
+            accountID: snapshot.accountID
+        )?.isEnabled == true else {
             return false
         }
         if snapshot.status == .error {
@@ -140,7 +149,10 @@ extension AppModel {
     }
 
     func handleFailedSnapshot(_ snapshot: UsageSnapshot) {
-        guard account(providerID: snapshot.providerID, accountID: snapshot.accountID) != nil else {
+        guard account(
+            providerID: snapshot.providerID,
+            accountID: snapshot.accountID
+        )?.isEnabled == true else {
             return
         }
         if existingSnapshot(matching: snapshot) == nil {
@@ -188,4 +200,16 @@ extension AppModel {
             }
         }
     }
+
+#if DEBUG
+    func waitForRefreshCompletionForTesting() async {
+        if let task = globalRefreshTask {
+            await task.value
+        }
+        let tasks = Array(accountRefreshTasks.values)
+        for task in tasks {
+            await task.value
+        }
+    }
+#endif
 }
