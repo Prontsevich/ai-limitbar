@@ -1,0 +1,18 @@
+{
+  "data": {
+    "usage": 2,
+    "usage_daily": 0,
+    "usage_weekly": 1,
+    "usage_monthly": 2,
+    "byok_usage": 0,
+    "byok_usage_daily": 0,
+    "byok_usage_weekly": 0,
+    "byok_usage_monthly": 0,
+    "include_byok_in_limit": false,
+    "is_free_tier": false,
+    "is_management_key": false,
+    "limit": 5,
+    "limit_remaining": 3,
+    "limit_reset": null
+  }
+}

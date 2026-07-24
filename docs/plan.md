@@ -685,6 +685,28 @@ letters. Trusted adapters perform semantic normalization of their native
 currency instead of consulting a frozen contract registry; OpenRouter native
 currency is `USD`.
 
+`AILimitBarCore` now contains a strict OpenRouter `URLSession` client as the
+first native-currency transport built on Contract v1. Ordinary credentials have
+one fixed capability, `GET https://openrouter.ai/api/v1/key`; elevated
+management credentials have the separate fixed capability, `GET
+https://openrouter.ai/api/v1/credits`. The client performs bounded,
+cancellable streaming reads through a non-persistent default session, rejects
+redirects, validates provider and credential roles through distinct redacted
+wrappers, privately binds their provider/account/context/slot identity, and
+derives metric context from the wrapper instead of accepting a caller
+override. A per-request data delegate rejects oversized declared responses in
+the response callback, bounds streamed data callbacks, and never collects
+non-success bodies. Declared and streamed body sizes and lossless JSON-number
+transformation are independently bounded. The client preserves accepted
+provider JSON numbers exactly as `Decimal`, requires the documented tier and
+management-key classification flags, rejects a management credential shape on
+the ordinary endpoint, emits native USD metrics, keeps null or absent key
+limits unavailable, strictly parses ASCII delta-seconds and canonical
+HTTP-dates in `Retry-After` without retrying, and projects failures into fixed
+sanitized types. It does not implement key inventory, persistence, refresh
+orchestration, Settings, dashboard presentation, or a legacy percentage
+bridge.
+
 The implementation-level field semantics, compatibility mapping from
 `UsageSnapshot`, persistence migration direction, portable Core ownership,
 sanitized Codex/Claude/MiniMax/OpenRouter fixtures, and evidence gate for any

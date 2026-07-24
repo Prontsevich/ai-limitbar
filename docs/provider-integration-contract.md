@@ -13,11 +13,13 @@ DOM access, parsing, validation, retry behavior, and normalization. Declarative
 metadata never contains executable request rules or credential values.
 
 Version 1 is implemented in `AILimitBarCore` as portable `Codable` domain
-models, pure validation rules, and a one-way legacy percentage bridge. The
-implementation has no SQLite, Keychain, URLSession, AppKit, or SwiftUI
-dependency. The current provider adapters, dashboard, and persisted snapshots
-continue to use `UsageSnapshot`; native contract persistence and presentation
-remain separate migration work.
+models, pure validation rules, and a one-way legacy percentage bridge. That
+domain-model implementation has no SQLite, Keychain, URLSession, AppKit, or
+SwiftUI dependency. Trusted provider clients may depend on platform transport
+while producing these domain values; the strict OpenRouter `URLSession` client
+is the first native-monetary example. The current provider adapters, dashboard,
+and persisted snapshots continue to use `UsageSnapshot`; native contract
+persistence and presentation remain separate migration work.
 
 The contract separates six responsibilities:
 
@@ -338,6 +340,21 @@ The version 1 implementation does not change the current runtime API:
 ```swift
 func fetchSnapshot(account: ProviderAccount) async throws -> UsageSnapshot
 ```
+
+The OpenRouter transport is intentionally narrower than a live
+`ProviderAdapter`. It exposes separate ordinary-current-key and elevated-
+management-credits operations, and accepts distinct redacted credential
+wrappers constructed from a `CredentialSecret` only after validating the
+`ProviderCredentialSlot` provider and role. Each wrapper privately retains the
+slot's provider, account, context, and slot identity; fetch operations accept
+no caller-supplied context ID, so normalized metrics are bound to the
+credential's validated context. It returns Contract v1 USD metrics plus only
+documented safe key metadata. It has fixed HTTPS endpoints, rejects redirects,
+uses response/data delegate callbacks for bounded streaming, discards
+non-success bodies, and does not provide a configurable URL, generic request
+executor, `/api/v1/keys` inventory, persistence, refresh scheduling, or a
+percentage projection. Null or absent key limits produce no limit metric; they
+never produce `unlimited`.
 
 `CapacitySnapshot` is the portable account-level envelope for contract version,
 surface/source references, account contexts, and capacity metrics.

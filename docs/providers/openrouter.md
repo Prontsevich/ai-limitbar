@@ -14,11 +14,21 @@ selected as a fallback for an ordinary key. The first MVP may use `GET
 to the management inventory; it does not auto-import keys or persist provider
 labels, hashes, owner IDs, or workspace IDs.
 
-No production HTTP adapter is implemented by this research. The shared storage
-foundation for this account shape is implemented: validated account-context
-trees, ordinary and management credential roles, independent Keychain items,
-and per-slot refresh and sanitized diagnostic boundaries are available for the
-future adapter and Settings flow.
+The strict production HTTP client is implemented in `AILimitBarCore`. Its two
+explicit capabilities cannot substitute for each other: an ordinary credential
+can request only `GET /api/v1/key`, while an elevated management credential can
+request only `GET /api/v1/credits`. Both use fixed trusted HTTPS URLs, a bounded
+timeout, streaming response-size enforcement, task cancellation, strict
+lossless `Decimal` decoding, and sanitized typed failures. Redirects are
+rejected, and the default ephemeral session has no cookie, URL-cache, or URL
+credential storage. The client emits native USD Contract v1 metrics but is not
+yet connected to persistence, refresh orchestration, Settings, or dashboard
+presentation.
+
+The shared storage foundation for this account shape is also implemented:
+validated account-context trees, ordinary and management credential roles,
+independent Keychain items, and per-slot refresh and sanitized diagnostic
+boundaries are available for the future orchestration and Settings flow.
 
 ## Selected MVP account shape
 
@@ -109,6 +119,10 @@ For an ordinary key:
   this key has no configured key-level limit. They do not prove unlimited
   account credits, model availability or provider capacity. The adapter omits
   the limit metric and still reports the available usage metrics.
+- `is_free_tier` and `is_management_key` are required booleans. The first maps
+  to the safe key tier; an ordinary-current-key read rejects
+  `is_management_key == true` instead of silently accepting an elevated
+  credential shape.
 - Missing is not zero. Unknown fields are ignored, while a missing required
   observation fails only the affected metric.
 
@@ -123,6 +137,16 @@ workspace metrics and must not be combined with account-wide credits.
 Ordinary and management keys are separate Keychain credential slots. The raw
 key is used only in the HTTPS Authorization header and is never written to
 SQLite, `UserDefaults`, logs, fixtures or diagnostics.
+
+The transport API accepts role-specific redacted wrappers rather than a bare
+secret. Constructing an ordinary or management wrapper validates both the
+`openrouter` provider ID and the exact `ProviderCredentialSlot.role`, so a
+management slot cannot compile as the argument to the ordinary operation and
+runtime slot mismatches fail before a request is created. Each wrapper also
+retains its validated provider, account, context, and slot identity privately.
+The public fetch operations accept no independent context ID; every emitted
+metric receives the wrapper's slot context, preventing one credential from
+labelling observations as another context.
 
 Each slot is a device-local, non-synchronizing generic password in the macOS
 Data Protection Keychain. All CRUD queries explicitly target that Keychain;
@@ -251,30 +275,65 @@ The endpoints are ordinary HTTPS JSON reads and are compatible with the current
 macOS architecture through a trusted `URLSession` adapter. No browser session,
 CLI, helper process or additional dependency is needed.
 
-The provider does not document an observation expiry for these reads. A future
-adapter should use the app's bounded polling policy, mark each successful value
-with its fetch time, and treat management activity as delayed. It should honor
-`Retry-After` on HTTP 429 and 503 without busy retrying.
+The provider does not document an observation expiry for these reads. The
+client marks successful metrics with their fetch completion time. Future
+orchestration owns the app's bounded polling policy. The client parses standard
+`Retry-After` values on HTTP 429 and 503 and returns that semantic value to the
+caller without retrying or busy waiting. Delta-seconds accept only nonempty
+ASCII digits within `UInt`; signs, embedded whitespace, Unicode digits, and
+overflow fail closed. Dates accept only the three canonical HTTP-date forms,
+with literal `GMT` on the two zoned forms; arbitrary `PST`, `UTC`, or other
+`z`-parsed zones are rejected. Outer HTTP optional whitespace remains allowed.
+
+Responses are consumed by a per-request `URLSessionDataDelegate`. Its response
+callback cancels a declared `Content-Length` above the configured bound before
+app-owned body collection and cancels non-200 bodies without collecting them.
+For an unbounded or chunked response, data callbacks append only while the
+configured bound can hold the complete callback and cancel as soon as the next
+data would cross it. The lossless JSON-number transformation has its own
+bounded output. These limits prevent either app-owned transport storage or the
+exact-decimal preprocessing step from becoming an unbounded raw-response
+retention path.
 
 Errors map to fixed diagnostics by HTTP class: authentication for 401,
 insufficient privilege for 403, insufficient credits for 402, throttled for
-429, and transient service failure for 5xx. Provider messages, metadata and
-response bodies are never logged or persisted. A failed refresh preserves the
-last valid snapshot and records failure separately from last success.
+429, service unavailable for 503, and sanitized server failure for other 5xx.
+Timeout, cancellation, transport, response-size and decoding failures remain
+distinct. Provider messages, metadata, headers and response bodies are never
+returned, logged or persisted. Future refresh orchestration remains responsible
+for preserving the last valid snapshot and recording failure separately from
+last success.
 
 ## Fixture and test strategy
 
-Production adapter fixtures must be hand-authored from the documented schema
-and sanitized probe shapes, never copied from real responses. Coverage should
-include:
+Production client fixtures are hand-authored from the documented schema and
+sanitized probe shapes, never copied from real responses. Deterministic parser
+and `URLProtocol`-style client coverage now includes:
 
 - bounded ordinary keys with daily, weekly, monthly and lifetime resets;
-- the observed all-null key-limit variant;
+- null and absent key-limit variants;
 - zero, decimal, negative remaining and over-limit values without clamping;
 - BYOK included in and excluded from a key limit;
 - missing optional fields, unknown fields, malformed numbers and wrong JSON
-  types;
-- 401, 402, 403, 429 with `Retry-After`, 5xx, cancellation and timeout;
+  types, including exponent boundaries that must fail without trapping;
+- exact management credit derivation separated from per-key usage;
+- fixed endpoint, provider/credential-role capability separation, direct
+  redirect rejection, private slot-identity binding, and ephemeral
+  default-session privacy policy;
+- 401, 402, 403, 429 and 503 with `Retry-After` delay/date variants, other 5xx,
+  transport failure, cancellation, timeout, declared and streamed
+  response-size failure, and bounded JSON transformation;
+- accepted and rejected `Retry-After` delta/date syntax, including overflow,
+  Unicode digits, and non-GMT zones;
+- deterministic `127.0.0.1` loopback coverage of the real delegate transport,
+  proving early connection closure for oversized declared, chunked, and
+  non-success responses with one request and no provider traffic;
+- error rendering that excludes credentials, raw bodies, headers and monetary
+  values, plus recursive and pattern-based fixture privacy scans.
+
+Deferred activity, workspace, persistence and orchestration coverage still
+includes:
+
 - empty and populated management activity with completed-day freshness;
 - both documented date-only and observed UTC-midnight timestamp activity dates,
   including a variable number of returned completed days;
@@ -285,6 +344,7 @@ include:
 - absence of credentials, labels, hashes, upstream user/workspace IDs, model
   names and raw errors from persistence, logs and diagnostics.
 
-The existing synthetic contract fixture demonstrates native currency,
-privilege-separated sources, null limits and account/workspace separation. It
-does not count as authentication or provider verification.
+The existing synthetic contract fixture continues to demonstrate native
+currency, privilege-separated sources, null limits and account/workspace
+separation. Neither the contract fixture nor the client fixtures count as
+authentication or live provider verification.

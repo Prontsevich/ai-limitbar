@@ -1,0 +1,22 @@
+{
+  "data": {
+    "usage": 8.125,
+    "usage_daily": 1.25,
+    "usage_weekly": 3.5,
+    "usage_monthly": 7.75,
+    "byok_usage": 2.375,
+    "byok_usage_daily": 0.125,
+    "byok_usage_weekly": 0.75,
+    "byok_usage_monthly": 2.25,
+    "include_byok_in_limit": false,
+    "is_free_tier": false,
+    "is_management_key": false,
+    "limit": 10.5,
+    "limit_remaining": -0.25,
+    "limit_reset": "monthly",
+    "expires_at": "2030-01-02T03:04:05Z",
+    "future_optional": {
+      "enabled": true
+    }
+  }
+}
