@@ -1,4 +1,5 @@
 import AILimitBarCore
+import AppKit
 import SwiftUI
 
 struct AccountDetailsView: View {
@@ -25,6 +26,9 @@ struct AccountDetailsView: View {
             ScrollView {
                 inspector
                     .padding(12)
+                    .background {
+                        AccountDetailsScrollViewConfigurator()
+                    }
             }
             .scrollBounceBehavior(.basedOnSize)
 
@@ -74,7 +78,8 @@ struct AccountDetailsView: View {
             TerminalRule()
             TerminalInspectorRow(
                 label: AppStrings.AccountDetails.lastSuccess.localized(locale: locale),
-                value: preciseDate(lastSuccessfulRefreshAt)
+                value: preciseDate(lastSuccessfulRefreshAt),
+                valueColor: TerminalTheme.secondary
             )
         }
         TerminalRule()
@@ -85,18 +90,24 @@ struct AccountDetailsView: View {
         ) {
             TerminalInspectorRow(
                 label: AppStrings.AccountDetails.source.localized(locale: locale),
-                value: currentAccount.sourceMode.localizedDisplayName(locale: locale)
+                value: currentAccount.sourceMode.localizedDisplayName(locale: locale),
+                valueColor: TerminalTheme.secondary
             )
             TerminalRule()
             OpenRouterCapacityDetailsContent(
                 presentation: openRouterPresentation
             )
         } else if let snapshot = row.snapshot {
-            TerminalInspectorRow(label: AppStrings.AccountDetails.source.localized(locale: locale), value: snapshot.source)
+            TerminalInspectorRow(
+                label: AppStrings.AccountDetails.source.localized(locale: locale),
+                value: snapshot.source,
+                valueColor: TerminalTheme.secondary
+            )
             TerminalRule()
             TerminalInspectorRow(
                 label: AppStrings.AccountDetails.confidence.localized(locale: locale),
-                value: snapshot.confidence.localizedDisplayName(locale: locale)
+                value: snapshot.confidence.localizedDisplayName(locale: locale),
+                valueColor: TerminalTheme.secondary
             )
 
             if let planName = snapshot.planName {
@@ -126,14 +137,16 @@ struct AccountDetailsView: View {
                             locale: locale,
                             window.displayName.uppercased(with: locale)
                         ),
-                        value: preciseDate(resetAt)
+                        value: preciseDate(resetAt),
+                        valueColor: TerminalTheme.secondary
                     )
                 }
             }
         } else {
             TerminalInspectorRow(
                 label: AppStrings.AccountDetails.source.localized(locale: locale),
-                value: currentAccount.sourceMode.localizedDisplayName(locale: locale)
+                value: currentAccount.sourceMode.localizedDisplayName(locale: locale),
+                valueColor: TerminalTheme.secondary
             )
             TerminalRule()
             TerminalInspectorRow(
@@ -159,8 +172,8 @@ struct AccountDetailsView: View {
                     window.displayName.uppercased(with: locale)
                 )
             )
-            .font(TerminalTheme.detailLabelFont)
-            .foregroundStyle(TerminalTheme.secondary)
+            .font(TerminalTheme.legendFont)
+            .foregroundStyle(TerminalTheme.primary)
 
             TerminalSegmentedControl(
                 AppStrings.AccountDetails.displayModeAccessibility.formatted(
@@ -440,6 +453,117 @@ struct AccountDetailsView: View {
     }
 }
 
+struct AccountDetailsScrollViewConfigurator: NSViewRepresentable {
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        context.coordinator.configureAfterMount(from: view)
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        context.coordinator.configureAfterMount(from: nsView)
+    }
+
+    static func dismantleNSView(_ nsView: NSView, coordinator: Coordinator) {
+        coordinator.detach()
+    }
+
+    @discardableResult
+    static func configureEnclosingScrollView(from view: NSView) -> Bool {
+        guard let scrollView = view.enclosingScrollView else { return false }
+        configure(scrollView)
+        return true
+    }
+
+    static func configure(_ scrollView: NSScrollView) {
+        scrollView.scrollerStyle = .overlay
+        scrollView.autohidesScrollers = true
+        scrollView.drawsBackground = false
+        scrollView.backgroundColor = .clear
+        scrollView.verticalScroller?.controlSize = .mini
+    }
+
+    @MainActor
+    final class Coordinator {
+        private weak var scrollView: NSScrollView?
+        private var styleObservation: NSKeyValueObservation?
+        private var mountGeneration: UInt = 0
+
+        func configureAfterMount(from view: NSView) {
+            mountGeneration &+= 1
+            let generation = mountGeneration
+            configureAndObserve(from: view)
+            DispatchQueue.main.async { [weak self, weak view] in
+                guard let self,
+                      let view,
+                      self.mountGeneration == generation else {
+                    return
+                }
+                self.configureAndObserve(from: view)
+                DispatchQueue.main.async { [weak self, weak view] in
+                    guard let self,
+                          let view,
+                          self.mountGeneration == generation else {
+                        return
+                    }
+                    self.configureAndObserve(from: view)
+                }
+            }
+        }
+
+        func detach() {
+            mountGeneration &+= 1
+            clearBinding()
+        }
+
+        @discardableResult
+        private func configureAndObserve(from view: NSView) -> Bool {
+            guard let enclosingScrollView = view.enclosingScrollView else {
+                clearBinding()
+                return false
+            }
+            if scrollView !== enclosingScrollView {
+                clearBinding()
+                scrollView = enclosingScrollView
+                styleObservation = enclosingScrollView.observe(
+                    \.scrollerStyle,
+                    options: [.new]
+                ) { [weak self, weak enclosingScrollView] _, change in
+                    guard change.newValue != .overlay else { return }
+                    DispatchQueue.main.async { [weak self, weak enclosingScrollView] in
+                        guard let self,
+                              let enclosingScrollView,
+                              self.scrollView === enclosingScrollView else {
+                            return
+                        }
+                        AccountDetailsScrollViewConfigurator.configure(
+                            enclosingScrollView
+                        )
+                    }
+                }
+            }
+            AccountDetailsScrollViewConfigurator.configure(enclosingScrollView)
+            return true
+        }
+
+        private func clearBinding() {
+            styleObservation?.invalidate()
+            styleObservation = nil
+            scrollView = nil
+        }
+
+#if DEBUG
+        var observedScrollViewForTesting: NSScrollView? {
+            scrollView
+        }
+#endif
+    }
+}
+
 private struct TerminalInspectorRow: View {
     let label: String
     let value: String
@@ -449,7 +573,7 @@ private struct TerminalInspectorRow: View {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
             Text(label)
                 .font(TerminalTheme.detailLabelFont)
-                .foregroundStyle(TerminalTheme.secondary)
+                .foregroundStyle(TerminalTheme.primary)
                 .frame(width: 100, alignment: .leading)
 
             Text(value)

@@ -12,16 +12,91 @@ enum OpenRouterCapacityState: Equatable {
     case disabled
     case recoveryRequired
     case deletionPending
+
+    func localizedStatusText(locale: Locale) -> String {
+        switch self {
+        case .current:
+            AppStrings.OpenRouter.current.localized(locale: locale)
+        case .partial:
+            AppStrings.OpenRouter.partial.localized(locale: locale)
+        case .stale:
+            AppStrings.Common.stale.localized(locale: locale)
+        case .unavailable:
+            AppStrings.Common.unavailable.localized(locale: locale)
+        case .unknown:
+            AppStrings.Common.unknown.localized(locale: locale)
+        case .unlimited:
+            AppStrings.Common.unlimited.localized(locale: locale)
+        case .credentialError:
+            AppStrings.Common.error.localized(locale: locale)
+        case .disabled:
+            AppStrings.OpenRouter.disabled.localized(locale: locale)
+        case .recoveryRequired:
+            AppStrings.OpenRouter.recoveryRequired.localized(locale: locale)
+        case .deletionPending:
+            AppStrings.OpenRouter.deletionPending.localized(locale: locale)
+        }
+    }
 }
 
 struct OpenRouterCapacityMetricPresentation: Identifiable, Equatable {
     let id: String
+    let metricID: String
     let displayName: String
     let valueText: String
+    let displayValueLines: [String]
+    let dashboardValueText: String
+    let dashboardAccessibilityValue: String
+    let tableValueText: String
+    let accountCredits: OpenRouterAccountCreditsPresentation?
+    let keyCapacity: OpenRouterKeyCapacityPresentation?
+    let scopeText: String?
+    let usageColumn: OpenRouterUsageColumn?
+    let usageQualifierText: String?
     let resetText: String?
+    let resetIdentity: String?
     let freshnessText: String?
     let state: OpenRouterCapacityState
     let accessibilityValue: String
+
+    func visibleAccessibilityValue(
+        showsReset: Bool,
+        showsFreshness: Bool
+    ) -> String {
+        [
+            valueText,
+            showsReset ? resetText : nil,
+            showsFreshness ? freshnessText : nil,
+        ]
+        .compactMap { $0 }
+        .joined(separator: ", ")
+    }
+}
+
+struct OpenRouterAccountCreditsPresentation: Equatable {
+    let leftText: String
+    let usedText: String
+    let accessibilityValue: String
+}
+
+struct OpenRouterKeyCapacityPresentation: Equatable {
+    let availableText: String
+    let totalText: String
+    let visualValueText: String
+    let availableFraction: Double?
+    let accessibilityValue: String
+}
+
+enum OpenRouterUsageColumn: Equatable {
+    case usage
+    case byok
+}
+
+struct OpenRouterUsageTableRowPresentation: Identifiable, Equatable {
+    let id: String
+    let scopeText: String
+    let usageMetric: OpenRouterCapacityMetricPresentation?
+    let byokMetric: OpenRouterCapacityMetricPresentation?
 }
 
 struct OpenRouterCredentialCapacityPresentation: Identifiable, Equatable {
@@ -32,7 +107,212 @@ struct OpenRouterCredentialCapacityPresentation: Identifiable, Equatable {
     let lifecycleState: CredentialLifecycleState
     let state: OpenRouterCapacityState
     let statusText: String
+    let dashboardValueText: String
+    let dashboardStatusText: String?
+    let dashboardAccessibilityValue: String
     let metrics: [OpenRouterCapacityMetricPresentation]
+
+    var dashboardMetric: OpenRouterCapacityMetricPresentation? {
+        metrics.first { $0.metricID == "key-credit-limit" }
+    }
+
+    var detailsPresentation: OpenRouterCredentialDetailsPresentation {
+        OpenRouterCredentialDetailsPresentation(credential: self)
+    }
+}
+
+struct OpenRouterCredentialDetailsPresentation: Identifiable, Equatable {
+    let id: String
+    let displayName: String
+    let summaryValueText: String
+    let summaryState: OpenRouterCapacityState
+    let state: OpenRouterCapacityState
+    let resetText: String?
+    let exceptionText: String?
+    let updateText: String?
+    let collapsedMetrics: [OpenRouterCapacityMetricPresentation]
+    let expandedMetrics: [OpenRouterCapacityMetricPresentation]
+    let keyLimitMetric: OpenRouterCapacityMetricPresentation?
+    let usageRows: [OpenRouterUsageTableRowPresentation]
+    let resetGroups: [OpenRouterCredentialResetPresentation]
+    let isExpandedByDefault: Bool
+    let showsPerMetricFreshness: Bool
+    let collapsedAccessibilityValue: String
+    let expandedSummaryAccessibilityValue: String
+
+    init(credential: OpenRouterCredentialCapacityPresentation) {
+        id = credential.id
+        displayName = credential.displayName
+        summaryValueText = credential.dashboardValueText
+        summaryState = credential.dashboardMetric?.state ?? credential.state
+        state = credential.state
+        resetText = credential.dashboardMetric?.resetText
+        exceptionText = credential.dashboardStatusText
+        updateText = credential.metrics.first(where: {
+            $0.state == .stale && $0.freshnessText != nil
+        })?.freshnessText
+            ?? credential.metrics.compactMap(\.freshnessText).first
+        collapsedMetrics = []
+        expandedMetrics = credential.metrics
+        keyLimitMetric = credential.metrics.first {
+            $0.metricID == "key-credit-limit"
+        }
+        var rows: [OpenRouterUsageTableRowPresentation] = []
+        for metric in credential.metrics where metric.usageColumn != nil {
+            guard let scopeText = metric.scopeText else { continue }
+            if let index = rows.firstIndex(where: { $0.id == scopeText }) {
+                let existing = rows[index]
+                rows[index] = OpenRouterUsageTableRowPresentation(
+                    id: existing.id,
+                    scopeText: existing.scopeText,
+                    usageMetric: metric.usageColumn == .usage
+                        ? metric
+                        : existing.usageMetric,
+                    byokMetric: metric.usageColumn == .byok
+                        ? metric
+                        : existing.byokMetric
+                )
+            } else {
+                rows.append(
+                    OpenRouterUsageTableRowPresentation(
+                        id: scopeText,
+                        scopeText: scopeText,
+                        usageMetric: metric.usageColumn == .usage ? metric : nil,
+                        byokMetric: metric.usageColumn == .byok ? metric : nil
+                    )
+                )
+            }
+        }
+        usageRows = rows.sorted {
+            Self.usageScopeOrder($0) < Self.usageScopeOrder($1)
+        }
+        var groupedResets: [
+            (
+                resetIdentity: String,
+                resetText: String,
+                metrics: [OpenRouterCapacityMetricPresentation]
+            )
+        ] = []
+        for metric in credential.metrics {
+            guard let metricResetText = metric.resetText,
+                  let metricResetIdentity = metric.resetIdentity else {
+                continue
+            }
+            if let index = groupedResets.firstIndex(where: {
+                $0.resetIdentity == metricResetIdentity
+            }) {
+                groupedResets[index].metrics.append(metric)
+            } else {
+                groupedResets.append(
+                    (
+                        resetIdentity: metricResetIdentity,
+                        resetText: metricResetText,
+                        metrics: [metric]
+                    )
+                )
+            }
+        }
+        resetGroups = groupedResets
+            .sorted {
+                let leftOrder = Self.resetGroupOrder($0.metrics)
+                let rightOrder = Self.resetGroupOrder($1.metrics)
+                if leftOrder != rightOrder {
+                    return leftOrder < rightOrder
+                }
+                return $0.resetIdentity < $1.resetIdentity
+            }
+            .map { group in
+                OpenRouterCredentialResetPresentation(
+                    id: group.resetIdentity,
+                    scopeNames: Self.resetScopeNames(for: group.metrics),
+                    resetText: group.resetText
+                )
+            }
+        isExpandedByDefault = false
+        showsPerMetricFreshness = false
+        collapsedAccessibilityValue = [
+            credential.dashboardMetric?.dashboardAccessibilityValue
+                ?? summaryValueText,
+            resetText,
+            exceptionText,
+        ]
+        .compactMap { $0 }
+        .joined(separator: ", ")
+        expandedSummaryAccessibilityValue = [
+            credential.dashboardMetric?.dashboardAccessibilityValue
+                ?? summaryValueText,
+            exceptionText,
+        ]
+        .compactMap { $0 }
+        .joined(separator: ", ")
+    }
+
+    private static func resetScopeNames(
+        for metrics: [OpenRouterCapacityMetricPresentation]
+    ) -> [String] {
+        var scopes: [(name: String, metrics: [OpenRouterCapacityMetricPresentation])] = []
+        for metric in metrics {
+            let name = metric.scopeText ?? metric.displayName
+            if let index = scopes.firstIndex(where: { $0.name == name }) {
+                scopes[index].metrics.append(metric)
+            } else {
+                scopes.append((name, [metric]))
+            }
+        }
+
+        return scopes.map { scope in
+            let usageColumns = Set(
+                scope.metrics.compactMap(\.usageColumn).map {
+                    $0 == .usage ? "usage" : "byok"
+                }
+            )
+            if usageColumns.count != 1 {
+                return scope.name
+            }
+            guard let qualifier = scope.metrics.compactMap(\.usageQualifierText).first else {
+                return scope.name
+            }
+            return "\(scope.name) · \(qualifier)"
+        }
+    }
+
+    private static func usageScopeOrder(
+        _ row: OpenRouterUsageTableRowPresentation
+    ) -> Int {
+        let metricID = (row.usageMetric ?? row.byokMetric)?.metricID ?? ""
+        if metricID.contains("-daily-") { return 0 }
+        if metricID.contains("-weekly-") { return 1 }
+        if metricID.contains("-monthly-") { return 2 }
+        if metricID.contains("-total-") { return 3 }
+        return 100
+    }
+
+    private static func resetGroupOrder(
+        _ metrics: [OpenRouterCapacityMetricPresentation]
+    ) -> Int {
+        metrics.map {
+            if $0.metricID == "key-credit-limit" { return 0 }
+            if $0.metricID.contains("-daily-") { return 1 }
+            if $0.metricID.contains("-weekly-") { return 2 }
+            if $0.metricID.contains("-monthly-") { return 3 }
+            if $0.metricID.contains("-total-") { return 4 }
+            return 100
+        }.min() ?? 100
+    }
+}
+
+struct OpenRouterCredentialResetPresentation: Identifiable, Equatable {
+    let id: String
+    let scopeNames: [String]
+    let resetText: String
+
+    var accessibilityLabel: String {
+        scopeNames.joined(separator: ", ")
+    }
+
+    var accessibilityValue: String {
+        resetText
+    }
 }
 
 struct OpenRouterCapacityPresentation: Equatable {
@@ -115,6 +395,26 @@ struct OpenRouterCapacityPresentation: Equatable {
                 metrics: metrics,
                 diagnostic: diagnostic
             )
+            let statusText = Self.credentialStatusText(
+                state: state,
+                diagnostic: diagnostic,
+                refreshState: refreshStateBySlot[credential.slot.slotID],
+                locale: locale
+            )
+            let dashboardMetric = metrics.first {
+                $0.metricID == "key-credit-limit"
+            }
+            let dashboardValue = Self.credentialDashboardValue(
+                state: state,
+                statusText: statusText,
+                metric: dashboardMetric,
+                locale: locale
+            )
+            let dashboardStatus = Self.credentialDashboardStatus(
+                state: state,
+                statusText: statusText,
+                hasMetric: dashboardMetric != nil
+            )
             return OpenRouterCredentialCapacityPresentation(
                 id: credential.context.contextID,
                 slotID: credential.slot.slotID,
@@ -123,12 +423,17 @@ struct OpenRouterCapacityPresentation: Equatable {
                 isEnabled: credential.slot.isEnabled,
                 lifecycleState: credential.slot.lifecycleState,
                 state: state,
-                statusText: Self.credentialStatusText(
-                    state: state,
-                    diagnostic: diagnostic,
-                    refreshState: refreshStateBySlot[credential.slot.slotID],
-                    locale: locale
-                ),
+                statusText: statusText,
+                dashboardValueText: dashboardValue,
+                dashboardStatusText: dashboardStatus,
+                dashboardAccessibilityValue: [
+                    dashboardMetric?.dashboardAccessibilityValue
+                        ?? dashboardValue,
+                    dashboardMetric?.resetText,
+                    dashboardStatus,
+                ]
+                .compactMap { $0 }
+                .joined(separator: ", "),
                 metrics: metrics
             )
         }
@@ -254,32 +559,44 @@ struct OpenRouterCapacityPresentation: Equatable {
         }
     }
 
+    private static func credentialDashboardValue(
+        state: OpenRouterCapacityState,
+        statusText: String,
+        metric: OpenRouterCapacityMetricPresentation?,
+        locale: Locale
+    ) -> String {
+        if let metric {
+            return metric.dashboardValueText
+        }
+        switch state {
+        case .current, .unlimited:
+            return AppStrings.OpenRouter.noKeyLimit.localized(locale: locale)
+        case .partial, .stale, .unavailable, .unknown, .credentialError,
+             .disabled, .recoveryRequired, .deletionPending:
+            return statusText
+        }
+    }
+
+    private static func credentialDashboardStatus(
+        state: OpenRouterCapacityState,
+        statusText: String,
+        hasMetric: Bool
+    ) -> String? {
+        guard hasMetric else { return nil }
+        switch state {
+        case .partial, .stale, .credentialError, .disabled,
+             .recoveryRequired, .deletionPending:
+            return statusText
+        case .current, .unavailable, .unknown, .unlimited:
+            return nil
+        }
+    }
+
     private static func statusText(
         for state: OpenRouterCapacityState,
         locale: Locale
     ) -> String {
-        switch state {
-        case .current:
-            AppStrings.OpenRouter.current.localized(locale: locale)
-        case .partial:
-            AppStrings.OpenRouter.partial.localized(locale: locale)
-        case .stale:
-            AppStrings.Common.stale.localized(locale: locale)
-        case .unavailable:
-            AppStrings.Common.unavailable.localized(locale: locale)
-        case .unknown:
-            AppStrings.Common.unknown.localized(locale: locale)
-        case .unlimited:
-            AppStrings.Common.unlimited.localized(locale: locale)
-        case .credentialError:
-            AppStrings.Common.error.localized(locale: locale)
-        case .disabled:
-            AppStrings.OpenRouter.disabled.localized(locale: locale)
-        case .recoveryRequired:
-            AppStrings.OpenRouter.recoveryRequired.localized(locale: locale)
-        case .deletionPending:
-            AppStrings.OpenRouter.deletionPending.localized(locale: locale)
-        }
+        state.localizedStatusText(locale: locale)
     }
 
     private static func metricPresentation(
@@ -292,9 +609,23 @@ struct OpenRouterCapacityPresentation: Equatable {
             let value = AppStrings.Common.unavailable.localized(locale: locale)
             return OpenRouterCapacityMetricPresentation(
                 id: fallbackID,
+                metricID: fallbackID,
                 displayName: metricName(fallbackID, locale: locale),
                 valueText: value,
+                displayValueLines: [value],
+                dashboardValueText: value,
+                dashboardAccessibilityValue: value,
+                tableValueText: value,
+                accountCredits: nil,
+                keyCapacity: nil,
+                scopeText: metricScopeText(fallbackID, locale: locale),
+                usageColumn: usageColumn(fallbackID),
+                usageQualifierText: usageQualifierText(
+                    fallbackID,
+                    locale: locale
+                ),
                 resetText: nil,
+                resetIdentity: nil,
                 freshnessText: nil,
                 state: .unavailable,
                 accessibilityValue: value
@@ -317,6 +648,23 @@ struct OpenRouterCapacityPresentation: Equatable {
         }
         let name = metricName(metric.metricID, locale: locale)
         let value = metricValue(metric, locale: locale)
+        let displayValueLines = metricDisplayValueLines(
+            metric,
+            fallback: value,
+            locale: locale
+        )
+        let dashboardValue = dashboardMetricValue(metric, locale: locale)
+        let dashboardAccessibility = dashboardMetricAccessibilityValue(
+            metric,
+            fallback: dashboardValue,
+            locale: locale
+        )
+        let tableValue = tableMetricValue(metric, fallback: value, locale: locale)
+        let accountCredits = accountCreditsPresentation(
+            metric,
+            locale: locale
+        )
+        let keyCapacity = keyCapacityPresentation(metric, locale: locale)
         let reset = resetText(metric.window, now: now, locale: locale)
         let freshness: String? = switch metric.availability {
         case .known, .unlimited:
@@ -337,9 +685,26 @@ struct OpenRouterCapacityPresentation: Equatable {
             .joined(separator: ", ")
         return OpenRouterCapacityMetricPresentation(
             id: "\(metric.accountContextID):\(metric.sourceID):\(metric.metricID)",
+            metricID: metric.metricID,
             displayName: name,
             valueText: value,
+            displayValueLines: displayValueLines,
+            dashboardValueText: dashboardValue,
+            dashboardAccessibilityValue: dashboardAccessibility,
+            tableValueText: tableValue,
+            accountCredits: accountCredits,
+            keyCapacity: keyCapacity,
+            scopeText: metricScopeText(metric.metricID, locale: locale),
+            usageColumn: usageColumn(metric.metricID),
+            usageQualifierText: usageQualifierText(
+                metric.metricID,
+                locale: locale
+            ),
             resetText: reset,
+            resetIdentity: resetIdentity(
+                metric.window,
+                metricID: metric.metricID
+            ),
             freshnessText: freshness,
             state: state,
             accessibilityValue: accessibility
@@ -378,19 +743,27 @@ struct OpenRouterCapacityPresentation: Equatable {
             AppFormatters.currency($0.value, code: code, locale: locale)
         }
         if metric.metricID == "account-credits",
-           let remaining, let consumed, let limit {
+           let remaining, let consumed {
             return AppStrings.OpenRouter.creditSummary.formatted(
                 locale: locale,
                 remaining,
-                consumed,
-                limit
+                consumed
             )
         }
-        if let remaining, let limit {
-            return AppStrings.OpenRouter.remainingOf.formatted(
+        if let remainingValue = values.remaining,
+           let limitValue = values.limit {
+            return AppStrings.OpenRouter.availableOf.formatted(
                 locale: locale,
-                remaining,
-                limit
+                AppFormatters.currency(
+                    remainingValue.value,
+                    code: code,
+                    locale: locale
+                ),
+                AppFormatters.currency(
+                    limitValue.value,
+                    code: code,
+                    locale: locale
+                )
             )
         }
         if let remaining {
@@ -412,6 +785,198 @@ struct OpenRouterCapacityPresentation: Equatable {
             )
         }
         return AppStrings.Common.unknown.localized(locale: locale)
+    }
+
+    private static func metricDisplayValueLines(
+        _ metric: CapacityMetric,
+        fallback: String,
+        locale: Locale
+    ) -> [String] {
+        guard metric.metricID == "account-credits",
+              metric.availability == .known,
+              metric.unit.kind == .currency,
+              let code = metric.unit.currencyCode,
+              let values = metric.values,
+              let remaining = values.remaining,
+              let consumed = values.consumed else {
+            return [fallback]
+        }
+
+        return [
+            AppStrings.OpenRouter.remaining.formatted(
+                locale: locale,
+                AppFormatters.currency(
+                    remaining.value,
+                    code: code,
+                    locale: locale
+                )
+            ),
+            AppStrings.OpenRouter.used.formatted(
+                locale: locale,
+                AppFormatters.currency(
+                    consumed.value,
+                    code: code,
+                    locale: locale
+                )
+            ),
+        ]
+    }
+
+    private static func accountCreditsPresentation(
+        _ metric: CapacityMetric,
+        locale: Locale
+    ) -> OpenRouterAccountCreditsPresentation? {
+        guard metric.metricID == "account-credits",
+              metric.availability == .known,
+              metric.unit.kind == .currency,
+              let code = metric.unit.currencyCode,
+              let remaining = metric.values?.remaining,
+              let consumed = metric.values?.consumed else {
+            return nil
+        }
+        let leftText = AppFormatters.currency(
+            remaining.value,
+            code: code,
+            locale: locale
+        )
+        let usedText = AppFormatters.currency(
+            consumed.value,
+            code: code,
+            locale: locale
+        )
+        return OpenRouterAccountCreditsPresentation(
+            leftText: leftText,
+            usedText: usedText,
+            accessibilityValue: [
+                AppStrings.OpenRouter.leftColumn.localized(locale: locale),
+                leftText,
+                AppStrings.OpenRouter.usedColumn.localized(locale: locale),
+                usedText,
+            ].joined(separator: ", ")
+        )
+    }
+
+    private static func keyCapacityPresentation(
+        _ metric: CapacityMetric,
+        locale: Locale
+    ) -> OpenRouterKeyCapacityPresentation? {
+        guard metric.metricID == "key-credit-limit",
+              metric.availability == .known,
+              metric.unit.kind == .currency,
+              let code = metric.unit.currencyCode,
+              let available = metric.values?.remaining,
+              let total = metric.values?.limit else {
+            return nil
+        }
+        let availableText = AppFormatters.currency(
+            available.value,
+            code: code,
+            locale: locale
+        )
+        let totalText = AppFormatters.currency(
+            total.value,
+            code: code,
+            locale: locale
+        )
+        let totalDouble = NSDecimalNumber(decimal: total.value).doubleValue
+        let availableDouble = NSDecimalNumber(decimal: available.value).doubleValue
+        let fraction = totalDouble > 0
+            ? min(max(availableDouble / totalDouble, 0), 1)
+            : nil
+        return OpenRouterKeyCapacityPresentation(
+            availableText: availableText,
+            totalText: totalText,
+            visualValueText: "\(availableText) / \(totalText)",
+            availableFraction: fraction,
+            accessibilityValue: AppStrings.OpenRouter.availableOf.formatted(
+                locale: locale,
+                availableText,
+                totalText
+            )
+        )
+    }
+
+    private static func tableMetricValue(
+        _ metric: CapacityMetric,
+        fallback: String,
+        locale: Locale
+    ) -> String {
+        guard metric.availability == .known,
+              metric.unit.kind == .currency,
+              let code = metric.unit.currencyCode,
+              let values = metric.values else {
+            return fallback
+        }
+        let amount = values.consumed ?? values.remaining ?? values.limit
+        guard let amount else { return fallback }
+        return AppFormatters.currency(
+            amount.value,
+            code: code,
+            locale: locale
+        )
+    }
+
+    private static func dashboardMetricValue(
+        _ metric: CapacityMetric,
+        locale: Locale
+    ) -> String {
+        switch metric.availability {
+        case .unavailable:
+            return AppStrings.Common.unavailable.localized(locale: locale)
+        case .unknown:
+            return AppStrings.Common.unknown.localized(locale: locale)
+        case .unlimited:
+            return AppStrings.Common.unlimited.localized(locale: locale)
+        case .manual:
+            return AppStrings.Common.manual.localized(locale: locale)
+        case .known:
+            break
+        }
+
+        guard metric.unit.kind == .currency,
+              let code = metric.unit.currencyCode,
+              let remaining = metric.values?.remaining else {
+            return metricValue(metric, locale: locale)
+        }
+        return AppFormatters.currency(
+            remaining.value,
+            code: code,
+            locale: locale
+        )
+    }
+
+    private static func dashboardMetricAccessibilityValue(
+        _ metric: CapacityMetric,
+        fallback: String,
+        locale: Locale
+    ) -> String {
+        guard metric.availability == .known,
+              metric.unit.kind == .currency,
+              let code = metric.unit.currencyCode,
+              let remaining = metric.values?.remaining else {
+            return fallback
+        }
+        let amount = AppFormatters.currency(
+            remaining.value,
+            code: code,
+            locale: locale
+        )
+        if metric.metricID == "key-credit-limit",
+           let limit = metric.values?.limit {
+            return AppStrings.OpenRouter.availableOf.formatted(
+                locale: locale,
+                amount,
+                AppFormatters.currency(
+                    limit.value,
+                    code: code,
+                    locale: locale
+                )
+            )
+        }
+        return AppStrings.OpenRouter.remaining.formatted(
+            locale: locale,
+            amount
+        )
     }
 
     private static func resetText(
@@ -445,6 +1010,46 @@ struct OpenRouterCapacityPresentation: Equatable {
         }
     }
 
+    private static func resetIdentity(
+        _ window: CapacityWindow,
+        metricID: String
+    ) -> String? {
+        guard window.kind != .none else { return nil }
+        return [
+            resetSemanticClass(metricID),
+            window.kind.rawValue,
+            window.durationSeconds.map(String.init) ?? "-",
+            dateIdentity(window.startsAt),
+            dateIdentity(window.endsAt),
+            window.nextTransition?.kind.rawValue ?? "-",
+            dateIdentity(window.nextTransition?.at),
+        ]
+        .joined(separator: ":")
+    }
+
+    private static func resetSemanticClass(_ metricID: String) -> String {
+        switch metricID {
+        case "key-credit-limit":
+            "key-limit"
+        case "key-daily-usage", "key-daily-byok-usage":
+            "usage-day"
+        case "key-weekly-usage", "key-weekly-byok-usage":
+            "usage-week"
+        case "key-monthly-usage", "key-monthly-byok-usage":
+            "usage-month"
+        case "key-total-usage", "key-total-byok-usage":
+            "usage-total"
+        default:
+            metricID
+        }
+    }
+
+    private static func dateIdentity(_ date: Date?) -> String {
+        date.map {
+            String($0.timeIntervalSinceReferenceDate.bitPattern)
+        } ?? "-"
+    }
+
     private static func metricName(
         _ metricID: String,
         locale: Locale
@@ -472,6 +1077,52 @@ struct OpenRouterCapacityPresentation: Equatable {
             AppStrings.OpenRouter.monthlyBYOKUsage.localized(locale: locale)
         default:
             AppStrings.Common.unknown.localized(locale: locale)
+        }
+    }
+
+    private static func metricScopeText(
+        _ metricID: String,
+        locale: Locale
+    ) -> String? {
+        switch metricID {
+        case "key-credit-limit":
+            AppStrings.OpenRouter.limitScope.localized(locale: locale)
+        case "key-daily-usage", "key-daily-byok-usage":
+            AppStrings.OpenRouter.dayScope.localized(locale: locale)
+        case "key-weekly-usage", "key-weekly-byok-usage":
+            AppStrings.OpenRouter.weekScope.localized(locale: locale)
+        case "key-monthly-usage", "key-monthly-byok-usage":
+            AppStrings.OpenRouter.monthScope.localized(locale: locale)
+        case "key-total-usage", "key-total-byok-usage":
+            AppStrings.OpenRouter.totalScope.localized(locale: locale)
+        default:
+            nil
+        }
+    }
+
+    private static func usageColumn(
+        _ metricID: String
+    ) -> OpenRouterUsageColumn? {
+        if metricID.hasSuffix("-byok-usage") {
+            return .byok
+        }
+        if metricID.hasSuffix("-usage") {
+            return .usage
+        }
+        return nil
+    }
+
+    private static func usageQualifierText(
+        _ metricID: String,
+        locale: Locale
+    ) -> String? {
+        switch usageColumn(metricID) {
+        case .usage:
+            AppStrings.OpenRouter.usageColumn.localized(locale: locale)
+        case .byok:
+            AppStrings.OpenRouter.byokColumn.localized(locale: locale)
+        case nil:
+            nil
         }
     }
 

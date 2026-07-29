@@ -17,16 +17,26 @@ enum AppFormatters {
         code: String,
         locale: Locale
     ) -> String {
+        let amount = decimal(value, locale: locale)
+        let normalizedCode = code.uppercased()
+        return normalizedCode == "USD"
+            ? "$\(amount)"
+            : "\(normalizedCode) \(amount)"
+    }
+
+    static func decimal(
+        _ value: Decimal,
+        locale: Locale
+    ) -> String {
         let formatter = NumberFormatter()
         formatter.locale = locale
         formatter.numberStyle = .decimal
         formatter.minimumFractionDigits = 0
-        formatter.maximumFractionDigits = 6
+        formatter.maximumFractionDigits = 2
         formatter.usesGroupingSeparator = true
 
-        let number = formatter.string(from: NSDecimalNumber(decimal: value))
+        return formatter.string(from: NSDecimalNumber(decimal: value))
             ?? NSDecimalNumber(decimal: value).stringValue
-        return "\(code.uppercased()) \(number)"
     }
 
     static func relativeDate(_ date: Date, relativeTo referenceDate: Date, locale: Locale) -> String {

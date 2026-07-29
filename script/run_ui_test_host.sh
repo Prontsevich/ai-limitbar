@@ -6,7 +6,7 @@ HOST_APP_NAME="AILimitBarUITestHost"
 STORAGE_ARGUMENT="--ai-limitbar-storage-directory"
 
 usage() {
-  echo "usage: $0 --ui-test-host <dashboard-empty|dashboard-healthy|dashboard-mixed|dashboard-openrouter|settings|settings-dirty-editor|settings-openrouter> [--ui-test-language en|ru] [--ui-test-appearance light|dark] [--ui-test-height compact|standard|tall]" >&2
+  echo "usage: $0 --ui-test-host <dashboard-empty|dashboard-healthy|dashboard-mixed|dashboard-openrouter|settings|settings-dirty-editor|settings-openrouter|settings-openrouter-missing-management> [--ui-test-language en|ru] [--ui-test-appearance light|dark] [--ui-test-height compact|standard|tall]" >&2
 }
 
 [[ "${1:-}" == "--ui-test-host" && $# -ge 2 ]] || { usage; exit 2; }
@@ -41,7 +41,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 case "$SCENARIO" in
-  dashboard-empty|dashboard-healthy|dashboard-mixed|dashboard-openrouter|settings|settings-dirty-editor|settings-openrouter) ;;
+  dashboard-empty|dashboard-healthy|dashboard-mixed|dashboard-openrouter|settings|settings-dirty-editor|settings-openrouter|settings-openrouter-missing-management) ;;
   *) echo "error: invalid UI test scenario: $SCENARIO" >&2; exit 2 ;;
 esac
 case "$LANGUAGE" in

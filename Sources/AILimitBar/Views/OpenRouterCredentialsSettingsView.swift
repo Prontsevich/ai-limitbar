@@ -1,6 +1,126 @@
 import AILimitBarCore
 import SwiftUI
 
+enum OpenRouterSettingsAccessibilityID {
+    static let accountException = "settings.openrouter.account-exception"
+    static let addKey = "settings.openrouter.add-key"
+    static let addManagement = "settings.openrouter.add-management"
+    static let missingManagement = "settings.openrouter.management-missing"
+
+    static func credential(contextID: String) -> String {
+        "settings.openrouter.credential.\(contextID)"
+    }
+
+    static func actions(contextID: String) -> String {
+        "settings.openrouter.actions.\(contextID)"
+    }
+}
+
+enum OpenRouterSettingsLayout {
+    static let actionControlSize = TerminalIconControlLayout.hitTargetSize
+    static let headerActionTrailingAdjustment: CGFloat = 6
+    static let fieldsetActionControlConfiguration =
+        TerminalIconButtonConfiguration.fieldset(
+            hitTargetSize: actionControlSize
+        )
+}
+
+struct OpenRouterSettingsCredentialRowPresentation: Equatable {
+    let displayName: String
+    let visibleStatusText: String?
+    let statusState: OpenRouterCapacityState
+    let accessibilityValue: String
+    let accessibilityIdentifier: String
+    let actionsAccessibilityIdentifier: String
+
+    init(
+        credential: ProviderCredentialContext,
+        capacityPresentation: OpenRouterCapacityPresentation?,
+        diagnostic: CredentialContextDiagnostic?,
+        locale: Locale
+    ) {
+        displayName = credential.slot.role == .management
+            ? AppStrings.OpenRouter.managementCredential.localized(locale: locale)
+            : credential.context.displayName
+                ?? AppStrings.OpenRouter.unnamedKey.localized(locale: locale)
+        accessibilityIdentifier = OpenRouterSettingsAccessibilityID.credential(
+            contextID: credential.context.contextID
+        )
+        actionsAccessibilityIdentifier = OpenRouterSettingsAccessibilityID.actions(
+            contextID: credential.context.contextID
+        )
+
+        let visibleStatus: String?
+        let state: OpenRouterCapacityState
+        switch credential.slot.lifecycleState {
+        case .pendingCreation:
+            state = .recoveryRequired
+            visibleStatus = state.localizedStatusText(locale: locale)
+        case .pendingDeletion:
+            state = .deletionPending
+            visibleStatus = state.localizedStatusText(locale: locale)
+        case .active where !credential.slot.isEnabled:
+            state = .disabled
+            visibleStatus = state.localizedStatusText(locale: locale)
+        case .active:
+            if let diagnostic {
+                state = .credentialError
+                visibleStatus = Self.diagnosticText(
+                    diagnostic.code,
+                    locale: locale
+                )
+            } else if credential.slot.role == .ordinary,
+                      let credentialPresentation =
+                          capacityPresentation?.credentials.first(where: {
+                              $0.slotID == credential.slot.slotID
+                          }) {
+                state = credentialPresentation.state
+                switch state {
+                case .current, .unlimited:
+                    visibleStatus = nil
+                case .partial, .stale, .unavailable, .unknown,
+                     .credentialError, .disabled, .recoveryRequired,
+                     .deletionPending:
+                    visibleStatus = credentialPresentation.statusText
+                }
+            } else if credential.slot.role == .management {
+                state = capacityPresentation?.sharedCredits.state ?? .unavailable
+                visibleStatus = state == .current
+                    ? nil
+                    : state.localizedStatusText(locale: locale)
+            } else {
+                state = .current
+                visibleStatus = nil
+            }
+        }
+
+        statusState = state
+        visibleStatusText = visibleStatus
+        accessibilityValue = visibleStatus
+            ?? AppStrings.Common.enabled.localized(locale: locale)
+    }
+
+    private static func diagnosticText(
+        _ code: CredentialContextDiagnosticCode,
+        locale: Locale
+    ) -> String {
+        switch code {
+        case .authentication:
+            AppStrings.OpenRouter.authenticationFailed.localized(locale: locale)
+        case .insufficientPrivilege:
+            AppStrings.OpenRouter.privilegeInsufficient.localized(locale: locale)
+        case .throttled:
+            AppStrings.OpenRouter.throttled.localized(locale: locale)
+        case .transientFailure:
+            AppStrings.OpenRouter.temporaryFailure.localized(locale: locale)
+        case .credentialDisabled:
+            AppStrings.OpenRouter.disabled.localized(locale: locale)
+        case .credentialMissing:
+            AppStrings.OpenRouter.credentialUnavailable.localized(locale: locale)
+        }
+    }
+}
+
 struct OpenRouterCredentialsSettingsView: View {
     @Environment(\.locale) private var locale
     @ObservedObject var appModel: AppModel
@@ -11,16 +131,14 @@ struct OpenRouterCredentialsSettingsView: View {
     @State private var presentedError: OpenRouterSettingsError?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            ordinaryCredentialsFieldset
-            managementCredentialFieldset
-        }
+        credentialsFieldset
         .sheet(item: $editor) { configuration in
             OpenRouterCredentialEditorSheet(
                 appModel: appModel,
                 account: currentAccount,
                 configuration: configuration
             )
+            .environment(\.locale, locale)
         }
         .alert(
             AppStrings.OpenRouter.deleteCredentialTitle.localized(locale: locale),
@@ -54,7 +172,7 @@ struct OpenRouterCredentialsSettingsView: View {
         }
     }
 
-    private var ordinaryCredentialsFieldset: some View {
+    private var credentialsFieldset: some View {
         TerminalFieldset(
             title: AppStrings.OpenRouter.credentialsTitle.localized(locale: locale)
         ) {
@@ -65,18 +183,32 @@ struct OpenRouterCredentialsSettingsView: View {
             } label: {
                 SettingsActionIcon(systemName: "plus")
             }
-            .settingsIconButton(
-                help: AppStrings.OpenRouter.addKey.localized(locale: locale)
+            .buttonStyle(
+                TerminalIconButtonStyle(
+                    controlConfiguration:
+                        OpenRouterSettingsLayout
+                        .fieldsetActionControlConfiguration
+                )
+            )
+            .help(
+                AppStrings.OpenRouter.addKey.localized(locale: locale)
             )
             .accessibilityLabel(
                 AppStrings.OpenRouter.addKey.localized(locale: locale)
             )
-            .accessibilityIdentifier("settings.openrouter.add-key")
+            .accessibilityIdentifier(OpenRouterSettingsAccessibilityID.addKey)
+            .frame(
+                width: OpenRouterSettingsLayout.actionControlSize,
+                height: OpenRouterSettingsLayout.actionControlSize
+            )
+            .padding(
+                .trailing,
+                OpenRouterSettingsLayout.headerActionTrailingAdjustment
+            )
         } content: {
-            Text(AppStrings.OpenRouter.ordinaryDisclosure.resource(locale: locale))
-                .font(TerminalTheme.captionFont)
-                .foregroundStyle(TerminalTheme.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+            credentialSectionTitle(
+                AppStrings.OpenRouter.apiKeys.localized(locale: locale)
+            )
 
             if ordinaryCredentials.isEmpty {
                 Text(AppStrings.OpenRouter.noOrdinaryKeys.resource(locale: locale))
@@ -93,17 +225,44 @@ struct OpenRouterCredentialsSettingsView: View {
                 }
             }
 
-            Text(AppStrings.OpenRouter.storedSecurely.resource(locale: locale))
-                .font(TerminalTheme.captionFont)
-                .foregroundStyle(TerminalTheme.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+            TerminalRule()
+
+            managementSectionTitle
+            if let managementCredential {
+                credentialRow(managementCredential)
+            } else {
+                Text(AppStrings.OpenRouter.notConfigured.resource(locale: locale))
+                    .font(TerminalTheme.bodyFont)
+                    .foregroundStyle(TerminalTheme.secondary)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(
+                        AppStrings.OpenRouter.sharedCredits.localized(locale: locale)
+                    )
+                    .accessibilityValue(
+                        AppStrings.OpenRouter.notConfigured.localized(locale: locale)
+                    )
+                    .accessibilityIdentifier(
+                        OpenRouterSettingsAccessibilityID.missingManagement
+                    )
+            }
         }
     }
 
-    private var managementCredentialFieldset: some View {
-        TerminalFieldset(
-            title: AppStrings.OpenRouter.managementTitle.localized(locale: locale)
-        ) {
+    private func credentialSectionTitle(_ title: String) -> some View {
+        Text(title)
+            .font(TerminalTheme.detailLabelFont)
+            .foregroundStyle(TerminalTheme.secondary)
+            .accessibilityAddTraits(.isHeader)
+    }
+
+    private var managementSectionTitle: some View {
+        HStack(spacing: 8) {
+            credentialSectionTitle(
+                AppStrings.OpenRouter.sharedCredits.localized(locale: locale)
+            )
+
+            Spacer()
+
             if managementCredential == nil {
                 Button {
                     editor = OpenRouterCredentialEditorConfiguration(
@@ -120,21 +279,13 @@ struct OpenRouterCredentialsSettingsView: View {
                 .accessibilityLabel(
                     AppStrings.OpenRouter.addManagement.localized(locale: locale)
                 )
-                .accessibilityIdentifier("settings.openrouter.add-management")
-            }
-        } content: {
-            Text(AppStrings.OpenRouter.managementDisclosure.resource(locale: locale))
-                .font(TerminalTheme.captionFont)
-                .foregroundStyle(TerminalTheme.warning)
-                .fixedSize(horizontal: false, vertical: true)
-
-            if let managementCredential {
-                credentialRow(managementCredential)
-            } else {
-                Text(AppStrings.OpenRouter.managementUnavailable.resource(locale: locale))
-                    .font(TerminalTheme.bodyFont)
-                    .foregroundStyle(TerminalTheme.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier(
+                    OpenRouterSettingsAccessibilityID.addManagement
+                )
+                .frame(
+                    width: OpenRouterSettingsLayout.actionControlSize,
+                    height: OpenRouterSettingsLayout.actionControlSize
+                )
             }
         }
     }
@@ -142,78 +293,137 @@ struct OpenRouterCredentialsSettingsView: View {
     private func credentialRow(
         _ credential: ProviderCredentialContext
     ) -> some View {
-        VStack(alignment: .leading, spacing: 7) {
-            HStack(alignment: .center, spacing: 10) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(displayName(for: credential))
-                        .font(TerminalTheme.emphasizedBodyFont)
-                        .foregroundStyle(TerminalTheme.primary)
-                    Text(statusText(for: credential))
+        let presentation = rowPresentation(for: credential)
+
+        return HStack(alignment: .center, spacing: 10) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(presentation.displayName)
+                    .font(TerminalTheme.emphasizedBodyFont)
+                    .foregroundStyle(TerminalTheme.primary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                if let visibleStatus = presentation.visibleStatusText {
+                    Text(visibleStatus)
                         .font(TerminalTheme.captionFont)
-                        .foregroundStyle(statusColor(for: credential))
-                }
-
-                Spacer()
-
-                Toggle(
-                    AppStrings.Common.enabled.resource(locale: locale),
-                    isOn: enabledBinding(for: credential)
-                )
-                .labelsHidden()
-                .toggleStyle(TerminalToggleStyle())
-                .accessibilityLabel(
-                    AppStrings.Common.enabled.localized(locale: locale)
-                )
-                .disabled(credential.slot.lifecycleState != .active)
-                .accessibilityIdentifier(
-                    "settings.openrouter.enabled.\(credential.context.contextID)"
-                )
-            }
-            .accessibilityElement(children: .contain)
-
-            HStack(spacing: 8) {
-                if credential.slot.role == .ordinary {
-                    Button(AppStrings.OpenRouter.rename.localized(locale: locale)) {
-                        editor = OpenRouterCredentialEditorConfiguration(
-                            mode: .rename(
-                                contextID: credential.context.contextID,
-                                currentName: displayName(for: credential)
+                        .foregroundStyle(
+                            OpenRouterCapacityColors.color(
+                                for: presentation.statusState
                             )
                         )
-                    }
-                    .buttonStyle(TerminalTextButtonStyle())
+                        .fixedSize(horizontal: false, vertical: true)
                 }
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(presentation.displayName)
+            .accessibilityValue(presentation.accessibilityValue)
+            .accessibilityIdentifier(presentation.accessibilityIdentifier)
 
-                Button(
-                    credential.slot.lifecycleState == .pendingCreation
-                        ? AppStrings.OpenRouter.recover.localized(locale: locale)
-                        : AppStrings.OpenRouter.replace.localized(locale: locale)
+            Spacer(minLength: 8)
+
+            NativeMenuButton(
+                accessibilityLabel:
+                    AppStrings.OpenRouter.credentialActions.formatted(
+                        locale: locale,
+                        presentation.displayName
+                    ),
+                actions: credentialMenuActions(credential)
+            )
+            .frame(
+                width: OpenRouterSettingsLayout.actionControlSize,
+                height: OpenRouterSettingsLayout.actionControlSize
+            )
+            .help(
+                AppStrings.OpenRouter.credentialActions.formatted(
+                    locale: locale,
+                    presentation.displayName
+                )
+            )
+            .accessibilityLabel(
+                AppStrings.OpenRouter.credentialActions.formatted(
+                    locale: locale,
+                    presentation.displayName
+                )
+            )
+            .accessibilityIdentifier(presentation.actionsAccessibilityIdentifier)
+        }
+    }
+
+    private func credentialMenuActions(
+        _ credential: ProviderCredentialContext
+    ) -> [NativeMenuAction] {
+        var actions: [NativeMenuAction] = []
+        if credential.slot.role == .ordinary {
+            actions.append(
+                NativeMenuAction(
+                    id: "rename",
+                    title: AppStrings.OpenRouter.rename.localized(locale: locale),
+                    systemImage: "pencil"
                 ) {
                     editor = OpenRouterCredentialEditorConfiguration(
-                        mode: .replace(
-                            slotID: credential.slot.slotID,
-                            displayName: displayName(for: credential),
-                            isManagement: credential.slot.role == .management,
-                            isRecovery: credential.slot.lifecycleState
-                                == .pendingCreation
+                        mode: .rename(
+                            contextID: credential.context.contextID,
+                            currentName: displayName(for: credential)
                         )
                     )
                 }
-                .buttonStyle(TerminalTextButtonStyle())
-                .disabled(credential.slot.lifecycleState == .pendingDeletion)
-
-                Button(
-                    AppStrings.OpenRouter.removeCredential.localized(locale: locale),
-                    role: .destructive
-                ) {
-                    pendingDeletion = credential
-                }
-                .buttonStyle(TerminalTextButtonStyle())
-            }
+            )
         }
-        .accessibilityIdentifier(
-            "settings.openrouter.credential.\(credential.context.contextID)"
+
+        actions.append(
+            NativeMenuAction(
+                id: "replace",
+                title: credential.slot.lifecycleState == .pendingCreation
+                    ? AppStrings.OpenRouter.recover.localized(locale: locale)
+                    : AppStrings.OpenRouter.replace.localized(locale: locale),
+                systemImage: "key",
+                isEnabled: credential.slot.lifecycleState != .pendingDeletion
+            ) {
+                editor = OpenRouterCredentialEditorConfiguration(
+                    mode: .replace(
+                        slotID: credential.slot.slotID,
+                        displayName: displayName(for: credential),
+                        isManagement: credential.slot.role == .management,
+                        isRecovery: credential.slot.lifecycleState
+                            == .pendingCreation
+                    )
+                )
+            }
         )
+        actions.append(
+            NativeMenuAction(
+                id: "enabled",
+                title: credential.slot.isEnabled
+                    ? AppStrings.OpenRouter.disableCredential.localized(
+                        locale: locale
+                    )
+                    : AppStrings.OpenRouter.enableCredential.localized(
+                        locale: locale
+                    ),
+                systemImage: credential.slot.isEnabled
+                    ? "pause.circle"
+                    : "play.circle",
+                isEnabled: credential.slot.lifecycleState == .active
+            ) {
+                setCredentialEnabled(
+                    !credential.slot.isEnabled,
+                    credential: credential
+                )
+            }
+        )
+        actions.append(.separator(id: "destructive-separator"))
+        actions.append(
+            NativeMenuAction(
+                id: "remove",
+                title: AppStrings.OpenRouter.removeCredential.localized(
+                    locale: locale
+                ),
+                systemImage: "trash",
+                role: .destructive
+            ) {
+                pendingDeletion = credential
+            }
+        )
+        return actions
     }
 
     private var currentAccount: ProviderAccount {
@@ -260,90 +470,33 @@ struct OpenRouterCredentialsSettingsView: View {
             ?? AppStrings.OpenRouter.unnamedKey.localized(locale: locale)
     }
 
-    private func statusText(
+    private func rowPresentation(
         for credential: ProviderCredentialContext
-    ) -> String {
-        if credential.slot.role == .ordinary,
-           let presentation = capacityPresentation?.credentials.first(where: {
-               $0.slotID == credential.slot.slotID
-           }) {
-            return presentation.statusText
-        }
-        switch credential.slot.lifecycleState {
-        case .pendingCreation:
-            return AppStrings.OpenRouter.recoveryRequired.localized(locale: locale)
-        case .pendingDeletion:
-            return AppStrings.OpenRouter.deletionPending.localized(locale: locale)
-        case .active:
-            if !credential.slot.isEnabled {
-                return AppStrings.OpenRouter.disabled.localized(locale: locale)
-            }
-            if let diagnostic = appModel
+    ) -> OpenRouterSettingsCredentialRowPresentation {
+        OpenRouterSettingsCredentialRowPresentation(
+            credential: credential,
+            capacityPresentation: capacityPresentation,
+            diagnostic: appModel
                 .openRouterCredentialDiagnostics(for: currentAccount)
-                .first(where: { $0.slotID == credential.slot.slotID }) {
-                return diagnosticText(diagnostic.code)
-            }
-            return AppStrings.OpenRouter.current.localized(locale: locale)
-        }
-    }
-
-    private func statusColor(
-        for credential: ProviderCredentialContext
-    ) -> Color {
-        if credential.slot.lifecycleState != .active {
-            return TerminalTheme.warning
-        }
-        if !credential.slot.isEnabled {
-            return TerminalTheme.secondary
-        }
-        let hasDiagnostic = appModel
-            .openRouterCredentialDiagnostics(for: currentAccount)
-            .contains { $0.slotID == credential.slot.slotID }
-        return hasDiagnostic ? TerminalTheme.error : TerminalTheme.healthy
-    }
-
-    private func diagnosticText(
-        _ code: CredentialContextDiagnosticCode
-    ) -> String {
-        switch code {
-        case .authentication:
-            AppStrings.OpenRouter.authenticationFailed.localized(locale: locale)
-        case .insufficientPrivilege:
-            AppStrings.OpenRouter.privilegeInsufficient.localized(locale: locale)
-        case .throttled:
-            AppStrings.OpenRouter.throttled.localized(locale: locale)
-        case .transientFailure:
-            AppStrings.OpenRouter.temporaryFailure.localized(locale: locale)
-        case .credentialDisabled:
-            AppStrings.OpenRouter.disabled.localized(locale: locale)
-        case .credentialMissing:
-            AppStrings.OpenRouter.credentialUnavailable.localized(locale: locale)
-        }
-    }
-
-    private func enabledBinding(
-        for credential: ProviderCredentialContext
-    ) -> Binding<Bool> {
-        Binding(
-            get: {
-                appModel.openRouterCredentialContexts(for: currentAccount)
-                    .first(where: {
-                        $0.slot.slotID == credential.slot.slotID
-                    })?.slot.isEnabled ?? false
-            },
-            set: { isEnabled in
-                do {
-                    try appModel.setOpenRouterCredentialEnabled(
-                        isEnabled,
-                        for: currentAccount,
-                        slotID: credential.slot.slotID
-                    )
-                } catch {
-                    presentedError = error as? OpenRouterSettingsError
-                        ?? .storageUnavailable
-                }
-            }
+                .first(where: { $0.slotID == credential.slot.slotID }),
+            locale: locale
         )
+    }
+
+    private func setCredentialEnabled(
+        _ isEnabled: Bool,
+        credential: ProviderCredentialContext
+    ) {
+        do {
+            try appModel.setOpenRouterCredentialEnabled(
+                isEnabled,
+                for: currentAccount,
+                slotID: credential.slot.slotID
+            )
+        } catch {
+            presentedError = error as? OpenRouterSettingsError
+                ?? .storageUnavailable
+        }
     }
 
     private func deleteCredential(_ credential: ProviderCredentialContext) {
@@ -404,6 +557,66 @@ struct OpenRouterCredentialEditorConfiguration: Identifiable {
     let mode: Mode
 }
 
+struct OpenRouterCredentialEditorPresentation: Equatable {
+    let title: String
+    let fieldsetTitle: String
+    let nameLabel: String?
+    let keyLabel: String?
+    let keyPlaceholder: String?
+    let cancelButtonTitle: String
+    let saveButtonTitle: String
+
+    init(
+        mode: OpenRouterCredentialEditorConfiguration.Mode,
+        locale: Locale
+    ) {
+        let needsName: Bool
+        let needsKey: Bool
+
+        switch mode {
+        case .addOrdinary:
+            title = AppStrings.OpenRouter.addKeyTitle.localized(locale: locale)
+            needsName = true
+            needsKey = true
+        case .addManagement:
+            title = AppStrings.OpenRouter.addManagementTitle.localized(
+                locale: locale
+            )
+            needsName = false
+            needsKey = true
+        case .rename:
+            title = AppStrings.OpenRouter.renameKeyTitle.localized(locale: locale)
+            needsName = true
+            needsKey = false
+        case let .replace(_, _, _, isRecovery):
+            title = isRecovery
+                ? AppStrings.OpenRouter.recoverCredentialTitle.localized(
+                    locale: locale
+                )
+                : AppStrings.OpenRouter.replaceCredentialTitle.localized(
+                    locale: locale
+                )
+            needsName = false
+            needsKey = true
+        }
+
+        fieldsetTitle = AppStrings.OpenRouter.keyDetails.localized(locale: locale)
+        nameLabel = needsName
+            ? AppStrings.OpenRouter.keyName.localized(locale: locale)
+            : nil
+        keyLabel = needsKey
+            ? AppStrings.OpenRouter.credential.localized(locale: locale)
+            : nil
+        keyPlaceholder = needsKey
+            ? AppStrings.OpenRouter.credentialPlaceholder.localized(
+                locale: locale
+            )
+            : nil
+        cancelButtonTitle = AppStrings.Common.cancel.localized(locale: locale)
+        saveButtonTitle = AppStrings.Common.save.localized(locale: locale)
+    }
+}
+
 private struct OpenRouterCredentialEditorSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.locale) private var locale
@@ -414,6 +627,13 @@ private struct OpenRouterCredentialEditorSheet: View {
     @State private var name: String
     @State private var credentialValue = ""
     @State private var presentedError: OpenRouterSettingsError?
+
+    private var presentation: OpenRouterCredentialEditorPresentation {
+        OpenRouterCredentialEditorPresentation(
+            mode: configuration.mode,
+            locale: locale
+        )
+    }
 
     init(
         appModel: AppModel,
@@ -435,37 +655,32 @@ private struct OpenRouterCredentialEditorSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text(title)
+            Text(presentation.title)
                 .font(TerminalTheme.titleFont)
                 .foregroundStyle(TerminalTheme.primary)
 
-            TerminalFieldset(title: fieldsetTitle) {
+            TerminalFieldset(title: presentation.fieldsetTitle) {
                 EmptyView()
             } content: {
-                if needsName {
+                if let nameLabel = presentation.nameLabel {
                     SettingsCredentialEditorRow(
-                        title: AppStrings.OpenRouter.keyName.localized(
-                            locale: locale
-                        )
+                        title: nameLabel
                     ) {
                         TerminalTextField(
-                            AppStrings.OpenRouter.keyName.localized(locale: locale),
+                            nameLabel,
                             text: $name
                         )
                         .accessibilityIdentifier("settings.openrouter.key-name")
                     }
                 }
 
-                if needsCredential {
+                if let keyLabel = presentation.keyLabel,
+                   let keyPlaceholder = presentation.keyPlaceholder {
                     SettingsCredentialEditorRow(
-                        title: AppStrings.OpenRouter.credential.localized(
-                            locale: locale
-                        )
+                        title: keyLabel
                     ) {
                         TerminalSecureField(
-                            AppStrings.OpenRouter.credentialPlaceholder.localized(
-                                locale: locale
-                            ),
+                            keyPlaceholder,
                             text: $credentialValue
                         )
                         .accessibilityIdentifier("settings.openrouter.credential-value")
@@ -473,6 +688,17 @@ private struct OpenRouterCredentialEditorSheet: View {
 
                     Text(
                         AppStrings.OpenRouter.saveWithoutReadback.resource(
+                            locale: locale
+                        )
+                    )
+                    .font(TerminalTheme.captionFont)
+                    .foregroundStyle(TerminalTheme.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                }
+
+                if needsCredential, !isManagement {
+                    Text(
+                        AppStrings.OpenRouter.ordinaryDisclosure.resource(
                             locale: locale
                         )
                     )
@@ -503,14 +729,14 @@ private struct OpenRouterCredentialEditorSheet: View {
 
             HStack {
                 Spacer()
-                Button(AppStrings.Common.cancel.localized(locale: locale)) {
+                Button(presentation.cancelButtonTitle) {
                     clearSecret()
                     dismiss()
                 }
                 .buttonStyle(TerminalActionButtonStyle())
                 .keyboardShortcut(.cancelAction)
 
-                Button(AppStrings.Common.save.localized(locale: locale), action: submit)
+                Button(presentation.saveButtonTitle, action: submit)
                     .buttonStyle(TerminalActionButtonStyle(isProminent: true))
                     .keyboardShortcut(.defaultAction)
                     .disabled(
@@ -526,31 +752,6 @@ private struct OpenRouterCredentialEditorSheet: View {
         .frame(width: 520)
         .background(TerminalTheme.surface)
         .onDisappear(perform: clearSecret)
-    }
-
-    private var title: String {
-        switch configuration.mode {
-        case .addOrdinary:
-            AppStrings.OpenRouter.addKeyTitle.localized(locale: locale)
-        case .addManagement:
-            AppStrings.OpenRouter.addManagementTitle.localized(locale: locale)
-        case .rename:
-            AppStrings.OpenRouter.renameKeyTitle.localized(locale: locale)
-        case let .replace(_, _, _, isRecovery):
-            isRecovery
-                ? AppStrings.OpenRouter.recoverCredentialTitle.localized(
-                    locale: locale
-                )
-                : AppStrings.OpenRouter.replaceCredentialTitle.localized(
-                    locale: locale
-                )
-        }
-    }
-
-    private var fieldsetTitle: String {
-        isManagement
-            ? AppStrings.OpenRouter.managementTitle.localized(locale: locale)
-            : AppStrings.OpenRouter.credentialsTitle.localized(locale: locale)
     }
 
     private var needsName: Bool {

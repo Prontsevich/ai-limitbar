@@ -7,6 +7,14 @@ struct DashboardLimitWindowFocusTarget: Hashable {
     let windowID: String
 }
 
+enum DashboardAccountHeaderLayout {
+    static let controlSize: CGFloat = 24
+    static let refreshGlyphVerticalOffset: CGFloat = -1
+    static let controlConfiguration = TerminalIconButtonConfiguration.fieldset(
+        hitTargetSize: controlSize
+    )
+}
+
 struct DashboardAccountRowView: View {
     @Environment(\.locale) private var locale
     @ObservedObject var appModel: AppModel
@@ -60,7 +68,12 @@ struct DashboardAccountRowView: View {
             } label: {
                 refreshIndicator
             }
-            .buttonStyle(TerminalIconButtonStyle())
+            .buttonStyle(
+                TerminalIconButtonStyle(
+                    controlConfiguration:
+                        DashboardAccountHeaderLayout.controlConfiguration
+                )
+            )
             .disabled(!presentation.canRefresh)
             .help(presentation.refreshHelp)
             .accessibilityLabel(
@@ -71,6 +84,10 @@ struct DashboardAccountRowView: View {
                     ? AppStrings.Common.refreshing.localized(locale: locale)
                     : AppStrings.Common.ready.localized(locale: locale)
             )
+            .frame(
+                width: DashboardAccountHeaderLayout.controlSize,
+                height: DashboardAccountHeaderLayout.controlSize
+            )
 
             Button {
                 isShowingDetails.toggle()
@@ -78,7 +95,12 @@ struct DashboardAccountRowView: View {
                 Image(systemName: "info.circle")
                     .frame(width: 14, height: 14)
             }
-            .buttonStyle(TerminalIconButtonStyle())
+            .buttonStyle(
+                TerminalIconButtonStyle(
+                    controlConfiguration:
+                        DashboardAccountHeaderLayout.controlConfiguration
+                )
+            )
             .help(AppStrings.Dashboard.showDetails.localized(locale: locale))
             .accessibilityLabel(
                 AppStrings.Dashboard.showDetailsForAccount.formatted(
@@ -92,9 +114,15 @@ struct DashboardAccountRowView: View {
                     row: row,
                     onOpenOllamaConnection: onOpenOllamaConnection
                 )
+                    .environment(\.locale, locale)
                     .frame(width: 360)
             }
+            .frame(
+                width: DashboardAccountHeaderLayout.controlSize,
+                height: DashboardAccountHeaderLayout.controlSize
+            )
         }
+        .frame(height: DashboardAccountHeaderLayout.controlSize, alignment: .center)
     }
 
     @ViewBuilder
@@ -161,6 +189,7 @@ struct DashboardAccountRowView: View {
             }
         }
         .frame(width: 14, height: 14)
+        .offset(y: DashboardAccountHeaderLayout.refreshGlyphVerticalOffset)
     }
 
     private var messageColor: Color {

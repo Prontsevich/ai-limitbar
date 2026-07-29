@@ -87,6 +87,49 @@ final class AppLocalizationTests: XCTestCase {
         XCTAssertTrue(russianPercentage.contains("%"))
     }
 
+    func testCurrencyFormatterUsesUpToTwoLocalizedDecimalPlaces() {
+        XCTAssertEqual(
+            AppFormatters.currency(
+                Decimal(string: "12.19938")!,
+                code: "usd",
+                locale: Locale(identifier: "en_US")
+            ),
+            "$12.2"
+        )
+        XCTAssertEqual(
+            AppFormatters.currency(
+                Decimal(55),
+                code: "USD",
+                locale: Locale(identifier: "en_US")
+            ),
+            "$55"
+        )
+        XCTAssertEqual(
+            AppFormatters.currency(
+                Decimal(string: "12.2")!,
+                code: "USD",
+                locale: Locale(identifier: "ru_RU")
+            ),
+            "$12,2"
+        )
+        XCTAssertEqual(
+            AppFormatters.currency(
+                Decimal(string: "1.25")!,
+                code: "usd",
+                locale: Locale(identifier: "en_US")
+            ),
+            "$1.25"
+        )
+        XCTAssertEqual(
+            AppFormatters.currency(
+                Decimal(string: "1.25")!,
+                code: "EUR",
+                locale: Locale(identifier: "en_US")
+            ),
+            "EUR 1.25"
+        )
+    }
+
     func testDateFormattersUseTheRequestedLocaleAndFixedTimeZone() {
         let date = Date(timeIntervalSince1970: 978_307_445)
         let timeZone = TimeZone(secondsFromGMT: 0)!
@@ -134,6 +177,93 @@ final class AppLocalizationTests: XCTestCase {
         XCTAssertEqual(AppStrings.Dashboard.left.formatted(locale: locale, "35,4 %"), "Ещё 35,4 %")
         XCTAssertEqual(AppStrings.DisplayMode.useGlobal.localized(locale: locale), "Как в общих")
         XCTAssertEqual(AppStrings.Window.settingsTitle.localized(locale: locale), "Настройки AI Limitbar")
+    }
+
+    func testOpenRouterUserFacingTerminologyUsesKeysInBothCatalogs() throws {
+        let english = try localizationTable(for: "en")
+        let russian = try localizationTable(for: "ru")
+        let openRouterKeys = english.keys.filter {
+            $0.hasPrefix("openrouter.")
+                || $0 == "storage.openrouter_credentials"
+                || $0 == "settings.accounts.delete_openrouter_message"
+        }
+
+        for key in openRouterKeys {
+            let englishValue = try XCTUnwrap(english[key])
+            let russianValue = try XCTUnwrap(russian[key])
+            XCTAssertFalse(
+                englishValue.localizedCaseInsensitiveContains("credential"),
+                "English user-facing value for \(key) must use key terminology"
+            )
+            XCTAssertFalse(
+                russianValue.localizedCaseInsensitiveContains("credential"),
+                "Russian user-facing value for \(key) must use key terminology"
+            )
+        }
+        for key in english.keys where key.hasPrefix("openrouter.") {
+            let englishValue = try XCTUnwrap(english[key])
+            XCTAssertFalse(
+                englishValue.localizedCaseInsensitiveContains("remaining"),
+                "English OpenRouter value for \(key) must use left terminology"
+            )
+        }
+
+        XCTAssertEqual(english["openrouter.settings.credentials_title"], "KEYS")
+        XCTAssertEqual(russian["openrouter.settings.credentials_title"], "КЛЮЧИ")
+        XCTAssertEqual(english["openrouter.settings.add_key"], "Add key")
+        XCTAssertEqual(russian["openrouter.settings.add_key"], "Добавить ключ")
+        XCTAssertEqual(english["openrouter.editor.add_key_title"], "Add key")
+        XCTAssertEqual(russian["openrouter.editor.add_key_title"], "Добавить ключ")
+        XCTAssertEqual(
+            english["openrouter.editor.key_details"],
+            "KEY DETAILS"
+        )
+        XCTAssertEqual(
+            russian["openrouter.editor.key_details"],
+            "ДАННЫЕ КЛЮЧА"
+        )
+        XCTAssertEqual(english["openrouter.settings.replace"], "Replace Key")
+        XCTAssertEqual(russian["openrouter.settings.replace"], "Заменить ключ")
+        XCTAssertEqual(english["openrouter.editor.key_name"], "Name")
+        XCTAssertEqual(russian["openrouter.editor.key_name"], "Имя")
+        XCTAssertEqual(english["openrouter.editor.credential"], "Key")
+        XCTAssertEqual(russian["openrouter.editor.credential"], "Ключ")
+        XCTAssertEqual(
+            russian["openrouter.value.credit_summary"],
+            "Осталось %@ · Использовано %@"
+        )
+        XCTAssertEqual(
+            english["openrouter.value.credit_summary"],
+            "%@ left · %@ used"
+        )
+        XCTAssertFalse(
+            try XCTUnwrap(
+                english["openrouter.settings.ordinary_disclosure"]
+            ).localizedCaseInsensitiveContains("ordinary")
+        )
+        XCTAssertFalse(
+            try XCTUnwrap(
+                russian["openrouter.settings.ordinary_disclosure"]
+            ).localizedCaseInsensitiveContains("обыч")
+        )
+    }
+
+    func testLocalAccountRemovalUsesRemoveTerminologyInEnglish() throws {
+        let english = try localizationTable(for: "en")
+
+        XCTAssertEqual(english["common.action.delete"], "Remove")
+        XCTAssertEqual(
+            english["settings.accounts.delete_title"],
+            "Remove Account?"
+        )
+        XCTAssertEqual(
+            english["settings.accounts.delete_selected"],
+            "Remove selected account"
+        )
+        XCTAssertEqual(
+            english["openrouter.settings.delete_title"],
+            "Remove Key?"
+        )
     }
 
     private func localizationTable(for localization: String) throws -> [String: String] {

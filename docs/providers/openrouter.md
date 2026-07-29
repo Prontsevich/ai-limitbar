@@ -70,14 +70,47 @@ also recovers a missing Keychain item without changing the local context.
 Deleting an OpenRouter account first securely removes all of its credential
 items and then removes its local capacity state.
 
-The dashboard renders shared credits once at the saved-account root. Each
-ordinary key has its own nested native USD metrics, refresh state, and fixed
-diagnostic. Known USD values are not converted to percentages or progress bars.
-Finite reset windows use localized relative reset text; lifetime, unknown,
-unlimited, unavailable, partial, stale, disabled, recovery-required, and
-credential-error states remain explicit. Presentation uses app-owned metric
-names and never exposes provider labels, hashes, opaque IDs, messages, headers,
-or raw responses.
+The default dashboard renders only the saved-account balance amount at the
+root, with up to two localized fraction digits and trimmed trailing zeros. It
+does not show lifetime
+credits, derived used credits, percentages, or progress bars. Each ordinary key
+has one compact row with its local name, finite key capacity amount, and
+relative reset when applicable. A current key with no configured key-level
+limit is labeled as such without claiming unlimited account capacity.
+
+The existing account Info inspector remains the single detailed disclosure path
+for the full native root summary and every per-key usage, BYOK, limit, reset,
+freshness, refresh-state, and fixed diagnostic observation. Unknown,
+unavailable, partial, stale, disabled, recovery-required, and credential-error
+states remain explicit in the default hierarchy, while healthy status text and
+timestamps do not. Presentation uses app-owned metric names and never exposes
+provider labels, hashes, opaque IDs, messages, headers, or raw responses.
+USD dashboard and Info values use `$`; future non-USD values fall back to their
+ISO code. Visual dashboard summaries are amount-only, while accessibility
+values retain explicit left/available semantics.
+
+Account credits are a two-column `Left`/`Used` table; derivable `Total` is not
+rendered or exposed through accessibility. A finite key limit is one compact
+`Available` row, for example `$1 / $1`, followed by a thin remaining-capacity
+bar. The fraction is clamped and the bar is omitted for zero or unknown totals.
+Expanded key
+details group Day/Week/Month/Total amounts into Usage and BYOK columns and show
+reset identities separately in a Scope/Reset table. Equal standard/BYOK resets
+share a short scope row, while different identities retain the necessary
+qualifier. Key-limit, lifetime/no-reset, and one freshness line remain explicit.
+
+OpenRouter Settings shows provider identity once in the Accounts sidebar; the
+detail header keeps only the saved account name. It uses one compact credential
+inventory instead of repeated healthy status, configuration, and refresh
+metadata. Active healthy state is implicit. A compact account-level exception
+remains visible when refresh fails before a slot diagnostic exists. The active
+management row hides only current shared-credit state; stale, unknown, and
+unavailable shared-credit states remain visible and accessibility-readable.
+Rename, replace/recover, enable/disable, and secure removal live in each row's
+native overflow menu. Keychain and elevated-management explanations appear only
+inside add/replace flows. User-facing setup says `Add key` and `KEY DETAILS`;
+account and key confirmations say Remove because they affect only local app
+configuration and Keychain state.
 
 Saved root credits and management diagnostics are visible only while the
 current metadata contains one active, enabled management slot. Missing,
@@ -421,10 +454,12 @@ credential input and creation plus provider refresh and data retrieval; it does
 not verify credential replacement, deletion, recovery, visual or AX behavior,
 or any specific management-versus-ordinary credential path.
 
-Debug UI-host scenarios `dashboard-openrouter` and `settings-openrouter` render
-the real dashboard and Settings views with synthetic normalized capacity,
-credential metadata, per-slot freshness, and fixed diagnostics. They contain no
-credential values and perform no provider or Keychain access.
+Debug UI-host scenarios `dashboard-openrouter`, `settings-openrouter`, and
+`settings-openrouter-missing-management` render the real dashboard and Settings
+views with synthetic normalized capacity, active/disabled/missing management
+metadata, per-slot freshness, fixed diagnostics, and an account failure before
+slot diagnostics. They contain no credential values and perform no provider or
+Keychain access.
 
 A DEBUG-only deterministic end-to-end seam exercises the registered adapter,
 hierarchical coordinator, partial child failure, Contract v1 validation,

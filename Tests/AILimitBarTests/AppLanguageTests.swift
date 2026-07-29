@@ -135,6 +135,103 @@ final class AppLanguageTests: XCTestCase {
         )
     }
 
+    func testOpenRouterSheetsAndDetailsUseExplicitAppLanguageAgainstSystemLocale() {
+        let (englishDefaults, englishSuiteName) = makeUserDefaults()
+        let (russianDefaults, russianSuiteName) = makeUserDefaults()
+        defer {
+            englishDefaults.removePersistentDomain(forName: englishSuiteName)
+            russianDefaults.removePersistentDomain(forName: russianSuiteName)
+        }
+
+        let englishPreference = AppLanguagePreference(
+            userDefaults: englishDefaults,
+            systemLocaleProvider: { Locale(identifier: "ru_RU") }
+        )
+        englishPreference.select(.english)
+        let englishLocale = englishPreference.effectiveLocale
+        let englishEditor = OpenRouterCredentialEditorPresentation(
+            mode: .addOrdinary,
+            locale: englishLocale
+        )
+
+        XCTAssertEqual(englishEditor.title, "Add key")
+        XCTAssertEqual(englishEditor.fieldsetTitle, "KEY DETAILS")
+        XCTAssertEqual(englishEditor.nameLabel, "Name")
+        XCTAssertEqual(englishEditor.keyLabel, "Key")
+        XCTAssertEqual(englishEditor.keyPlaceholder, "Paste key")
+        XCTAssertEqual(englishEditor.cancelButtonTitle, "Cancel")
+        XCTAssertEqual(englishEditor.saveButtonTitle, "Save")
+        XCTAssertEqual(
+            AppStrings.OpenRouter.dailyUsage.localized(locale: englishLocale),
+            "Daily usage"
+        )
+        XCTAssertEqual(
+            AppStrings.OpenRouter.remaining.formatted(
+                locale: englishLocale,
+                "$12.2"
+            ),
+            "$12.2 left"
+        )
+        XCTAssertEqual(
+            AppStrings.OpenRouter.resets.formatted(
+                locale: englishLocale,
+                "in 1 hour"
+            ),
+            "Resets in 1 hour"
+        )
+        XCTAssertEqual(
+            AppStrings.OpenRouter.updated.formatted(
+                locale: englishLocale,
+                "today"
+            ),
+            "Updated today"
+        )
+
+        let russianPreference = AppLanguagePreference(
+            userDefaults: russianDefaults,
+            systemLocaleProvider: { Locale(identifier: "en_US") }
+        )
+        russianPreference.select(.russian)
+        let russianLocale = russianPreference.effectiveLocale
+        let russianEditor = OpenRouterCredentialEditorPresentation(
+            mode: .addManagement,
+            locale: russianLocale
+        )
+
+        XCTAssertEqual(russianEditor.title, "Добавить management-ключ")
+        XCTAssertEqual(russianEditor.fieldsetTitle, "ДАННЫЕ КЛЮЧА")
+        XCTAssertNil(russianEditor.nameLabel)
+        XCTAssertEqual(russianEditor.keyLabel, "Ключ")
+        XCTAssertEqual(russianEditor.keyPlaceholder, "Вставьте ключ")
+        XCTAssertEqual(russianEditor.cancelButtonTitle, "Отмена")
+        XCTAssertEqual(russianEditor.saveButtonTitle, "Сохранить")
+        XCTAssertEqual(
+            AppStrings.OpenRouter.dailyUsage.localized(locale: russianLocale),
+            "Расход за день"
+        )
+        XCTAssertEqual(
+            AppStrings.OpenRouter.remaining.formatted(
+                locale: russianLocale,
+                "$12,2"
+            ),
+            "Осталось $12,2"
+        )
+        XCTAssertEqual(
+            AppStrings.OpenRouter.resets.formatted(
+                locale: russianLocale,
+                "через 1 час"
+            ),
+            "Сброс через 1 час"
+        )
+        XCTAssertEqual(
+            AppStrings.OpenRouter.updated.formatted(
+                locale: russianLocale,
+                "сегодня"
+            ),
+            "Обновлено сегодня"
+        )
+    }
+
     func testLanguageSelectionPreservesDashboardAndRefreshPreferencesAcrossRelaunch() throws {
         let (userDefaults, suiteName) = makeUserDefaults()
         let directory = FileManager.default.temporaryDirectory

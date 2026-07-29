@@ -89,11 +89,68 @@ struct TerminalStatusMeter: View {
     }
 }
 
+enum TerminalIconControlLayout {
+    static let hitTargetSize: CGFloat = 32
+}
+
+enum TerminalIconControlIdleBackground: Equatable {
+    case transparent
+    case fieldsetSurface
+
+    var color: Color {
+        switch self {
+        case .transparent:
+            .clear
+        case .fieldsetSurface:
+            TerminalTheme.surface
+        }
+    }
+}
+
+struct TerminalIconButtonConfiguration: Equatable {
+    let idleBackground: TerminalIconControlIdleBackground
+    let fixedHitTargetSize: CGFloat?
+
+    static let transparent = TerminalIconButtonConfiguration(
+        idleBackground: .transparent,
+        fixedHitTargetSize: nil
+    )
+
+    static func fieldset(hitTargetSize: CGFloat) -> Self {
+        TerminalIconButtonConfiguration(
+            idleBackground: .fieldsetSurface,
+            fixedHitTargetSize: hitTargetSize
+        )
+    }
+}
+
 struct TerminalIconButtonStyle: ButtonStyle {
+    let controlConfiguration: TerminalIconButtonConfiguration
+
+    init(
+        controlConfiguration: TerminalIconButtonConfiguration = .transparent
+    ) {
+        self.controlConfiguration = controlConfiguration
+    }
+
     func makeBody(configuration: Configuration) -> some View {
-        TerminalInteractiveSurface(
+        TerminalIconControlSurface(
             label: configuration.label,
             isPressed: configuration.isPressed,
+            controlConfiguration: controlConfiguration
+        )
+    }
+}
+
+private struct TerminalIconControlSurface<Label: View>: View {
+    let label: Label
+    let isPressed: Bool
+    let controlConfiguration: TerminalIconButtonConfiguration
+
+    var body: some View {
+        TerminalInteractiveSurface(
+            label: label,
+            isPressed: isPressed,
             isSelected: false,
             showsBorder: false,
             showsHoverBorder: true,
@@ -101,7 +158,9 @@ struct TerminalIconButtonStyle: ButtonStyle {
             verticalPadding: 4,
             minimumWidth: 22,
             minimumHeight: nil,
-            expandsHorizontally: false
+            expandsHorizontally: false,
+            idleBackground: controlConfiguration.idleBackground.color,
+            fixedSize: controlConfiguration.fixedHitTargetSize
         )
     }
 }
@@ -112,13 +171,30 @@ struct TerminalTextButtonStyle: ButtonStyle {
             label: configuration.label,
             isPressed: configuration.isPressed,
             isSelected: false,
-            showsBorder: false,
-            showsHoverBorder: true,
+            showsBorder: true,
+            showsHoverBorder: false,
             horizontalPadding: 4,
             verticalPadding: 3,
             minimumWidth: nil,
             minimumHeight: nil,
             expandsHorizontally: false
+        )
+    }
+}
+
+struct TerminalDisclosureButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        TerminalInteractiveSurface(
+            label: configuration.label,
+            isPressed: configuration.isPressed,
+            isSelected: false,
+            showsBorder: false,
+            showsHoverBorder: true,
+            horizontalPadding: 3,
+            verticalPadding: 3,
+            minimumWidth: nil,
+            minimumHeight: 24,
+            expandsHorizontally: true
         )
     }
 }
@@ -327,7 +403,7 @@ struct TerminalChoiceButtonStyle: ButtonStyle {
     }
 }
 
-private struct TerminalInteractiveSurface<Label: View>: View {
+struct TerminalInteractiveSurface<Label: View>: View {
     let label: Label
     let isPressed: Bool
     let isSelected: Bool
@@ -338,6 +414,8 @@ private struct TerminalInteractiveSurface<Label: View>: View {
     let minimumWidth: CGFloat?
     let minimumHeight: CGFloat?
     let expandsHorizontally: Bool
+    var idleBackground: Color = .clear
+    var fixedSize: CGFloat?
     @Environment(\.isEnabled) private var isEnabled
     @State private var isHovering = false
 
@@ -384,8 +462,10 @@ private struct TerminalInteractiveSurface<Label: View>: View {
                 maxWidth: expandsHorizontally ? .infinity : nil,
                 minHeight: minimumHeight
             )
+            .frame(width: fixedSize, height: fixedSize)
             .contentShape(Rectangle())
             .background(fill)
+            .background(idleBackground)
             .overlay {
                 RoundedRectangle(cornerRadius: 2, style: .continuous)
                     .strokeBorder(TerminalTheme.border.opacity(borderOpacity), lineWidth: 1)

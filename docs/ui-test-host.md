@@ -33,7 +33,7 @@ Supported values:
 
 | Argument | Values | Default |
 | --- | --- | --- |
-| `--ui-test-host` | `dashboard-empty`, `dashboard-healthy`, `dashboard-mixed`, `dashboard-openrouter`, `settings`, `settings-dirty-editor`, `settings-openrouter` | `dashboard-healthy` when the host bundle is opened directly |
+| `--ui-test-host` | `dashboard-empty`, `dashboard-healthy`, `dashboard-mixed`, `dashboard-openrouter`, `settings`, `settings-dirty-editor`, `settings-openrouter`, `settings-openrouter-missing-management` | `dashboard-healthy` when the host bundle is opened directly |
 | `--ui-test-language` | `en`, `ru` | `en` |
 | `--ui-test-appearance` | `light`, `dark` | `dark` |
 | `--ui-test-height` | `compact`, `standard`, `tall` | `standard` |
@@ -62,17 +62,28 @@ The launcher terminates only a previous `AILimitBarTest` process. A production
   switching the same host window to Settings.
 - `dashboard-mixed` covers healthy, warning, stale, failed, manual-only, and
   no-data accounts, a deliberately long synthetic name, details, and scrolling.
-- `dashboard-openrouter` renders shared credits once and separate ordinary-key
-  native USD metrics with current, stale, unknown, unlimited, and
-  authentication-error states. Its scripted Refresh response preserves the
-  synthetic native fixture instead of reloading nonexistent credential
-  metadata from the isolated database.
+- `dashboard-openrouter` renders compact `$` USD account and key amounts with
+  up to two localized fraction digits and trimmed trailing zeros
+  and three ordinary-key rows. Its existing Info path retains detailed
+  native `$` USD usage/BYOK observations, including deterministic zero daily usage
+  and zero daily BYOK values that are hidden while collapsed and discoverable
+  when expanded. It covers current, stale, unknown, unlimited, and
+  authentication-error states. Its scripted Refresh response
+  preserves the synthetic native fixture instead of reloading nonexistent
+  credential metadata from the isolated database.
 - `settings` opens the real Settings surface with healthy synthetic accounts.
 - `settings-dirty-editor` opens Accounts with the first synthetic account in
   edit mode so an account-name edit can exercise the discard confirmation flow.
-- `settings-openrouter` opens the real OpenRouter account detail with three
-  synthetic ordinary credential rows and one separately disclosed management
-  slot. The fixture contains opaque references only, never credential values.
+- `settings-openrouter` opens the real compact OpenRouter credential inventory
+  with three synthetic ordinary rows and one separately labeled disabled
+  management slot. Together with the active management slot in
+  `dashboard-openrouter`, it covers default and exception presentation without
+  credential values. The fixture contains opaque references only.
+- `settings-openrouter-missing-management` opens the same inventory without a
+  management slot, exposing the explicit localized empty state and Add
+  Management action. It also supplies a synthetic account-level refresh failure
+  with no slot diagnostic so the compact exception row is deterministic,
+  without provider or Keychain access.
 
 All fixture timestamps derive from one minute-rounded launch instant and remain
 away from stale and reset thresholds. Scripted refreshes use one attempt and may
@@ -86,6 +97,10 @@ identifiers include:
 
 - `ui-test-host.root.<scenario>`;
 - `dashboard.refresh-all` and `dashboard.open-settings`;
+- `details.openrouter.shared`,
+  `details.openrouter.key.<context>.summary`,
+  `details.openrouter.key.<context>.disclosure`, and
+  `details.openrouter.key.<context>.expanded`;
 - `dashboard.meter.<provider>.<account>.<window>`;
 - `dashboard.openrouter.shared.<account>`;
 - `openrouter.key.<context>` and
@@ -96,9 +111,11 @@ identifiers include:
 - `settings.general.limit-display.<value>`;
 - `settings.general.height.<value>`;
 - `settings.account-name`, `settings.discard`, and `settings.keep-editing`;
-- `settings.openrouter.add-key`, `settings.openrouter.add-management`,
+- `settings.openrouter.account-exception`, `settings.openrouter.add-key`,
+  `settings.openrouter.add-management`,
+  `settings.openrouter.management-missing`,
   `settings.openrouter.credential.<context>`,
-  `settings.openrouter.enabled.<context>`, `settings.openrouter.key-name`,
+  `settings.openrouter.actions.<context>`, `settings.openrouter.key-name`,
   `settings.openrouter.credential-value`, and
   `settings.openrouter.editor-save`.
 
@@ -125,11 +142,24 @@ processes or network integrations, Keychain, release signing, or notarization.
 Those paths retain their existing unit, integration, telemetry, staged-app, and
 explicit manual verification requirements.
 
-OpenRouter host verification on 2026-07-24 confirmed the static fixture, its
-refresh-preservation path, and AX contract through all ten `UITestHostTests`,
-plus signed Launch Services startup
-and exact-process cleanup for both `dashboard-openrouter` and
-`settings-openrouter`. Computer Use did not return an AX tree or screenshot:
-its read-only `get_app_state` call hung for 267 seconds and was interrupted.
-Therefore this evidence does not claim screenshot review, manual visual
-inspection, or interactive AX behavior for the two OpenRouter scenarios.
+The host can verify the account-details overlay scroller, compact tables, and
+their AX/layout projection. Swift lifecycle tests cover screen-rectangle
+capture, stable per-presentation anchor ownership, transient-close cleanup, and
+creation of a later anchor without claiming a physical display result. The host
+still cannot verify that an arbitrary click on another physical display closes
+the production status-item popover without migration. That remains a production
+manual gate.
+
+OpenRouter host verification on 2026-07-28 confirmed the static fixtures,
+refresh-preservation path, typed parser, and stable identifier/value contracts
+through `UITestHostTests`. The fourth correction pass repeated signed Launch
+Services startup and exact-process cleanup for `dashboard-openrouter`,
+`settings-openrouter`, and the non-OpenRouter `dashboard-healthy` English/Dark
+variants; the earlier missing-management and Russian/Light launch coverage
+remains valid. No Computer Use attempt was made in this pass. The earlier
+post-fix attempt did not return an AX tree or screenshot, so it provides no
+interactive or visual evidence. Visual/AX inspection of Info expansion and
+scrolling, key overflow and editor actions, Settings alignment, and the
+non-OpenRouter regression remains an explicit manual gate. Physical
+multi-display status-item behavior remains a separate production-only manual
+gate.

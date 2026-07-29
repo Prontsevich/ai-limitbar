@@ -145,15 +145,227 @@ final class UITestHostTests: XCTestCase {
             locale: Locale(identifier: "en_US")
         )
         XCTAssertEqual(presentation.state, .partial)
-        XCTAssertTrue(presentation.sharedCredits.valueText.contains("USD 87.5 remaining"))
-        XCTAssertTrue(presentation.sharedCredits.valueText.contains("USD 100 total"))
+        XCTAssertEqual(
+            presentation.sharedCredits.dashboardValueText,
+            "$87.5"
+        )
+        XCTAssertEqual(
+            presentation.sharedCredits.displayValueLines,
+            ["$87.5 left", "$12.5 used"]
+        )
+        XCTAssertFalse(presentation.sharedCredits.valueText.contains("total"))
+        XCTAssertEqual(
+            presentation.sharedCredits.accountCredits?.accessibilityValue,
+            "Left, $87.5, Used, $12.5"
+        )
         XCTAssertFalse(presentation.sharedCredits.valueText.contains("%"))
         XCTAssertTrue(presentation.credentials.contains { $0.state == .stale })
         XCTAssertTrue(presentation.credentials.contains { $0.state == .partial })
+        let primary = try XCTUnwrap(
+            presentation.credentials.first { $0.displayName == "Primary" }
+        )
+        XCTAssertEqual(primary.dashboardValueText, "$8.75")
+        XCTAssertEqual(
+            primary.dashboardAccessibilityValue,
+            "$8.75 available of $10, Resets in 1 hour"
+        )
+        XCTAssertEqual(primary.dashboardMetric?.resetText, "Resets in 1 hour")
+        XCTAssertFalse(primary.dashboardAccessibilityValue.contains("Updated"))
+        let primaryDetails = primary.detailsPresentation
+        XCTAssertFalse(primaryDetails.isExpandedByDefault)
+        XCTAssertTrue(primaryDetails.collapsedMetrics.isEmpty)
+        XCTAssertTrue(primaryDetails.expandedMetrics.contains {
+                $0.metricID == "key-daily-usage"
+                && $0.valueText == "$0 used"
+        })
+        XCTAssertTrue(primaryDetails.expandedMetrics.contains {
+                $0.metricID == "key-daily-byok-usage"
+                && $0.valueText == "$0 used"
+        })
+        XCTAssertEqual(
+            primaryDetails.usageRows.map(\.scopeText),
+            ["Day", "Week", "Month", "Total"]
+        )
+        XCTAssertEqual(
+            primaryDetails.usageRows.first?.usageMetric?.tableValueText,
+            "$0"
+        )
+        XCTAssertEqual(
+            primaryDetails.usageRows.first?.byokMetric?.tableValueText,
+            "$0"
+        )
+        XCTAssertNotNil(primaryDetails.updateText)
+        XCTAssertEqual(
+            Set(primaryDetails.resetGroups.map(\.resetText)),
+            [
+                "No reset",
+                "Resets in 1 hour",
+                "Resets in 2 hours",
+                "Resets in 2 days",
+                "Resets in 1 week",
+            ]
+        )
+        let dailyResetGroup = try XCTUnwrap(
+            primaryDetails.resetGroups.first {
+                $0.resetText == "Resets in 2 hours"
+            }
+        )
+        XCTAssertEqual(
+            Set(dailyResetGroup.scopeNames),
+            ["Day"]
+        )
+        XCTAssertEqual(
+            dailyResetGroup.accessibilityLabel,
+            "Day"
+        )
+        XCTAssertEqual(
+            dailyResetGroup.accessibilityValue,
+            "Resets in 2 hours"
+        )
+        XCTAssertEqual(
+            primaryDetails.resetGroups.first {
+                $0.resetText == "Resets in 2 days"
+            }?.scopeNames,
+            ["Week · Usage"]
+        )
+        XCTAssertEqual(
+            primaryDetails.resetGroups.first {
+                $0.resetText == "Resets in 1 week"
+            }?.scopeNames,
+            ["Month · BYOK"]
+        )
+        XCTAssertTrue(
+            primaryDetails.expandedMetrics.allSatisfy {
+                $0.visibleAccessibilityValue(
+                    showsReset: false,
+                    showsFreshness: false
+                ) == $0.valueText
+            }
+        )
+        XCTAssertEqual(
+            primaryDetails.expandedSummaryAccessibilityValue,
+            "$8.75 available of $10"
+        )
+        let failed = try XCTUnwrap(
+            presentation.credentials.first {
+                $0.displayName == "Authentication issue"
+            }
+        )
+        XCTAssertEqual(
+            failed.dashboardValueText,
+            "Key authentication failed"
+        )
         XCTAssertTrue(presentation.credentials.contains {
             $0.metrics.contains { $0.state == .unknown }
                 && $0.metrics.contains { $0.state == .unlimited }
         })
+    }
+
+    func testFieldsetHeaderControlMasksAreIndividualAndExact() {
+        XCTAssertEqual(DashboardAccountHeaderLayout.controlSize, 24)
+        XCTAssertEqual(
+            DashboardAccountHeaderLayout.refreshGlyphVerticalOffset,
+            -1
+        )
+        XCTAssertEqual(
+            DashboardAccountHeaderLayout.controlConfiguration,
+            TerminalIconButtonConfiguration(
+                idleBackground: .fieldsetSurface,
+                fixedHitTargetSize: 24
+            )
+        )
+        XCTAssertEqual(OpenRouterSettingsLayout.actionControlSize, 32)
+        XCTAssertEqual(
+            OpenRouterSettingsLayout.headerActionTrailingAdjustment,
+            6
+        )
+        XCTAssertEqual(
+            OpenRouterSettingsLayout.fieldsetActionControlConfiguration,
+            TerminalIconButtonConfiguration(
+                idleBackground: .fieldsetSurface,
+                fixedHitTargetSize: 32
+            )
+        )
+        XCTAssertEqual(
+            TerminalIconButtonConfiguration.transparent,
+            TerminalIconButtonConfiguration(
+                idleBackground: .transparent,
+                fixedHitTargetSize: nil
+            )
+        )
+        XCTAssertEqual(TerminalFieldsetLayout.controlsHeight, 32)
+        XCTAssertEqual(TerminalFieldsetLayout.controlsVerticalOffset, -16)
+        XCTAssertEqual(TerminalFieldsetLayout.controlsTrailingInset, 9)
+    }
+
+    func testOpenRouterSettingsFixtureCoversDisabledManagementAndKeyExceptions() throws {
+        let anchor = Date(timeIntervalSince1970: 1_800_000_000)
+        let fixture = UITestHostFixture.make(
+            scenario: .settingsOpenRouter,
+            anchor: anchor
+        )
+        let account = try XCTUnwrap(fixture.accounts.first)
+        let snapshot = try XCTUnwrap(fixture.nativeCapacitySnapshots[account.id])
+        let credentials = try XCTUnwrap(fixture.credentialContexts[account.id])
+        let management = try XCTUnwrap(
+            credentials.first { $0.slot.role == .management }
+        )
+
+        XCTAssertFalse(management.slot.isEnabled)
+        XCTAssertEqual(credentials.filter { $0.slot.role == .ordinary }.count, 3)
+
+        let presentation = OpenRouterCapacityPresentation(
+            account: account,
+            snapshot: snapshot,
+            credentialContexts: credentials,
+            refreshStates: fixture.credentialRefreshStates[account.id] ?? [],
+            diagnostics: fixture.credentialDiagnostics[account.id] ?? [],
+            now: anchor,
+            locale: Locale(identifier: "en_US")
+        )
+        XCTAssertEqual(presentation.sharedCredits.state, .unavailable)
+        XCTAssertTrue(presentation.credentials.contains { $0.state == .stale })
+        XCTAssertTrue(presentation.credentials.contains { $0.state == .partial })
+    }
+
+    func testOpenRouterMissingManagementFixtureHasExplicitEmptyState() throws {
+        let anchor = Date(timeIntervalSince1970: 1_800_000_000)
+        let fixture = UITestHostFixture.make(
+            scenario: .settingsOpenRouterMissingManagement,
+            anchor: anchor
+        )
+        let account = try XCTUnwrap(fixture.accounts.first)
+        let snapshot = try XCTUnwrap(fixture.nativeCapacitySnapshots[account.id])
+        let credentials = try XCTUnwrap(fixture.credentialContexts[account.id])
+        let slotDiagnostics = try XCTUnwrap(
+            fixture.credentialDiagnostics[account.id]
+        )
+
+        XCTAssertEqual(credentials.filter { $0.slot.role == .ordinary }.count, 3)
+        XCTAssertTrue(credentials.allSatisfy { $0.slot.role != .management })
+        XCTAssertEqual(fixture.refreshIssues.count, 1)
+        XCTAssertNotNil(fixture.refreshIssues[account.id])
+        XCTAssertTrue(slotDiagnostics.isEmpty)
+        XCTAssertEqual(
+            OpenRouterSettingsAccessibilityID.missingManagement,
+            "settings.openrouter.management-missing"
+        )
+        XCTAssertEqual(
+            OpenRouterSettingsAccessibilityID.addManagement,
+            "settings.openrouter.add-management"
+        )
+
+        let presentation = OpenRouterCapacityPresentation(
+            account: account,
+            snapshot: snapshot,
+            credentialContexts: credentials,
+            refreshStates: fixture.credentialRefreshStates[account.id] ?? [],
+            diagnostics: fixture.credentialDiagnostics[account.id] ?? [],
+            now: anchor,
+            locale: Locale(identifier: "ru_RU")
+        )
+        XCTAssertEqual(presentation.sharedCredits.state, .unavailable)
+        XCTAssertEqual(presentation.sharedCredits.dashboardValueText, "Недоступно")
     }
 
     @MainActor
@@ -249,6 +461,11 @@ final class UITestHostTests: XCTestCase {
             UITestHostScenario.settingsOpenRouter.initialSettingsWorkspace(
                 firstAccountID: "openrouter:account"
             ),
+            SettingsWorkspaceState()
+        )
+        XCTAssertEqual(
+            UITestHostScenario.settingsOpenRouterMissingManagement
+                .initialSettingsWorkspace(firstAccountID: "openrouter:account"),
             SettingsWorkspaceState()
         )
     }

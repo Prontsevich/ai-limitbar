@@ -1,5 +1,11 @@
 import SwiftUI
 
+enum TerminalFieldsetLayout {
+    static let controlsHeight = TerminalIconControlLayout.hitTargetSize
+    static let controlsVerticalOffset = -controlsHeight / 2
+    static let controlsTrailingInset: CGFloat = 9
+}
+
 struct TerminalFieldset<Controls: View, Content: View>: View {
     let title: String
     let titleAccessibilityLabel: String
@@ -45,11 +51,15 @@ struct TerminalFieldset<Controls: View, Content: View>: View {
                 .offset(y: -8)
 
             controls()
+                .frame(
+                    minHeight: TerminalFieldsetLayout.controlsHeight,
+                    maxHeight: TerminalFieldsetLayout.controlsHeight,
+                    alignment: .center
+                )
                 .padding(.leading, 4)
-                .background(TerminalTheme.surface)
-                .padding(.trailing, 12)
+                .padding(.trailing, TerminalFieldsetLayout.controlsTrailingInset)
                 .frame(maxWidth: .infinity, alignment: .trailing)
-                .offset(y: -10)
+                .offset(y: TerminalFieldsetLayout.controlsVerticalOffset)
         }
     }
 }

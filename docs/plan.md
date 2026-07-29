@@ -1018,9 +1018,19 @@ neutral hover state. Fieldset legends and their right-aligned controls are
 independent overlays centered on the border, so refresh progress cannot move a
 legend; normal usage meters use the border color while amber stays reserved for
 warning/stale status copy. Overlay masks use their intrinsic content width, and
-the account list reserves title clearance at its top, wider inter-panel spacing,
-and a capped scrolling viewport so extra accounts never enlarge the popover or
-break adjacent borders.
+each border-mounted glyph masks only its own fixed hit target with the fieldset
+surface rather than sharing a control-strip plate. The account list reserves
+title clearance at its top, wider inter-panel spacing, and a capped scrolling
+viewport so extra accounts never enlarge the popover or break adjacent borders.
+
+The production AppKit boundary freezes each dashboard opening anchor. It
+converts the clicked status-button bounds to screen coordinates once, creates a
+transparent nonactivating mouse-ignoring anchor host for that presentation, and
+shows a transient `NSPopover` relative to the stable host rather than the
+mirrored status-button view. Outside interaction therefore closes the popover
+without allowing status-item migration to reanchor it. The host is released on
+close or presentation failure; only a later explicit status-item click captures
+a new display anchor.
 
 The dashboard viewport is a device-local preference rather than account or
 provider data. The current General Settings pane offers `Compact` (320 pt),

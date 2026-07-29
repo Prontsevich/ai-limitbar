@@ -148,15 +148,47 @@ single current sources. Claude Code exposes a compact terminal selector for
 Manual, managed `statusLine`, and experimental `/usage` CLI; source-specific
 controls appear below it without changing the surrounding fieldset layout.
 
-OpenRouter account detail adds two terminal fieldsets below its source:
-ordinary API keys and the optional management credential. Ordinary keys use a
-local unique name and support add, rename, replace/recover, enable/disable, and
-secure delete. The management credential is a single separately disclosed
-elevated slot and supports add, replace/recover, enable/disable, and secure
-delete. Credential editors use `SecureField`, clear submitted input on success
-or failure, support Return and Escape, and never read an existing Keychain value
-back into the UI. Account deletion explicitly warns that all associated
-OpenRouter credentials and native capacity data are securely removed.
+OpenRouter is a deliberate read-only-detail exception to the generic Status and
+Configuration groups. Its provider identity appears once in the Accounts
+sidebar; the detail header keeps only the saved account name. The healthy
+default omits the repeated provider/source group and last-refresh row. A compact
+account-level exception appears when the refresh fails before any key slot can
+provide a diagnostic. One terminal `KEYS` inventory contains compact ordinary
+API-key rows and the separately labeled optional shared-credits management key.
+Healthy active state is implicit. Disabled, missing,
+stale, unknown, unavailable, failed, recovery, and deletion-pending states
+remain visible in text and accessibility values. An active management row hides
+only a current shared-credit state; every non-current shared-credit state is
+projected into that row.
+
+Each key row exposes a keyboard-accessible native overflow menu for
+rename where applicable, replace/recover, enable/disable, and secure removal.
+The add-key and add-management-key actions remain directly visible. Their
+32-point header slots and the overflow menu stay aligned as glyphs change.
+These and all other Settings glyph controls remain borderless at idle. The key
+overflow menu uses the same reusable full native-menu bridge, 32-point hit
+target, hover, and pointer-press feedback as the provider-level overflow menu;
+enabled state, destructive role, keyboard behavior, and accessibility remain
+native. The KEYS header Add slot is inset from the fieldset's right border as a
+whole control rather than offsetting only its glyph. Its own 32-point target
+paints the fieldset surface behind the glyph so the border cannot pass through
+it, without introducing a shared header plate or masking the adjacent border.
+The management-section Add action is inside the fieldset body and does not gain
+that idle mask;
+ordinary text actions do not gain boxes. Persistent
+Keychain, endpoint, and elevated-management prose is absent from the inventory
+and appears in the add/replace secure editor instead. Key editors use
+`SecureField`, clear submitted input on success or failure, support Return and
+Escape, and never read an existing Keychain value back into the UI. Account
+deletion explicitly warns that all associated OpenRouter credentials and native
+capacity data are securely removed. User-facing English and Russian consistently
+say Key/Keys and Ключ/Ключи; internal credential model and accessibility
+identifiers remain unchanged. Sheets explicitly inherit the selected app locale
+rather than the system locale. The ordinary-key action and sheet use the
+user-facing title `Add key`; its editor fieldset is `KEY DETAILS`, and the copy
+does not expose the internal ordinary-key role merely to explain `/api/v1/key`.
+Account confirmations use `Remove account`, matching `Remove key`, because
+these actions remove local configuration rather than remote OpenRouter objects.
 
 ## Interaction And Accessibility
 
@@ -168,8 +200,9 @@ OpenRouter credentials and native capacity data are securely removed.
   fixed intrinsic height instead of stretching into unused window space.
 - Every compact icon and text action has a visible hover target and preserves its
   descriptive accessibility label and help text.
-- OpenRouter credential rows, toggles, add actions, secure editor fields, and
-  save actions retain stable language-independent accessibility identifiers.
+- OpenRouter key rows, overflow menus, add actions, secure editor fields,
+  save actions, account-level exceptions, and the missing-management state
+  retain stable language-independent accessibility identifiers.
 - Add, delete, reorder, enable/disable, refresh, test connection, open usage,
   source selection, helper installation, Edit, Save, and Cancel remain reachable
   by their existing pointer and keyboard paths.
@@ -205,3 +238,8 @@ OpenRouter credentials and native capacity data are securely removed.
   account values.
 - Exercise every existing account and provider action in Light and Dark
   appearance.
+- Exercise OpenRouter's active, disabled, and missing management states plus a
+  top-level refresh failure in English and Russian at supported Settings
+  widths. Confirm the provider name appears only in the sidebar, healthy state
+  is implicit, exception text precedes credential actions in accessibility
+  order, and long labels wrap instead of truncating.

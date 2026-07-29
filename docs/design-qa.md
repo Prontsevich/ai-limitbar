@@ -89,6 +89,67 @@ captures were temporary and are not available in the repository.
 7. Computer Use still cannot inspect `AILimitBar`, its bundle identifier, or
    `SystemUIServer`; every attempt ends with
    `Computer Use server error -10005: timeoutReached`.
+8. Supplied OpenRouter dashboard, Info, Settings, overflow-menu, and key-editor
+   screenshots revealed inconsistent icon geometry, invisible idle targets,
+   right-aligned reset copy, eager metric expansion with repeated timestamps,
+   system-locale leakage, and mixed key/credential terminology.
+   Fix applied: dashboard and Settings icon controls share fixed borderless-idle
+   geometry with hover/pressed feedback; only dashboard footer and Info text
+   actions retain subtle idle outlines. Reset copy sits below the key name; Info
+   uses full-row, one-at-a-time disclosures closed by default and vertically
+   stacks long values and reset groups at narrow width. Locale propagation is
+   explicit; English capacity uses `left`; and user-facing English/Russian use
+   Key/Keys and Ключ/Ключи consistently. Add-key and local-removal terminology
+   now matches the actions. Automated presentation, localization, rendering,
+   and fixture tests cover the contracts. Signed English/Dark UI-host startup
+   and exact-process cleanup probes on 2026-07-28 covered
+   `dashboard-openrouter`, `settings-openrouter`, and the non-OpenRouter
+   `dashboard-healthy` regression scenario. The post-fix visual and AX pass did
+   not complete and remains an explicit manual gate alongside production
+   status-item and popover anchoring.
+9. A third supplied production pass found the remaining refresh/info optical
+   mismatch, a wide Info scroller gutter, verbose money/key-limit copy, dense
+   expanded usage/reset rows, Settings trailing-control drift, and a
+   multi-display popover relocation on the close click. The correction keeps
+   equal fixed icon containers while raising only the refresh glyph optically;
+   configures the enclosing SwiftUI `NSScrollView` as a narrow autohiding
+   overlay across recreation; trims amounts to two optional fraction digits;
+   presents credits as Left/Used, usage as Usage/BYOK, and resets as
+   Scope/Reset; aligns Settings controls on the shared overflow surface; and
+   makes a visible status-item activation close-only before a later click can
+   open on the new display. Production multi-display behavior remains a manual
+   gate because the UI host does not own or automate `NSStatusItem` copies.
+   Post-fix host visual and AX inspection also remains open; automated
+   presentation, lifecycle, localization, and recreation tests do not substitute
+   for that evidence.
+10. A fourth supplied production pass showed that AppKit could dismiss the
+    visible popover before the status-item action, idle header-control masks
+    could erase nearby fieldset borders, OpenRouter money and key-limit copy
+    remained verbose, and the Settings key menu did not share the provider
+    menu's full interaction path. The correction adds an event-scoped
+    pre-dismiss visibility latch, transparent idle control containers, `$` USD
+    amounts with semantic accessibility copy, a compact Available capacity bar,
+    stronger Info hierarchy, a left-inset Add slot, and one reusable native
+    overflow implementation. Automated tests cover event ordering, expiry,
+    input filtering, capacity safety, localization, presentation, and menu
+    action state. Physical multi-display behavior and transient visual/AX
+    inspection remain manual gates.
+11. The final supplied production pass clarified that the multi-display defect
+    occurs for an ordinary click anywhere on the second display, without a
+    status-item action, and showed fieldset borders passing directly behind the
+    dashboard Refresh/Info glyphs and the Settings KEYS Add glyph. The status
+    action latch could not cover that path: AppKit continued to anchor the
+    popover to a mirrored status-item view that can move. The correction
+    captures the clicked button's screen rectangle once, presents the transient
+    popover from a per-presentation transparent nonactivating mouse-ignoring
+    host, and releases that host on close or failure. Each affected glyph now
+    has its own 24- or 32-point fieldset-surface mask, with no shared plate;
+    accepted global, footer, provider-header, management Add, and overflow
+    controls are unchanged. Automated lifecycle and configuration tests cover
+    the frozen anchor, outside-close teardown, next explicit anchor, failure
+    cleanup, and individual mask policy. There is no post-fix screenshot or AX
+    claim. Physical any-click-on-the-second-display behavior remains the final
+    production manual gate.
 
 ## Final Result
 

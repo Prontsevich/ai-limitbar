@@ -8,6 +8,95 @@ struct NativeActionsMenuButton: View {
     let onTest: () -> Void
     let onOpenUsage: () -> Void
 
+    var body: some View {
+        let accessibilityLabel =
+            AppStrings.Settings.Editor.moreActions.localized(locale: locale)
+        NativeMenuButton(
+            accessibilityLabel: accessibilityLabel,
+            actions: [
+                NativeMenuAction(
+                    id: "test",
+                    title: AppStrings.AccountDetails.testConnection.localized(
+                        locale: locale
+                    ),
+                    systemImage: "checkmark.circle",
+                    isEnabled: isTestEnabled,
+                    action: onTest
+                ),
+                NativeMenuAction(
+                    id: "usage",
+                    title: AppStrings.AccountDetails.openUsage.localized(
+                        locale: locale
+                    ),
+                    systemImage: "arrow.up.forward.square",
+                    isEnabled: isUsageEnabled,
+                    action: onOpenUsage
+                ),
+            ]
+        )
+    }
+}
+
+enum NativeMenuActionRole: Equatable {
+    case standard
+    case destructive
+}
+
+struct NativeMenuAction {
+    let id: String
+    let title: String?
+    let systemImage: String?
+    let isEnabled: Bool
+    let role: NativeMenuActionRole
+    let action: (() -> Void)?
+
+    init(
+        id: String,
+        title: String,
+        systemImage: String? = nil,
+        isEnabled: Bool = true,
+        role: NativeMenuActionRole = .standard,
+        action: @escaping () -> Void
+    ) {
+        self.id = id
+        self.title = title
+        self.systemImage = systemImage
+        self.isEnabled = isEnabled
+        self.role = role
+        self.action = action
+    }
+
+    static func separator(id: String) -> NativeMenuAction {
+        NativeMenuAction(
+            id: id,
+            title: nil,
+            systemImage: nil,
+            isEnabled: false,
+            role: .standard,
+            action: nil
+        )
+    }
+
+    private init(
+        id: String,
+        title: String?,
+        systemImage: String?,
+        isEnabled: Bool,
+        role: NativeMenuActionRole,
+        action: (() -> Void)?
+    ) {
+        self.id = id
+        self.title = title
+        self.systemImage = systemImage
+        self.isEnabled = isEnabled
+        self.role = role
+        self.action = action
+    }
+}
+
+struct NativeMenuButton: View {
+    let accessibilityLabel: String
+    let actions: [NativeMenuAction]
     @State private var menuRequest: UInt = 0
 
     var body: some View {
@@ -17,17 +106,12 @@ struct NativeActionsMenuButton: View {
             } label: {
                 SettingsActionIcon(systemName: "ellipsis", verticalOffset: -1)
             }
-            .settingsIconButton(help: AppStrings.Settings.Editor.moreActions.localized(locale: locale))
-            .accessibilityLabel(AppStrings.Settings.Editor.moreActions.localized(locale: locale))
+            .settingsIconButton(help: accessibilityLabel)
+            .accessibilityLabel(accessibilityLabel)
 
-            NativeActionsMenuAnchor(
+            NativeMenuAnchor(
                 request: $menuRequest,
-                isTestEnabled: isTestEnabled,
-                isUsageEnabled: isUsageEnabled,
-                testTitle: AppStrings.AccountDetails.testConnection.localized(locale: locale),
-                usageTitle: AppStrings.AccountDetails.openUsage.localized(locale: locale),
-                onTest: onTest,
-                onOpenUsage: onOpenUsage
+                actions: actions
             )
             .frame(width: 40, height: 40)
             .allowsHitTesting(false)
@@ -35,17 +119,12 @@ struct NativeActionsMenuButton: View {
     }
 }
 
-private struct NativeActionsMenuAnchor: NSViewRepresentable {
+private struct NativeMenuAnchor: NSViewRepresentable {
     @Binding var request: UInt
-    let isTestEnabled: Bool
-    let isUsageEnabled: Bool
-    let testTitle: String
-    let usageTitle: String
-    let onTest: () -> Void
-    let onOpenUsage: () -> Void
+    let actions: [NativeMenuAction]
 
-    func makeCoordinator() -> Coordinator {
-        Coordinator()
+    func makeCoordinator() -> NativeMenuCoordinator {
+        NativeMenuCoordinator()
     }
 
     func makeNSView(context: Context) -> AnchorView {
@@ -53,14 +132,7 @@ private struct NativeActionsMenuAnchor: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: AnchorView, context: Context) {
-        context.coordinator.update(
-            isTestEnabled: isTestEnabled,
-            isUsageEnabled: isUsageEnabled,
-            testTitle: testTitle,
-            usageTitle: usageTitle,
-            onTest: onTest,
-            onOpenUsage: onOpenUsage
-        )
+        context.coordinator.update(actions: actions)
 
         guard request != context.coordinator.lastRequest else { return }
         context.coordinator.lastRequest = request
@@ -72,75 +144,107 @@ private struct NativeActionsMenuAnchor: NSViewRepresentable {
     final class AnchorView: NSView {
         override var isOpaque: Bool { false }
     }
+}
 
-    @MainActor
-    final class Coordinator: NSObject {
-        var lastRequest: UInt = 0
-        private var targets: [MenuActionTarget] = []
-        private var isPresenting = false
+@MainActor
+struct NativeMenuPopupRunner {
+    let run: (NativeMenuPresentation) -> Void
 
-        func update(
-            isTestEnabled: Bool,
-            isUsageEnabled: Bool,
-            testTitle: String,
-            usageTitle: String,
-            onTest: @escaping () -> Void,
-            onOpenUsage: @escaping () -> Void
-        ) {
-            targets = []
-            let testTarget = MenuActionTarget(action: onTest)
-            let usageTarget = MenuActionTarget(action: onOpenUsage)
-            targets = [testTarget, usageTarget]
-            testEnabled = isTestEnabled
-            usageEnabled = isUsageEnabled
-            self.testTitle = testTitle
-            self.usageTitle = usageTitle
-        }
+    static let appKit = NativeMenuPopupRunner { presentation in
+        presentation.menu.popUp(
+            positioning: nil,
+            at: NSEvent.mouseLocation,
+            in: nil
+        )
+    }
+}
 
-        private var testEnabled = false
-        private var usageEnabled = false
-        private var testTitle = ""
-        private var usageTitle = ""
+@MainActor
+final class NativeMenuCoordinator: NSObject {
+    var lastRequest: UInt = 0
+    private var actions: [NativeMenuAction] = []
+    private var isPresenting = false
 
-        func present(from view: NSView) {
-            guard !isPresenting else { return }
-            isPresenting = true
-            defer { isPresenting = false }
+    func update(actions: [NativeMenuAction]) {
+        self.actions = actions
+    }
 
-            let menu = NSMenu()
-            menu.autoenablesItems = false
+    func present(
+        from view: NSView,
+        using popupRunner: NativeMenuPopupRunner = .appKit
+    ) {
+        guard !isPresenting else { return }
+        isPresenting = true
+        defer { isPresenting = false }
 
-            let testItem = NSMenuItem(
-                title: testTitle,
-                action: #selector(MenuActionTarget.invoke(_:)),
-                keyEquivalent: ""
-            )
-            testItem.target = targets.first
-            testItem.isEnabled = testEnabled
-            testItem.image = NSImage(systemSymbolName: "checkmark.circle", accessibilityDescription: nil)
-            menu.addItem(testItem)
-
-            let usageItem = NSMenuItem(
-                title: usageTitle,
-                action: #selector(MenuActionTarget.invoke(_:)),
-                keyEquivalent: ""
-            )
-            usageItem.target = targets.dropFirst().first
-            usageItem.isEnabled = usageEnabled
-            usageItem.image = NSImage(systemSymbolName: "arrow.up.forward.square", accessibilityDescription: nil)
-            menu.addItem(usageItem)
-
-            menu.popUp(
-                positioning: nil,
-                at: NSEvent.mouseLocation,
-                in: nil
-            )
+        let presentation = NativeMenuPresentation(actions: actions)
+        defer { presentation.releaseActionTargets() }
+        withExtendedLifetime(presentation) {
+            popupRunner.run(presentation)
         }
     }
 }
 
 @MainActor
-private final class MenuActionTarget: NSObject {
+final class NativeMenuPresentation {
+    let menu: NSMenu
+    private var targets: [String: MenuActionTarget]
+
+    init(actions: [NativeMenuAction]) {
+        let targets = Dictionary(
+            uniqueKeysWithValues: actions.compactMap { action in
+                action.action.map {
+                    (
+                        action.id,
+                        MenuActionTarget(action: $0)
+                    )
+                }
+            }
+        )
+        let menu = NSMenu()
+        menu.autoenablesItems = false
+
+        for action in actions {
+            guard let title = action.title else {
+                menu.addItem(.separator())
+                continue
+            }
+            let item = NSMenuItem(
+                title: title,
+                action: #selector(MenuActionTarget.invoke(_:)),
+                keyEquivalent: ""
+            )
+            item.target = targets[action.id]
+            item.isEnabled = action.isEnabled
+            item.image = action.systemImage.flatMap {
+                NSImage(
+                    systemSymbolName: $0,
+                    accessibilityDescription: nil
+                )
+            }
+            if action.role == .destructive {
+                item.attributedTitle = NSAttributedString(
+                    string: title,
+                    attributes: [.foregroundColor: NSColor.systemRed]
+                )
+            }
+            menu.addItem(item)
+        }
+
+        self.menu = menu
+        self.targets = targets
+    }
+
+    fileprivate func releaseActionTargets() {
+        for item in menu.items {
+            item.target = nil
+        }
+        targets.removeAll(keepingCapacity: false)
+    }
+}
+
+@MainActor
+final class MenuActionTarget: NSObject {
     let action: () -> Void
 
     init(action: @escaping () -> Void) {

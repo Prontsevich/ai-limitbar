@@ -12,13 +12,16 @@ enum UITestHostScenario: String, CaseIterable {
     case settings
     case settingsDirtyEditor = "settings-dirty-editor"
     case settingsOpenRouter = "settings-openrouter"
+    case settingsOpenRouterMissingManagement =
+        "settings-openrouter-missing-management"
 
     var initialSurface: UITestHostSurface {
         switch self {
         case .dashboardEmpty, .dashboardHealthy, .dashboardMixed,
              .dashboardOpenRouter:
             .dashboard
-        case .settings, .settingsDirtyEditor, .settingsOpenRouter:
+        case .settings, .settingsDirtyEditor, .settingsOpenRouter,
+             .settingsOpenRouterMissingManagement:
             .settings
         }
     }
@@ -333,8 +336,12 @@ struct UITestHostFixture {
             return healthyFixture(anchor: anchor)
         case .dashboardMixed:
             return mixedFixture(anchor: anchor)
-        case .dashboardOpenRouter, .settingsOpenRouter:
-            return openRouterFixture(anchor: anchor)
+        case .dashboardOpenRouter:
+            return openRouterFixture(anchor: anchor, managementState: .active)
+        case .settingsOpenRouter:
+            return openRouterFixture(anchor: anchor, managementState: .disabled)
+        case .settingsOpenRouterMissingManagement:
+            return openRouterFixture(anchor: anchor, managementState: .missing)
         }
     }
 
@@ -425,7 +432,16 @@ struct UITestHostFixture {
         )
     }
 
-    private static func openRouterFixture(anchor: Date) -> UITestHostFixture {
+    private enum OpenRouterManagementFixtureState: Equatable {
+        case active
+        case disabled
+        case missing
+    }
+
+    private static func openRouterFixture(
+        anchor: Date,
+        managementState: OpenRouterManagementFixtureState
+    ) -> UITestHostFixture {
         let account = ProviderAccount(
             providerID: OpenRouterProviderContract.providerID,
             accountID: "synthetic-openrouter",
@@ -502,18 +518,62 @@ struct UITestHostFixture {
                     observedAt: anchor
                 ),
                 openRouterMetric(
+                    id: "key-daily-usage",
+                    contextID: primary.contextID,
+                    values: CapacityValues(
+                        consumed: CapacityValue(value: 0, origin: .reported)
+                    ),
+                    observedAt: anchor,
+                    window: CapacityWindow(
+                        kind: .fixed,
+                        nextTransition: CapacityTransition(
+                            kind: .reset,
+                            at: anchor.addingTimeInterval(2 * 3_600)
+                        )
+                    )
+                ),
+                openRouterMetric(
+                    id: "key-daily-byok-usage",
+                    contextID: primary.contextID,
+                    values: CapacityValues(
+                        consumed: CapacityValue(value: 0, origin: .reported)
+                    ),
+                    observedAt: anchor,
+                    window: CapacityWindow(
+                        kind: .fixed,
+                        nextTransition: CapacityTransition(
+                            kind: .reset,
+                            at: anchor.addingTimeInterval(2 * 3_600)
+                        )
+                    )
+                ),
+                openRouterMetric(
                     id: "key-weekly-usage",
                     contextID: primary.contextID,
                     availability: .unknown,
                     values: nil,
-                    observedAt: anchor
+                    observedAt: anchor,
+                    window: CapacityWindow(
+                        kind: .fixed,
+                        nextTransition: CapacityTransition(
+                            kind: .reset,
+                            at: anchor.addingTimeInterval(2 * 24 * 3_600)
+                        )
+                    )
                 ),
                 openRouterMetric(
                     id: "key-monthly-byok-usage",
                     contextID: primary.contextID,
                     availability: .unlimited,
                     values: nil,
-                    observedAt: anchor
+                    observedAt: anchor,
+                    window: CapacityWindow(
+                        kind: .fixed,
+                        nextTransition: CapacityTransition(
+                            kind: .reset,
+                            at: anchor.addingTimeInterval(7 * 24 * 3_600)
+                        )
+                    )
                 ),
                 openRouterMetric(
                     id: "key-total-usage",
@@ -533,7 +593,7 @@ struct UITestHostFixture {
                 )
             ]
         )
-        let credentials = [
+        var credentials = [
             openRouterCredential(
                 account: account,
                 context: primary,
@@ -551,14 +611,17 @@ struct UITestHostFixture {
                 context: failed,
                 slotID: failed.contextID,
                 role: .ordinary
-            ),
-            openRouterCredential(
+            )
+        ]
+        if managementState != .missing {
+            credentials.append(openRouterCredential(
                 account: account,
                 context: root,
                 slotID: "management",
-                role: .management
-            )
-        ]
+                role: .management,
+                isEnabled: managementState == .active
+            ))
+        }
         let compatibilitySnapshot = UsageSnapshot(
             providerID: account.providerID,
             accountID: account.accountID,
@@ -593,11 +656,35 @@ struct UITestHostFixture {
             ],
             preservesNativePresentationFixture: true
         )
+        let accountRefreshIssues: [String: AccountRefreshIssue]
+        let slotDiagnostics: [CredentialContextDiagnostic]
+        if managementState == .missing {
+            accountRefreshIssues = [
+                account.id: AccountRefreshIssue(
+                    occurredAt: anchor,
+                    warnings: [
+                        "Synthetic account refresh failure before slot diagnostics."
+                    ]
+                )
+            ]
+            slotDiagnostics = []
+        } else {
+            accountRefreshIssues = [:]
+            slotDiagnostics = [
+                CredentialContextDiagnostic(
+                    providerID: account.providerID,
+                    accountID: account.accountID,
+                    slotID: failed.contextID,
+                    code: .authentication,
+                    occurredAt: anchor
+                )
+            ]
+        }
         return UITestHostFixture(
             adapters: [adapter],
             accounts: [account],
             snapshots: [compatibilitySnapshot],
-            refreshIssues: [:],
+            refreshIssues: accountRefreshIssues,
             nativeCapacitySnapshots: [account.id: nativeSnapshot],
             credentialContexts: [account.id: credentials],
             credentialRefreshStates: [
@@ -621,15 +708,7 @@ struct UITestHostFixture {
                 ]
             ],
             credentialDiagnostics: [
-                account.id: [
-                    CredentialContextDiagnostic(
-                        providerID: account.providerID,
-                        accountID: account.accountID,
-                        slotID: failed.contextID,
-                        code: .authentication,
-                        occurredAt: anchor
-                    )
-                ]
+                account.id: slotDiagnostics
             ]
         )
     }
@@ -638,7 +717,8 @@ struct UITestHostFixture {
         account: ProviderAccount,
         context: AccountContext,
         slotID: String,
-        role: ProviderCredentialRole
+        role: ProviderCredentialRole,
+        isEnabled: Bool = true
     ) -> ProviderCredentialContext {
         ProviderCredentialContext(
             context: ProviderAccountContextConfiguration(
@@ -656,7 +736,7 @@ struct UITestHostFixture {
                 slotID: slotID,
                 contextID: context.contextID,
                 role: role,
-                isEnabled: true,
+                isEnabled: isEnabled,
                 keychainReference: "synthetic-reference-\(slotID)"
             )
         )

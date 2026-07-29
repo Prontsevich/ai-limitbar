@@ -2,6 +2,52 @@ import AILimitBarCore
 import SwiftUI
 import UniformTypeIdentifiers
 
+struct SettingsAccountDetailPresentation: Equatable {
+    let providerSubtitle: String?
+    let accountExceptionText: String?
+
+    init(
+        account: ProviderAccount,
+        providerDisplayName: String,
+        refreshStatus: ProviderRefreshStatus,
+        refreshIssue: AccountRefreshIssue?,
+        diagnosticsAvailability: ProviderSourceAvailability,
+        locale: Locale
+    ) {
+        let isOpenRouter =
+            account.providerID == OpenRouterProviderContract.providerID
+        providerSubtitle = isOpenRouter ? nil : providerDisplayName
+
+        guard isOpenRouter else {
+            accountExceptionText = nil
+            return
+        }
+
+        let didRefreshFail: Bool
+        if case .failed = refreshStatus {
+            didRefreshFail = true
+        } else {
+            didRefreshFail = false
+        }
+
+        if refreshIssue != nil
+            || didRefreshFail
+            || diagnosticsAvailability == .failed {
+            accountExceptionText = AppStrings.Dashboard.refreshFailed.localized(
+                locale: locale
+            )
+        } else if diagnosticsAvailability == .unsupported {
+            accountExceptionText =
+                AppStrings.Dashboard.sourceUnsupported.localized(locale: locale)
+        } else if diagnosticsAvailability == .needsConnection {
+            accountExceptionText =
+                AppStrings.Dashboard.connectBeforeRefresh.localized(locale: locale)
+        } else {
+            accountExceptionText = nil
+        }
+    }
+}
+
 struct AccountDetailView: View {
     @Environment(\.openURL) private var openURL
     @Environment(\.openWindow) private var openWindow
@@ -22,49 +68,33 @@ struct AccountDetailView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
-                    TerminalFieldset(title: AppStrings.Settings.Detail.status.localized(locale: locale)) {
-                        EmptyView()
-                    } content: {
-                        SettingsDetailValueRow(
-                            label: AppStrings.Settings.Detail.source.localized(locale: locale),
-                            value: currentAccount.sourceMode.localizedDisplayName(locale: locale),
-                            isTechnical: true
-                        )
-                        SettingsDetailValueRow(
-                            label: AppStrings.Settings.Detail.refresh.localized(locale: locale),
-                            value: appModel.refreshStatus(for: currentAccount).localizedDisplayName(locale: locale)
-                        )
-                        SettingsDetailValueRow(
-                            label: AppStrings.Settings.Detail.lastUpdated.localized(locale: locale),
-                            value: lastUpdatedText,
-                            isTechnical: true
-                        )
-                    }
-
-                    TerminalFieldset(title: AppStrings.Settings.Detail.configuration.localized(locale: locale)) {
-                        EmptyView()
-                    } content: {
-                        SettingsDetailValueRow(
-                            label: AppStrings.Settings.Detail.provider.localized(locale: locale),
-                            value: appModel.providerDisplayName(for: currentAccount.providerID)
-                        )
-                        if let executableLabel,
-                           let executablePath = currentAccount.executablePath,
-                           !executablePath.isEmpty {
-                            SettingsDetailValueRow(
-                                label: executableLabel,
-                                value: executablePath,
-                                isTechnical: true
+                    if isOpenRouter {
+                        if let exceptionText =
+                            detailPresentation.accountExceptionText {
+                            Label(
+                                exceptionText,
+                                systemImage: "exclamationmark.triangle"
+                            )
+                            .font(TerminalTheme.bodyFont)
+                            .foregroundStyle(TerminalTheme.error)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .accessibilityElement(children: .ignore)
+                            .accessibilityLabel(
+                                AppStrings.Settings.Detail.accountStatus
+                                    .localized(locale: locale)
+                            )
+                            .accessibilityValue(exceptionText)
+                            .accessibilityIdentifier(
+                                OpenRouterSettingsAccessibilityID.accountException
                             )
                         }
-                    }
 
-                    if currentAccount.providerID
-                        == OpenRouterProviderContract.providerID {
                         OpenRouterCredentialsSettingsView(
                             appModel: appModel,
                             account: currentAccount
                         )
+                    } else {
+                        standardAccountDetails
                     }
 
                     if !appModel.migrationDiagnostics(for: currentAccount).isEmpty {
@@ -91,15 +121,79 @@ struct AccountDetailView: View {
         }
     }
 
+    @ViewBuilder
+    private var standardAccountDetails: some View {
+        TerminalFieldset(title: AppStrings.Settings.Detail.status.localized(locale: locale)) {
+            EmptyView()
+        } content: {
+            SettingsDetailValueRow(
+                label: AppStrings.Settings.Detail.source.localized(locale: locale),
+                value: currentAccount.sourceMode.localizedDisplayName(locale: locale),
+                isTechnical: true
+            )
+            SettingsDetailValueRow(
+                label: AppStrings.Settings.Detail.refresh.localized(locale: locale),
+                value: appModel.refreshStatus(for: currentAccount)
+                    .localizedDisplayName(locale: locale)
+            )
+            SettingsDetailValueRow(
+                label: AppStrings.Settings.Detail.lastUpdated.localized(locale: locale),
+                value: lastUpdatedText,
+                isTechnical: true
+            )
+        }
+
+        TerminalFieldset(
+            title: AppStrings.Settings.Detail.configuration.localized(locale: locale)
+        ) {
+            EmptyView()
+        } content: {
+            SettingsDetailValueRow(
+                label: AppStrings.Settings.Detail.provider.localized(locale: locale),
+                value: appModel.providerDisplayName(for: currentAccount.providerID)
+            )
+            if let executableLabel,
+               let executablePath = currentAccount.executablePath,
+               !executablePath.isEmpty {
+                SettingsDetailValueRow(
+                    label: executableLabel,
+                    value: executablePath,
+                    isTechnical: true
+                )
+            }
+        }
+    }
+
+    private var isOpenRouter: Bool {
+        currentAccount.providerID == OpenRouterProviderContract.providerID
+    }
+
+    private var detailPresentation: SettingsAccountDetailPresentation {
+        SettingsAccountDetailPresentation(
+            account: currentAccount,
+            providerDisplayName: appModel.providerDisplayName(
+                for: currentAccount.providerID
+            ),
+            refreshStatus: appModel.refreshStatus(for: currentAccount),
+            refreshIssue: appModel.accountRefreshIssues[currentAccount.id],
+            diagnosticsAvailability: appModel.accountDiagnostics(
+                for: currentAccount
+            ).availability,
+            locale: locale
+        )
+    }
+
     private var header: some View {
         HStack(alignment: .center, spacing: 8) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(currentAccount.displayName)
                     .font(TerminalTheme.titleFont)
                     .foregroundStyle(TerminalTheme.primary)
-                Text(appModel.providerDisplayName(for: currentAccount.providerID))
-                    .font(TerminalTheme.bodyFont)
-                    .foregroundStyle(TerminalTheme.secondary)
+                if let providerSubtitle = detailPresentation.providerSubtitle {
+                    Text(providerSubtitle)
+                        .font(TerminalTheme.bodyFont)
+                        .foregroundStyle(TerminalTheme.secondary)
+                }
             }
 
             Spacer()
@@ -111,7 +205,10 @@ struct AccountDetailView: View {
                 SettingsActionIcon(systemName: "square.and.pencil", verticalOffset: -1)
             }
             .settingsIconButton(help: AppStrings.Settings.Detail.editAccount.localized(locale: locale))
-            .frame(width: 32, height: 32)
+            .frame(
+                width: TerminalIconControlLayout.hitTargetSize,
+                height: TerminalIconControlLayout.hitTargetSize
+            )
 
             if currentAccount.providerID == "ollama-cloud",
                currentAccount.sourceMode == .ollamaWebPage {
@@ -120,7 +217,10 @@ struct AccountDetailView: View {
                 }
                 .disabled(appModel.ollamaWebPageClient == nil)
                 .settingsIconButton(help: ollamaConnectionTitle)
-                .frame(width: 32, height: 32)
+                .frame(
+                    width: TerminalIconControlLayout.hitTargetSize,
+                    height: TerminalIconControlLayout.hitTargetSize
+                )
             }
 
             Button {
@@ -133,7 +233,10 @@ struct AccountDetailView: View {
             }
             .disabled(isAccountActionDisabled)
             .settingsIconButton(help: refreshButtonTitle)
-            .frame(width: 32, height: 32)
+            .frame(
+                width: TerminalIconControlLayout.hitTargetSize,
+                height: TerminalIconControlLayout.hitTargetSize
+            )
 
             NativeActionsMenuButton(
                 isTestEnabled: !isAccountActionDisabled,
@@ -150,7 +253,10 @@ struct AccountDetailView: View {
                     }
                 }
             )
-            .frame(width: 32, height: 32)
+            .frame(
+                width: TerminalIconControlLayout.hitTargetSize,
+                height: TerminalIconControlLayout.hitTargetSize
+            )
         }
     }
 

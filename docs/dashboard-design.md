@@ -84,7 +84,12 @@ pressed behavior for all interactive elements.
   the upper-right portion of each account border. Center both on the border,
   reserve a visible gap between their hit targets, and preserve the same
   dimensions while Refresh swaps its glyph for progress. Inset the group enough
-  to leave the fieldset's top-right corner visible.
+  to leave the fieldset's top-right corner visible. Both controls use the same
+  fixed border slot, borderless idle presentation, and clear hover/pressed
+  feedback. Each 24-point target independently paints the fieldset surface
+  behind itself so the top border does not pass through its glyph; there is no
+  shared control-strip mask. The global Refresh All control follows the
+  borderless idle rule but is not on a fieldset border and has no such mask.
 - Leave a small top clearance before the first account so its legend cannot
   overlap the dashboard header. Cap the account-list viewport at a compact
   height and use a visible vertical scroll indicator for additional accounts.
@@ -139,13 +144,25 @@ change severity, thresholds, notifications, analytics, or menu-bar state.
   label is informational. Amber warning state is reserved for real usage
   thresholds, stale data, or failed refreshes.
 
-OpenRouter is the native-unit exception to percentage meters. Its account
-fieldset renders account-wide credits once, followed by one nested section per
-ordinary API key. Each child shows its own USD usage, key limit, BYOK usage,
-reset semantics, freshness, and fixed diagnostic. It uses no progress fill or
-Used/Left toggle. Partial, stale, unavailable, unknown, unlimited, disabled,
-recovery-required, and credential-error states are visible in text and
-accessibility values without hiding healthy sibling keys.
+OpenRouter is the native-unit exception to percentage meters. Its default
+account fieldset renders only the account-wide balance amount, such as
+`$12.2`; lifetime credits, derived used credits, percentages, and progress
+fills do not appear there. USD uses `$`; a future non-USD unit falls back to
+its ISO code. Currency values use up to two localized fraction digits and trim
+trailing zeros (`$1`, `$1.5`, `$1.25`).
+Each ordinary key gets one compact row with its local name,
+finite key capacity amount, and reset when applicable. A healthy key without
+a configured key-level limit says `No key limit` without implying unlimited
+account capacity. Normal timestamps, daily/weekly/monthly/lifetime usage, and
+BYOK observations stay out of the default dashboard.
+
+The existing Info control is the single disclosure path for all detailed
+OpenRouter observations. Partial, stale, unavailable, unknown, disabled,
+recovery-required, and credential-error states remain visible in default text
+and accessibility values without hiding healthy sibling keys. Healthy native
+values use the neutral primary color; semantic green is not a permanent
+success-state decoration. OpenRouter dashboard and Info wording is consistently
+`left`/`used` in English and `Осталось`/`Использовано` in Russian.
 
 The dashboard should not scroll for common setups of three to five accounts.
 
@@ -160,8 +177,30 @@ inner bordered block and use a `NOTE`-style label.
 It contains:
 
 - Account identity and current refresh state.
-- For OpenRouter, the same root-credit and ordinary-key hierarchy in a roomier
-  read-only layout; it does not flatten shared credits into every key.
+- For OpenRouter, the root-credit and ordinary-key hierarchy in a roomier
+  read-only layout. Each key starts as one collapsed summary row showing its
+  name, capacity left or truthful exception state, and reset when
+  applicable. At most one key is expanded at a time. Expanding it reveals every
+  native usage, BYOK, limit, unknown, unavailable, and unlimited observation,
+  including zero values; the collapsed state intentionally suppresses zero
+  usage noise. Expanded usage is a compact Day/Week/Month/Total table with
+  Usage and BYOK columns. Reset schedule is a separate Scope/Reset table with
+  one row per exact native reset identity. A shared standard/BYOK reset uses its
+  short scope once; differing resets retain the Usage or BYOK qualifier.
+  Key-limit and lifetime/no-reset identities remain distinct. It emits at most
+  one update line per key. VoiceOver follows that same compact projection
+  instead of announcing hidden per-metric timestamps or reset copy. Shared
+  credits are not flattened into every key.
+  The complete header row is the disclosure target, with a fixed leading
+  chevron slot that does not move when details appear. Metric labels, values,
+  and grouped resets adapt from two columns to vertically stacked rows at the
+  360-point inspector width, in both English and Russian, rather than truncating
+  or collapsing reset values into character columns. Account credits use a
+  compact two-column `Left`/`Used` table. Derivable `Total` is omitted from both
+  visual and accessibility presentation. A finite key limit uses one
+  `Available` row with `$available / $total` and a thin available-capacity bar.
+  The bar is shown only for a positive total, clamps its remaining fraction to
+  `0...1`, and is explicitly labeled as available in accessibility output.
 - The precise last-updated date and time.
 - Source and confidence.
 - A Use global / Used / Left control for every percentage-based limit window.
@@ -169,15 +208,23 @@ It contains:
 - Warning, stale, and failed-refresh context in a clearly labeled bordered
   message block.
 - Secondary account actions such as Test Connection and Open Usage. Do not
-  duplicate the normal individual Refresh action here.
+  duplicate the normal individual Refresh action here. These actions and the
+  dashboard footer Settings, About, and Quit actions have subtle visible idle
+  outlines plus stronger hover/pressed feedback.
 
 The popover may scroll only when diagnostic content genuinely exceeds the
-compact inspector height.
+compact inspector height. Its vertical scroller is a narrow autohiding overlay
+over the right padding; it does not reserve a gutter or paint a background
+strip.
 
 ## Accessibility And Interaction
 
 - Glyph-only Refresh and Info controls require visible keyboard focus, tooltips,
   and descriptive accessibility labels.
+- Each fieldset header control paints an idle fieldset-surface mask clipped to
+  its own fixed hit target. Hover and pressed fills remain visible over that
+  mask. No shared plate or slot may erase the border between controls, a
+  neighboring panel border, or the fieldset's top-right corner.
 - Meters are keyboard-focusable buttons. Their help, accessibility value, and
   fill agree with the current Used or Left value; their accessibility hint
   explains the toggle action. From the neutral panel, Tab enters the first
@@ -188,6 +235,25 @@ compact inspector height.
   accessibility state and tooltip where appropriate.
 - The details popover remains reachable by pointer and keyboard; hover is only
   an optional convenience.
+- Dashboard popovers and their add/replace sheets inherit the selected app
+  language explicitly. Their titles, labels, placeholders, buttons, metrics,
+  reset copy, and update copy never fall back independently to the system
+  locale.
+- SwiftUI `MenuBarExtra` does not expose the clicked per-display status-item
+  representation or the pre-close event ordering needed for deterministic
+  multi-display anchoring. The existing narrow `NSStatusItem`/`NSPopover`
+  boundary therefore converts the clicked button bounds to a screen rectangle
+  once and owns a transparent, nonactivating, mouse-ignoring AppKit anchor host
+  only for that presentation. The transient popover follows this stable host,
+  not a mirrored status-item view that may migrate between displays, and an
+  ordinary outside click closes it. A status-item click while the dashboard is
+  visible is close-only, including on another display; a local pre-dismiss
+  left-mouse-down latch preserves that decision if AppKit closes the transient
+  popover before target-action dispatch. The host is released on every close or
+  failed presentation. The latch expires after the event and is consumed once,
+  so only a later explicit status-item click may create a new anchor on the
+  newly clicked display. Production multi-display behavior remains an explicit
+  manual verification gate.
 
 ## Non-Goals
 
