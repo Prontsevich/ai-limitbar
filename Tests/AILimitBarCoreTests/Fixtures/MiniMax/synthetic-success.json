@@ -1,0 +1,55 @@
+{
+  "base_resp": {
+    "status_code": 0,
+    "status_msg": ""
+  },
+  "model_remains": [
+    {
+      "model_name": "synthetic-row-a",
+      "start_time": 1893456000000,
+      "end_time": 1893474000000,
+      "remains_time": 9000000,
+      "current_interval_total_count": 11,
+      "current_interval_usage_count": 4,
+      "current_interval_remaining_percent": 63.5,
+      "current_interval_status": 1,
+      "current_weekly_total_count": 19,
+      "current_weekly_usage_count": 19,
+      "current_weekly_remaining_percent": 0,
+      "current_weekly_status": 2,
+      "weekly_start_time": 1893024000000,
+      "weekly_end_time": 1893628800000,
+      "weekly_remains_time": 181800000
+    },
+    {
+      "model_name": "synthetic-row-b",
+      "start_time": 1893459600000,
+      "end_time": 1893477600000,
+      "remains_time": 12600000,
+      "current_interval_total_count": 0,
+      "current_interval_usage_count": 3,
+      "current_interval_status": 3,
+      "current_weekly_total_count": 23,
+      "current_weekly_usage_count": 5,
+      "current_weekly_remaining_percent": 78.25,
+      "current_weekly_status": 1,
+      "weekly_start_time": 1893024000000,
+      "weekly_end_time": 1893628800000,
+      "weekly_remains_time": 181800000,
+      "weekly_boost_permille": 1500
+    },
+    {
+      "model_name": "synthetic-row-unreviewed",
+      "start_time": 1893463200000,
+      "end_time": 1893481200000,
+      "remains_time": 16200000,
+      "current_interval_total_count": 29,
+      "current_interval_usage_count": 7,
+      "current_weekly_total_count": 31,
+      "current_weekly_usage_count": 8,
+      "weekly_start_time": 1893024000000,
+      "weekly_end_time": 1893628800000,
+      "weekly_remains_time": 181800000
+    }
+  ]
+}
