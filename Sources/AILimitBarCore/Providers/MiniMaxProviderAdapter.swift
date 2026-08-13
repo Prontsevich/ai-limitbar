@@ -14,7 +14,7 @@ public enum MiniMaxProviderContract {
         regions: [
             RegionDescriptor(regionID: "global", displayName: "Global")
         ],
-        accountContextKinds: [.team],
+        accountContextKinds: [.team, .credential],
         capabilities: ["quota-windows", "reset-schedule"]
     )
 
@@ -35,57 +35,75 @@ public enum MiniMaxProviderContract {
             storageBoundary: .keychain
         )
     )
+
+    public static let sources = [source]
+
+    public static let reviewedQuotaCategories = try! MiniMaxQuotaCategoryMapping(
+        categories: [
+            try! MiniMaxReviewedQuotaCategory(
+                providerIdentifier: "general",
+                stableID: "quota-category-a",
+                displayName: "Token Plan capacity A"
+            ),
+            try! MiniMaxReviewedQuotaCategory(
+                providerIdentifier: "video",
+                stableID: "quota-category-b",
+                displayName: "Token Plan capacity B"
+            )
+        ]
+    )
 }
 
-public enum MiniMaxModelRowMappingError:
+public enum MiniMaxQuotaCategoryMappingError:
     Error,
     LocalizedError,
     Equatable,
     Sendable
 {
     case invalidEntry
-    case duplicateProviderName
+    case duplicateProviderIdentifier
     case duplicateStableID
 
     public var errorDescription: String? {
         switch self {
         case .invalidEntry:
-            "The MiniMax reviewed row mapping is invalid."
-        case .duplicateProviderName:
-            "The MiniMax reviewed row mapping contains a duplicate provider row."
+            "The MiniMax quota category mapping is invalid."
+        case .duplicateProviderIdentifier:
+            "The MiniMax quota category mapping contains a duplicate provider identifier."
         case .duplicateStableID:
-            "The MiniMax reviewed row mapping contains a duplicate stable identifier."
+            "The MiniMax quota category mapping contains a duplicate stable identifier."
         }
     }
 }
 
-public struct MiniMaxReviewedModelRow:
+public struct MiniMaxReviewedQuotaCategory:
     Sendable,
     CustomStringConvertible,
     CustomDebugStringConvertible
 {
-    fileprivate let providerName: String
+    fileprivate let providerIdentifier: String
     public let stableID: String
     public let displayName: String
 
     public init(
-        providerName: String,
+        providerIdentifier: String,
         stableID: String,
         displayName: String
     ) throws {
-        guard !providerName.isEmpty,
+        guard !providerIdentifier.isEmpty,
+              !providerIdentifier.contains("*"),
               Self.isStableID(stableID),
               !displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         else {
-            throw MiniMaxModelRowMappingError.invalidEntry
+            throw MiniMaxQuotaCategoryMappingError.invalidEntry
         }
-        self.providerName = providerName
+        self.providerIdentifier = providerIdentifier
         self.stableID = stableID
         self.displayName = displayName
     }
 
     public var description: String {
-        "<redacted MiniMax reviewed model row: \(stableID)>"
+        "<redacted MiniMax reviewed quota category: \(stableID)>"
     }
 
     public var debugDescription: String { description }
@@ -98,29 +116,124 @@ public struct MiniMaxReviewedModelRow:
     }
 }
 
-public struct MiniMaxModelRowMapping: Sendable {
-    private let rowsByProviderName: [String: MiniMaxReviewedModelRow]
+public struct MiniMaxQuotaCategoryMapping: Sendable {
+    private let categoriesByProviderIdentifier: [
+        String: MiniMaxReviewedQuotaCategory
+    ]
 
-    public init(rows: [MiniMaxReviewedModelRow]) throws {
-        var providerNames = Set<String>()
+    public init(categories: [MiniMaxReviewedQuotaCategory]) throws {
+        var providerIdentifiers = Set<String>()
         var stableIDs = Set<String>()
-        var mappedRows: [String: MiniMaxReviewedModelRow] = [:]
+        var mappedCategories: [String: MiniMaxReviewedQuotaCategory] = [:]
 
-        for row in rows {
-            guard providerNames.insert(row.providerName).inserted else {
-                throw MiniMaxModelRowMappingError.duplicateProviderName
+        for category in categories {
+            guard providerIdentifiers.insert(category.providerIdentifier).inserted else {
+                throw MiniMaxQuotaCategoryMappingError.duplicateProviderIdentifier
             }
-            guard stableIDs.insert(row.stableID).inserted else {
-                throw MiniMaxModelRowMappingError.duplicateStableID
+            guard stableIDs.insert(category.stableID).inserted else {
+                throw MiniMaxQuotaCategoryMappingError.duplicateStableID
             }
-            mappedRows[row.providerName] = row
+            mappedCategories[category.providerIdentifier] = category
         }
-        rowsByProviderName = mappedRows
+        categoriesByProviderIdentifier = mappedCategories
     }
 
-    func reviewedRow(
-        forProviderName providerName: String
-    ) -> MiniMaxReviewedModelRow? {
-        rowsByProviderName[providerName]
+    func reviewedCategory(
+        forProviderIdentifier providerIdentifier: String
+    ) -> MiniMaxReviewedQuotaCategory? {
+        categoriesByProviderIdentifier[providerIdentifier]
+    }
+}
+
+public struct MiniMaxProviderAdapter: ProviderAdapter {
+    public let id = MiniMaxProviderContract.providerID
+    public let displayName = "MiniMax"
+    public let usageURL = URL(
+        string: "https://platform.minimax.io/docs/token-plan/intro"
+    )
+    public let capabilities = ProviderCapabilities(sources: [
+        ProviderSourceCapability(
+            mode: .miniMaxTokenPlan,
+            kind: .live,
+            summary: "Independent Global Token Plan capacity."
+        )
+    ])
+
+    private let refreshCoordinator: any MiniMaxAccountRefreshing
+
+    public init(
+        refreshCoordinator: any MiniMaxAccountRefreshing =
+            UnavailableMiniMaxRefreshCoordinator()
+    ) {
+        self.refreshCoordinator = refreshCoordinator
+    }
+
+    public func fetchSnapshot(
+        account: ProviderAccount
+    ) async throws -> UsageSnapshot {
+        guard account.providerID == id,
+              account.sourceMode == .miniMaxTokenPlan else {
+            throw ProviderAdapterError(
+                providerID: id,
+                message: "MiniMax source configuration is invalid."
+            )
+        }
+
+        let result = try await refreshCoordinator.refresh(account: account)
+        let status: UsageStatus
+        if result.successfulSourceCount == 0 {
+            status = .error
+        } else if result.failedSourceCount > 0
+            || result.deferredSourceCount > 0
+            || result.suppressedSourceCount > 0
+            || result.hasMappingDiagnostics {
+            status = .warning
+        } else {
+            status = .ok
+        }
+
+        var warnings: [String] = []
+        if result.failedSourceCount > 0 {
+            warnings.append(
+                "MiniMax refresh failed; the last valid native observation was preserved."
+            )
+        }
+        if result.deferredSourceCount > 0 {
+            warnings.append(
+                "MiniMax is waiting for the next eligible refresh."
+            )
+        }
+        if result.suppressedSourceCount > 0 {
+            warnings.append(
+                "A late MiniMax result was discarded after configuration changed."
+            )
+        }
+        if result.hasMappingDiagnostics {
+            warnings.append(
+                "MiniMax returned an unrecognized quota category that was ignored."
+            )
+        }
+
+        return UsageSnapshot(
+            providerID: id,
+            accountID: account.accountID,
+            accountDisplayName: account.displayName,
+            displayName: displayName,
+            status: status,
+            remainingLabel: result.successfulSourceCount > 0
+                ? "Native MiniMax Token Plan capacity stored"
+                : "MiniMax Token Plan capacity unavailable",
+            lastUpdatedAt: result.completedAt,
+            confidence: result.successfulSourceCount > 0 ? .live : .unknown,
+            source: "MiniMax documented Global Token Plan API",
+            warnings: warnings
+        )
+    }
+
+    public func invalidateAccount(accountID: String) {
+        refreshCoordinator.invalidateAccount(
+            providerID: id,
+            accountID: accountID
+        )
     }
 }

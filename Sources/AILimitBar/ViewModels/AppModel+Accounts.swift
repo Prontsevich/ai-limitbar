@@ -23,6 +23,9 @@ extension AppModel {
             if let openRouterAdapter = adapter(for: providerID)
                 as? OpenRouterProviderAdapter {
                 openRouterAdapter.invalidateAccount(accountID: accountID)
+            } else if let miniMaxAdapter = adapter(for: providerID)
+                as? MiniMaxProviderAdapter {
+                miniMaxAdapter.invalidateAccount(accountID: accountID)
             }
         }
         if !saveConfiguration() {
@@ -250,9 +253,13 @@ extension AppModel {
         if let openRouterAdapter = adapter(for: providerID)
             as? OpenRouterProviderAdapter {
             openRouterAdapter.invalidateAccount(accountID: accountID)
+        } else if let miniMaxAdapter = adapter(for: providerID)
+            as? MiniMaxProviderAdapter {
+            miniMaxAdapter.invalidateAccount(accountID: accountID)
         }
 
-        if providerID == OpenRouterProviderContract.providerID {
+        if providerID == OpenRouterProviderContract.providerID
+            || providerID == MiniMaxProviderContract.providerID {
             do {
                 try accountCredentialStore.deleteAccount(
                     providerID: providerID,
@@ -273,6 +280,7 @@ extension AppModel {
         credentialRefreshStatesByAccount.removeValue(forKey: accountKey)
         credentialDiagnosticsByAccount.removeValue(forKey: accountKey)
         guard providerID == OpenRouterProviderContract.providerID
+                || providerID == MiniMaxProviderContract.providerID
                 || saveConfiguration() else {
             providerAccounts = previousAccounts
             snapshots = previousSnapshots

@@ -10,6 +10,79 @@ final class MiniMaxAPIClientTests: XCTestCase {
         super.tearDown()
     }
 
+    func testProductionMappingAcceptsOnlyExactQuotaCategoryIdentifiers() throws {
+        let mapping = MiniMaxProviderContract.reviewedQuotaCategories
+
+        XCTAssertEqual(
+            try XCTUnwrap(
+                mapping.reviewedCategory(forProviderIdentifier: "general")
+            ).stableID,
+            "quota-category-a"
+        )
+        XCTAssertEqual(
+            try XCTUnwrap(
+                mapping.reviewedCategory(forProviderIdentifier: "video")
+            ).stableID,
+            "quota-category-b"
+        )
+        for unknownIdentifier in [
+            "MiniMax-M2",
+            "MiniMax-M*",
+            "generalized",
+            "speech-hd",
+            "image-01"
+        ] {
+            XCTAssertNil(mapping.reviewedCategory(
+                forProviderIdentifier: unknownIdentifier
+            ))
+        }
+        XCTAssertThrowsError(
+            try MiniMaxReviewedQuotaCategory(
+                providerIdentifier: "MiniMax-M*",
+                stableID: "wildcard",
+                displayName: "Wildcard"
+            )
+        ) { error in
+            XCTAssertEqual(
+                error as? MiniMaxQuotaCategoryMappingError,
+                .invalidEntry
+            )
+        }
+    }
+
+    func testProductionMappingIgnoresPrefixLikeQuotaCategoryWithSanitizedDiagnostic() async throws {
+        let json = String(decoding: try fixture("synthetic-success"), as: UTF8.self)
+            .replacingOccurrences(of: "synthetic-row-a", with: "general")
+            .replacingOccurrences(of: "synthetic-row-b", with: "video")
+            .replacingOccurrences(
+                of: "synthetic-row-unreviewed",
+                with: "MiniMax-M2"
+            )
+        MiniMaxURLProtocolStub.setHandler { _, stub in
+            stub.respond(statusCode: 200, data: Data(json.utf8))
+        }
+
+        let result = try await makeClient(
+            reviewedCategories: MiniMaxProviderContract.reviewedQuotaCategories
+        ).fetchTokenPlanCapacity(
+            credential: try credential("synthetic-subscription-key")
+        )
+
+        XCTAssertEqual(result.metrics.map(\.metricID), [
+            "quota-category-a.current",
+            "quota-category-a.weekly",
+            "quota-category-b.current",
+            "quota-category-b.weekly"
+        ])
+        XCTAssertEqual(result.diagnostics, [.init(code: .unknownQuotaCategory)])
+        XCTAssertFalse(result.metrics.contains { metric in
+            ["MiniMax", "general", "video"].contains(where: { providerValue in
+                metric.metricID.contains(providerValue)
+                    || metric.displayName.contains(providerValue)
+            })
+        })
+    }
+
     func testFixedGlobalRequestMapsIndependentReviewedWindows() async throws {
         let recorder = MiniMaxRequestRecorder()
         let data = try fixture("synthetic-success")
@@ -38,11 +111,12 @@ final class MiniMaxAPIClientTests: XCTestCase {
 
         XCTAssertEqual(result.observedAt, observedAt)
         XCTAssertEqual(result.metrics.map(\.metricID), [
-            "row-a.current", "row-a.weekly", "row-b.current", "row-b.weekly"
+            "quota-a.current", "quota-a.weekly",
+            "quota-b.current", "quota-b.weekly"
         ])
-        XCTAssertEqual(result.diagnostics, [.init(code: .unknownModelRow)])
+        XCTAssertEqual(result.diagnostics, [.init(code: .unknownQuotaCategory)])
 
-        let currentA = try metric("row-a.current", in: result)
+        let currentA = try metric("quota-a.current", in: result)
         XCTAssertEqual(currentA.window.kind, .rolling)
         XCTAssertEqual(currentA.availability, .known)
         XCTAssertEqual(currentA.values?.remaining?.value, 7)
@@ -53,22 +127,22 @@ final class MiniMaxAPIClientTests: XCTestCase {
             providerUnitID: MiniMaxProviderContract.providerUnitID
         ))
 
-        let weeklyA = try metric("row-a.weekly", in: result)
+        let weeklyA = try metric("quota-a.weekly", in: result)
         XCTAssertEqual(weeklyA.window.kind, .fixed)
         XCTAssertEqual(weeklyA.availability, .known)
         XCTAssertEqual(weeklyA.values?.remaining?.value, 0)
 
-        let currentB = try metric("row-b.current", in: result)
+        let currentB = try metric("quota-b.current", in: result)
         XCTAssertEqual(currentB.availability, .unlimited)
         XCTAssertNil(currentB.values?.limit)
         XCTAssertNil(currentB.values?.remaining)
 
-        let weeklyB = try metric("row-b.weekly", in: result)
+        let weeklyB = try metric("quota-b.weekly", in: result)
         XCTAssertEqual(weeklyB.conditions, [.boost])
         XCTAssertEqual(weeklyB.values?.remaining?.value, 18)
     }
 
-    func testBusinessStatusIsValidatedBeforeRowsAndProjectsSanitizedErrors() async throws {
+    func testBusinessStatusIsValidatedBeforeQuotaCategoriesAndProjectsSanitizedErrors() async throws {
         installJSON(
             #"{"base_resp":{"status_code":1004,"status_msg":""},"model_remains":null}"#
         )
@@ -212,7 +286,8 @@ final class MiniMaxAPIClientTests: XCTestCase {
 
     private func makeClient(
         timeout: TimeInterval = 1,
-        responseLimit: Int = 1_048_576
+        responseLimit: Int = 1_048_576,
+        reviewedCategories: MiniMaxQuotaCategoryMapping? = nil
     ) -> URLSessionMiniMaxAPIClient {
         let fixedObservedAt = observedAt
         let configuration = URLSessionConfiguration.ephemeral
@@ -221,18 +296,19 @@ final class MiniMaxAPIClientTests: XCTestCase {
         configuration.httpShouldSetCookies = false
         return URLSessionMiniMaxAPIClient(
             session: URLSession(configuration: configuration),
-            reviewedRows: try! MiniMaxModelRowMapping(rows: [
-                try! MiniMaxReviewedModelRow(
-                    providerName: "synthetic-row-a",
-                    stableID: "row-a",
-                    displayName: "Synthetic row A"
-                ),
-                try! MiniMaxReviewedModelRow(
-                    providerName: "synthetic-row-b",
-                    stableID: "row-b",
-                    displayName: "Synthetic row B"
-                )
-            ]),
+            reviewedCategories: reviewedCategories
+                ?? (try! MiniMaxQuotaCategoryMapping(categories: [
+                    try! MiniMaxReviewedQuotaCategory(
+                        providerIdentifier: "synthetic-row-a",
+                        stableID: "quota-a",
+                        displayName: "Synthetic capacity A"
+                    ),
+                    try! MiniMaxReviewedQuotaCategory(
+                        providerIdentifier: "synthetic-row-b",
+                        stableID: "quota-b",
+                        displayName: "Synthetic capacity B"
+                    )
+                ])),
             timeout: timeout,
             responseLimit: responseLimit,
             now: { fixedObservedAt }

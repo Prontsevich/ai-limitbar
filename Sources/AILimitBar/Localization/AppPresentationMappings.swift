@@ -46,7 +46,7 @@ extension ProviderSourceMode {
             AppStrings.Common.webPageExperimental.localized(locale: locale)
         case .appServer:
             AppStrings.Common.appServerExperimental.localized(locale: locale)
-        case .openRouterAPI:
+        case .openRouterAPI, .miniMaxTokenPlan:
             displayName
         }
     }

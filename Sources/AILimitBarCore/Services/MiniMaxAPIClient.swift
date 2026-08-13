@@ -119,7 +119,7 @@ public enum MiniMaxMappingDiagnosticCode:
     Equatable,
     Sendable
 {
-    case unknownModelRow = "unknown-model-row"
+    case unknownQuotaCategory = "unknown-quota-category"
 }
 
 public struct MiniMaxMappingDiagnostic: Equatable, Sendable {
@@ -165,26 +165,26 @@ public struct URLSessionMiniMaxAPIClient: MiniMaxAPIClient {
     private let timeout: TimeInterval
     private let responseLimit: Int
     private let now: @Sendable () -> Date
-    private let reviewedRows: MiniMaxModelRowMapping
+    private let reviewedCategories: MiniMaxQuotaCategoryMapping
     private let remainsURL: URL
 
-    public init(reviewedRows: MiniMaxModelRowMapping) {
+    public init(reviewedCategories: MiniMaxQuotaCategoryMapping) {
         self.init(
             session: Self.makeDefaultSession(),
-            reviewedRows: reviewedRows
+            reviewedCategories: reviewedCategories
         )
     }
 
     init(
         session: URLSession,
-        reviewedRows: MiniMaxModelRowMapping,
+        reviewedCategories: MiniMaxQuotaCategoryMapping,
         timeout: TimeInterval = 15,
         responseLimit: Int = 1_048_576,
         now: @escaping @Sendable () -> Date = Date.init,
         remainsURL: URL = Self.remainsURL
     ) {
         sessionConfiguration = session.configuration
-        self.reviewedRows = reviewedRows
+        self.reviewedCategories = reviewedCategories
         self.timeout = timeout.isFinite
             ? min(max(timeout, Self.minimumTimeout), Self.maximumTimeout)
             : 15
@@ -207,24 +207,24 @@ public struct URLSessionMiniMaxAPIClient: MiniMaxAPIClient {
         guard businessEnvelope.baseResponse.statusCode == 0 else {
             throw Self.businessError(
                 statusCode: businessEnvelope.baseResponse.statusCode,
-                modelRemains: businessEnvelope.modelRemains,
+                quotaCategoriesState: businessEnvelope.quotaCategoriesState,
                 retryAfter: retryAfter
             )
         }
-        guard businessEnvelope.modelRemains == .present else {
+        guard businessEnvelope.quotaCategoriesState == .present else {
             throw MiniMaxAPIClientError.decodingFailure
         }
 
         let successEnvelope: MiniMaxSuccessEnvelope = try decode(result.data)
-        guard !successEnvelope.modelRemains.isEmpty
+        guard !successEnvelope.quotaCategories.isEmpty
         else {
             throw MiniMaxAPIClientError.decodingFailure
         }
 
         let observedAt = now()
         do {
-            return try successEnvelope.modelRemains.capacity(
-                reviewedRows: reviewedRows,
+            return try successEnvelope.quotaCategories.capacity(
+                reviewedCategories: reviewedCategories,
                 accountContextID: credential.accountContextID,
                 observedAt: observedAt
             )
@@ -352,7 +352,7 @@ public struct URLSessionMiniMaxAPIClient: MiniMaxAPIClient {
 
     private static func businessError(
         statusCode: Int,
-        modelRemains: MiniMaxModelRemainsState,
+        quotaCategoriesState: MiniMaxQuotaCategoriesState,
         retryAfter: MiniMaxRetryAfter?
     ) -> MiniMaxAPIClientError {
         switch statusCode {
@@ -362,7 +362,7 @@ public struct URLSessionMiniMaxAPIClient: MiniMaxAPIClient {
             .throttled(retryAfter: retryAfter)
         case 2056:
             .usageExhausted
-        case 2062 where modelRemains == .null:
+        case 2062 where quotaCategoriesState == .null:
             .unavailableSubscription
         case 1008:
             .insufficientResource
@@ -579,7 +579,7 @@ private final class MiniMaxStreamingResponseDelegate:
 
 private struct MiniMaxBusinessEnvelope: Decodable {
     let baseResponse: MiniMaxBaseResponse
-    let modelRemains: MiniMaxModelRemainsState
+    let quotaCategoriesState: MiniMaxQuotaCategoriesState
 
     init(from decoder: Decoder) throws {
         try decoder.rejectUnknownKeys(
@@ -590,25 +590,25 @@ private struct MiniMaxBusinessEnvelope: Decodable {
             MiniMaxBaseResponse.self,
             forKey: .baseResponse
         )
-        guard container.contains(.modelRemains) else {
-            modelRemains = .absent
+        guard container.contains(.quotaCategories) else {
+            quotaCategoriesState = .absent
             return
         }
-        if try container.decodeNil(forKey: .modelRemains) {
-            modelRemains = .null
+        if try container.decodeNil(forKey: .quotaCategories) {
+            quotaCategoriesState = .null
         } else {
-            modelRemains = .present
+            quotaCategoriesState = .present
         }
     }
 
     private enum CodingKeys: String, CodingKey, CaseIterable {
         case baseResponse = "base_resp"
-        case modelRemains = "model_remains"
+        case quotaCategories = "model_remains"
     }
 }
 
 private struct MiniMaxSuccessEnvelope: Decodable {
-    let modelRemains: [MiniMaxModelRemain]
+    let quotaCategories: [MiniMaxTokenPlanQuotaCategory]
 
     init(from decoder: Decoder) throws {
         try decoder.rejectUnknownKeys(
@@ -616,15 +616,15 @@ private struct MiniMaxSuccessEnvelope: Decodable {
         )
         let container = try decoder.container(keyedBy: CodingKeys.self)
         _ = try container.decode(MiniMaxBaseResponse.self, forKey: .baseResponse)
-        modelRemains = try container.decode(
-            [MiniMaxModelRemain].self,
-            forKey: .modelRemains
+        quotaCategories = try container.decode(
+            [MiniMaxTokenPlanQuotaCategory].self,
+            forKey: .quotaCategories
         )
     }
 
     private enum CodingKeys: String, CodingKey, CaseIterable {
         case baseResponse = "base_resp"
-        case modelRemains = "model_remains"
+        case quotaCategories = "model_remains"
     }
 }
 
@@ -646,14 +646,14 @@ private struct MiniMaxBaseResponse: Decodable {
     }
 }
 
-private enum MiniMaxModelRemainsState: Equatable {
+private enum MiniMaxQuotaCategoriesState: Equatable {
     case absent
     case null
     case present
 }
 
-private struct MiniMaxModelRemain: Decodable, Equatable {
-    let modelName: String
+private struct MiniMaxTokenPlanQuotaCategory: Decodable, Equatable {
+    let providerIdentifier: String
     let startTime: Int64
     let endTime: Int64
     let remainsTime: Int64
@@ -675,7 +675,10 @@ private struct MiniMaxModelRemain: Decodable, Equatable {
             allowed: Set(CodingKeys.allCases.map(\.rawValue))
         )
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        modelName = try container.decode(String.self, forKey: .modelName)
+        providerIdentifier = try container.decode(
+            String.self,
+            forKey: .providerIdentifier
+        )
         startTime = try container.decode(Int64.self, forKey: .startTime)
         endTime = try container.decode(Int64.self, forKey: .endTime)
         remainsTime = try container.decode(Int64.self, forKey: .remainsTime)
@@ -728,7 +731,7 @@ private struct MiniMaxModelRemain: Decodable, Equatable {
             forKey: .weeklyBoostPermille
         )
 
-        guard !modelName.isEmpty,
+        guard !providerIdentifier.isEmpty,
               remainsTime >= 0,
               weeklyRemainsTime >= 0,
               Self.isValidStatus(currentIntervalStatus),
@@ -752,7 +755,7 @@ private struct MiniMaxModelRemain: Decodable, Equatable {
     }
 
     func currentMetric(
-        mapping: MiniMaxReviewedModelRow,
+        category: MiniMaxReviewedQuotaCategory,
         accountContextID: String,
         observedAt: Date
     ) throws -> CapacityMetric {
@@ -768,14 +771,14 @@ private struct MiniMaxModelRemain: Decodable, Equatable {
                 startMilliseconds: startTime,
                 endMilliseconds: endTime
             ),
-            mapping: mapping,
+            category: category,
             accountContextID: accountContextID,
             observedAt: observedAt
         )
     }
 
     func weeklyMetric(
-        mapping: MiniMaxReviewedModelRow,
+        category: MiniMaxReviewedQuotaCategory,
         accountContextID: String,
         observedAt: Date
     ) throws -> CapacityMetric {
@@ -793,7 +796,7 @@ private struct MiniMaxModelRemain: Decodable, Equatable {
                 startMilliseconds: weeklyStartTime,
                 endMilliseconds: weeklyEndTime
             ),
-            mapping: mapping,
+            category: category,
             accountContextID: accountContextID,
             observedAt: observedAt
         )
@@ -807,7 +810,7 @@ private struct MiniMaxModelRemain: Decodable, Equatable {
         status: Int?,
         conditions: [CapacityCondition],
         window: CapacityWindow,
-        mapping: MiniMaxReviewedModelRow,
+        category: MiniMaxReviewedQuotaCategory,
         accountContextID: String,
         observedAt: Date
     ) throws -> CapacityMetric {
@@ -851,11 +854,11 @@ private struct MiniMaxModelRemain: Decodable, Equatable {
         }
 
         return CapacityMetric(
-            metricID: "\(mapping.stableID).\(idSuffix)",
+            metricID: "\(category.stableID).\(idSuffix)",
             accountContextID: accountContextID,
             sourceID: MiniMaxProviderContract.sourceID,
             capability: "quota-windows",
-            displayName: "\(mapping.displayName) — \(displayNameSuffix)",
+            displayName: "\(category.displayName) — \(displayNameSuffix)",
             availability: availability,
             conditions: conditions,
             unit: CapacityUnit(
@@ -912,7 +915,7 @@ private struct MiniMaxModelRemain: Decodable, Equatable {
     }
 
     private enum CodingKeys: String, CodingKey, CaseIterable {
-        case modelName = "model_name"
+        case providerIdentifier = "model_name"
         case startTime = "start_time"
         case endTime = "end_time"
         case remainsTime = "remains_time"
@@ -933,38 +936,40 @@ private struct MiniMaxModelRemain: Decodable, Equatable {
     }
 }
 
-private extension Array where Element == MiniMaxModelRemain {
+private extension Array where Element == MiniMaxTokenPlanQuotaCategory {
     func capacity(
-        reviewedRows: MiniMaxModelRowMapping,
+        reviewedCategories: MiniMaxQuotaCategoryMapping,
         accountContextID: String,
         observedAt: Date
     ) throws -> MiniMaxCapacityResult {
-        var seenProviderNames = Set<String>()
+        var seenProviderIdentifiers = Set<String>()
         var metrics: [CapacityMetric] = []
         var diagnostics: [MiniMaxMappingDiagnostic] = []
 
-        for row in self {
-            guard seenProviderNames.insert(row.modelName).inserted else {
-                throw MiniMaxPayloadValidationError.duplicateRow
+        for quotaCategory in self {
+            guard seenProviderIdentifiers.insert(
+                quotaCategory.providerIdentifier
+            ).inserted else {
+                throw MiniMaxPayloadValidationError.duplicateQuotaCategory
             }
-            guard let mapping = reviewedRows.reviewedRow(
-                forProviderName: row.modelName
+            guard let reviewedCategory = reviewedCategories.reviewedCategory(
+                forProviderIdentifier: quotaCategory.providerIdentifier
             ) else {
                 diagnostics.append(
-                    MiniMaxMappingDiagnostic(code: .unknownModelRow)
+                    MiniMaxMappingDiagnostic(code: .unknownQuotaCategory)
                 )
                 continue
             }
             metrics.append(
-                try row.currentMetric(
-                    mapping: mapping,
+                try quotaCategory.currentMetric(
+                    category: reviewedCategory,
                     accountContextID: accountContextID,
                     observedAt: observedAt
                 )
             )
             metrics.append(
-                try row.weeklyMetric(
-                    mapping: mapping,
+                try quotaCategory.weeklyMetric(
+                    category: reviewedCategory,
                     accountContextID: accountContextID,
                     observedAt: observedAt
                 )
@@ -981,7 +986,7 @@ private extension Array where Element == MiniMaxModelRemain {
 
 private enum MiniMaxPayloadValidationError: Error {
     case invalidValue
-    case duplicateRow
+    case duplicateQuotaCategory
     case unknownField
 }
 

@@ -52,8 +52,12 @@ final class AppModel: ObservableObject {
         userDefaults: UserDefaults = .standard,
         refreshCoordinator: ProviderRefreshCoordinator = ProviderRefreshCoordinator(),
         openRouterAPIClient: any OpenRouterAPIClient = URLSessionOpenRouterAPIClient(),
+        miniMaxAPIClient: any MiniMaxAPIClient = URLSessionMiniMaxAPIClient(
+            reviewedCategories: MiniMaxProviderContract.reviewedQuotaCategories
+        ),
         credentialKeychainService: any KeychainService = MacOSKeychainService(),
-        openRouterRefreshPolicy: OpenRouterRefreshPolicy = OpenRouterRefreshPolicy()
+        openRouterRefreshPolicy: OpenRouterRefreshPolicy = OpenRouterRefreshPolicy(),
+        miniMaxRefreshPolicy: MiniMaxRefreshPolicy = MiniMaxRefreshPolicy()
     ) {
         self.ollamaWebPageClient = ollamaWebPageClient
         let resolvedClient: any OllamaWebPageClient = ollamaWebPageClient ?? UnavailableOllamaWebPageClient()
@@ -87,7 +91,8 @@ final class AppModel: ObservableObject {
         self.configurationStore = DatabaseProviderConfigurationStore(database: database)
         self.refreshSettingsStore = DatabaseRefreshSettingsStore(database: database)
         self.usageDisplayOverrideStore = DatabaseUsageDisplayOverrideStore(database: database)
-        self.diagnosticStore = DatabaseSourceDiagnosticStore(database: database)
+        let diagnosticStore = DatabaseSourceDiagnosticStore(database: database)
+        self.diagnosticStore = diagnosticStore
         let accountCredentialStore = AccountCredentialStore(
             database: database,
             keychainService: credentialKeychainService
@@ -106,6 +111,13 @@ final class AppModel: ObservableObject {
                 capacityStore: nativeCapacitySnapshotStore,
                 client: openRouterAPIClient,
                 policy: openRouterRefreshPolicy
+            ),
+            miniMaxRefreshCoordinator: MiniMaxRefreshCoordinator(
+                credentialStore: accountCredentialStore,
+                capacityStore: nativeCapacitySnapshotStore,
+                diagnosticStore: diagnosticStore,
+                client: miniMaxAPIClient,
+                policy: miniMaxRefreshPolicy
             )
         )
 
@@ -389,7 +401,7 @@ final class AppModel: ObservableObject {
             "Refresh this account to read the experimental local Codex app-server source."
         case .claudeUsageCLI:
             "Refresh this account to read the experimental local Claude /usage source."
-        case .manual, .claudeStatusLine, .openRouterAPI:
+        case .manual, .claudeStatusLine, .openRouterAPI, .miniMaxTokenPlan:
             "Refresh or test this account to load a snapshot."
         }
     }
@@ -402,7 +414,7 @@ final class AppModel: ObservableObject {
             AppStrings.AccountDetails.codexRefreshFirst.localized(locale: locale)
         case .claudeUsageCLI:
             AppStrings.AccountDetails.claudeUsageRefreshFirst.localized(locale: locale)
-        case .manual, .claudeStatusLine, .openRouterAPI:
+        case .manual, .claudeStatusLine, .openRouterAPI, .miniMaxTokenPlan:
             AppStrings.AccountDetails.refreshOrTestFirst.localized(locale: locale)
         }
     }

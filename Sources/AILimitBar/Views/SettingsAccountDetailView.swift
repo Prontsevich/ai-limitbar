@@ -732,7 +732,7 @@ struct AccountEditorView: View {
                     }
                 }
                 .padding(.top, 4)
-            case .ollamaWebPage, .appServer, .openRouterAPI:
+            case .ollamaWebPage, .appServer, .openRouterAPI, .miniMaxTokenPlan:
                 EmptyView()
             }
         } else if draft.providerID == "ollama-cloud" {

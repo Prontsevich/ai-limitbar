@@ -282,7 +282,7 @@ struct AccountDetailsView: View {
             AppStrings.AccountDetails.codexRefreshFirst.localized(locale: locale)
         case .claudeUsageCLI:
             AppStrings.AccountDetails.claudeUsageRefreshFirst.localized(locale: locale)
-        case .manual, .claudeStatusLine, .openRouterAPI:
+        case .manual, .claudeStatusLine, .openRouterAPI, .miniMaxTokenPlan:
             AppStrings.AccountDetails.refreshOrTestFirst.localized(locale: locale)
         }
     }

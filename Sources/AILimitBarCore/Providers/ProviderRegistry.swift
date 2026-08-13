@@ -17,7 +17,9 @@ public struct ProviderRegistry: Sendable {
         claudeUsageCLIClient: any ClaudeUsageCLIClient = ProcessClaudeUsageCLIClient(),
         claudeSnapshotStore: (any CurrentSnapshotStore)? = nil,
         openRouterRefreshCoordinator: any OpenRouterAccountRefreshing =
-            UnavailableOpenRouterRefreshCoordinator()
+            UnavailableOpenRouterRefreshCoordinator(),
+        miniMaxRefreshCoordinator: any MiniMaxAccountRefreshing =
+            UnavailableMiniMaxRefreshCoordinator()
     ) {
         self.init(
             adapters: Self.adapters(
@@ -25,7 +27,8 @@ public struct ProviderRegistry: Sendable {
                 codexAppServerClient: codexAppServerClient,
                 claudeUsageCLIClient: claudeUsageCLIClient,
                 claudeSnapshotStore: claudeSnapshotStore,
-                openRouterRefreshCoordinator: openRouterRefreshCoordinator
+                openRouterRefreshCoordinator: openRouterRefreshCoordinator,
+                miniMaxRefreshCoordinator: miniMaxRefreshCoordinator
             )
         )
     }
@@ -36,7 +39,8 @@ public struct ProviderRegistry: Sendable {
             codexAppServerClient: ProcessCodexAppServerClient(),
             claudeUsageCLIClient: ProcessClaudeUsageCLIClient(),
             claudeSnapshotStore: nil,
-            openRouterRefreshCoordinator: UnavailableOpenRouterRefreshCoordinator()
+            openRouterRefreshCoordinator: UnavailableOpenRouterRefreshCoordinator(),
+            miniMaxRefreshCoordinator: UnavailableMiniMaxRefreshCoordinator()
         )
 
     private static func adapters(
@@ -44,7 +48,8 @@ public struct ProviderRegistry: Sendable {
         codexAppServerClient: any CodexAppServerClient,
         claudeUsageCLIClient: any ClaudeUsageCLIClient,
         claudeSnapshotStore: (any CurrentSnapshotStore)?,
-        openRouterRefreshCoordinator: any OpenRouterAccountRefreshing
+        openRouterRefreshCoordinator: any OpenRouterAccountRefreshing,
+        miniMaxRefreshCoordinator: any MiniMaxAccountRefreshing
     ) -> [any ProviderAdapter] {
         [
             MockProviderAdapter(),
@@ -56,6 +61,9 @@ public struct ProviderRegistry: Sendable {
             OllamaCloudProviderAdapter(client: ollamaWebPageClient),
             OpenRouterProviderAdapter(
                 refreshCoordinator: openRouterRefreshCoordinator
+            ),
+            MiniMaxProviderAdapter(
+                refreshCoordinator: miniMaxRefreshCoordinator
             )
         ]
     }

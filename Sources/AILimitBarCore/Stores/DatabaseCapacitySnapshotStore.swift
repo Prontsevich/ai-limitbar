@@ -23,6 +23,10 @@ public enum NativeCapacityStoreError: Error, LocalizedError, Equatable, Sendable
 
 public enum CapacitySourceIdentityExpectation: Equatable, Sendable {
     case slot(ProviderCredentialSlot)
+    case slotWithDirectTeamParent(
+        slot: ProviderCredentialSlot,
+        teamContextID: String
+    )
     case noEnabledManagementSlot
 }
 
@@ -534,10 +538,13 @@ public final class DatabaseCapacitySnapshotStore:
     }
 
     private func slotID(for mutation: CapacitySourceMutation) throws -> String {
-        guard case let .slot(slot) = mutation.identityExpectation else {
+        switch mutation.identityExpectation {
+        case let .slot(slot),
+             let .slotWithDirectTeamParent(slot, _):
+            return slot.slotID
+        case .noEnabledManagementSlot:
             throw NativeCapacityStoreError.sourceIdentityChanged
         }
-        return slot.slotID
     }
 
     private func identityMutation(
@@ -792,35 +799,52 @@ public final class DatabaseCapacitySnapshotStore:
     ) throws {
         switch mutation.identityExpectation {
         case let .slot(slot):
-            guard slot.providerID == mutation.providerID,
-                  slot.accountID == mutation.accountID,
-                  slot.contextID == mutation.contextID,
-                  slot.isEnabled,
-                  slot.lifecycleState == .active,
-                  let row = try Row.fetchOne(
-                      db,
-                      sql: """
-                          SELECT context_id, role, is_enabled,
-                                 keychain_reference, lifecycle_state,
-                                 credential_revision
-                          FROM provider_credential_slots
-                          WHERE provider_id = ?
-                            AND account_id = ?
-                            AND slot_id = ?
-                          """,
-                      arguments: [
-                          mutation.providerID,
-                          mutation.accountID,
-                          slot.slotID
-                      ]
-                  ),
-                  row["context_id"] as String == slot.contextID,
-                  row["role"] as String == slot.role.rawValue,
-                  row["is_enabled"] as Bool,
-                  row["keychain_reference"] as String == slot.keychainReference,
-                  row["lifecycle_state"] as String
-                      == CredentialLifecycleState.active.rawValue,
-                  row["credential_revision"] as Int == slot.credentialRevision
+            guard slot.contextID == mutation.contextID else {
+                throw NativeCapacityStoreError.sourceIdentityChanged
+            }
+            try requireCurrentSlot(slot, mutation: mutation, db: db)
+
+        case let .slotWithDirectTeamParent(slot, teamContextID):
+            guard mutation.contextID == teamContextID,
+                  slot.role == .ordinary
+            else {
+                throw NativeCapacityStoreError.sourceIdentityChanged
+            }
+            try requireCurrentSlot(slot, mutation: mutation, db: db)
+            guard let contextRow = try Row.fetchOne(
+                db,
+                sql: """
+                    SELECT child.kind AS child_kind,
+                           child.parent_context_id AS parent_context_id,
+                           child.region_id AS child_region_id,
+                           parent.kind AS parent_kind,
+                           parent.parent_context_id AS grandparent_context_id,
+                           parent.region_id AS parent_region_id
+                    FROM provider_account_contexts AS child
+                    JOIN provider_account_contexts AS parent
+                      ON parent.provider_id = child.provider_id
+                     AND parent.account_id = child.account_id
+                     AND parent.context_id = child.parent_context_id
+                    WHERE child.provider_id = ?
+                      AND child.account_id = ?
+                      AND child.context_id = ?
+                      AND parent.context_id = ?
+                    """,
+                arguments: [
+                    mutation.providerID,
+                    mutation.accountID,
+                    slot.contextID,
+                    teamContextID
+                ]
+            ),
+                  contextRow["child_kind"] as String
+                    == AccountContextKind.credential.rawValue,
+                  contextRow["parent_context_id"] as String? == teamContextID,
+                  contextRow["parent_kind"] as String
+                    == AccountContextKind.team.rawValue,
+                  contextRow["grandparent_context_id"] as String? == nil,
+                  contextRow["child_region_id"] as String
+                    == contextRow["parent_region_id"] as String
             else {
                 throw NativeCapacityStoreError.sourceIdentityChanged
             }
@@ -842,6 +866,44 @@ public final class DatabaseCapacitySnapshotStore:
             guard count == 0 else {
                 throw NativeCapacityStoreError.sourceIdentityChanged
             }
+        }
+    }
+
+    private func requireCurrentSlot(
+        _ slot: ProviderCredentialSlot,
+        mutation: CapacitySourceMutation,
+        db: Database
+    ) throws {
+        guard slot.providerID == mutation.providerID,
+              slot.accountID == mutation.accountID,
+              slot.isEnabled,
+              slot.lifecycleState == .active,
+              let row = try Row.fetchOne(
+                  db,
+                  sql: """
+                      SELECT context_id, role, is_enabled,
+                             keychain_reference, lifecycle_state,
+                             credential_revision
+                      FROM provider_credential_slots
+                      WHERE provider_id = ?
+                        AND account_id = ?
+                        AND slot_id = ?
+                      """,
+                  arguments: [
+                      mutation.providerID,
+                      mutation.accountID,
+                      slot.slotID
+                  ]
+              ),
+              row["context_id"] as String == slot.contextID,
+              row["role"] as String == slot.role.rawValue,
+              row["is_enabled"] as Bool,
+              row["keychain_reference"] as String == slot.keychainReference,
+              row["lifecycle_state"] as String
+                == CredentialLifecycleState.active.rawValue,
+              row["credential_revision"] as Int == slot.credentialRevision
+        else {
+            throw NativeCapacityStoreError.sourceIdentityChanged
         }
     }
 }

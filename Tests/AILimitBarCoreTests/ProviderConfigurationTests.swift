@@ -6,6 +6,7 @@ final class ProviderConfigurationTests: XCTestCase {
         XCTAssertEqual(ProviderSourceMode.defaultMode(for: "claude-code"), .claudeStatusLine)
         XCTAssertEqual(ProviderSourceMode.defaultMode(for: "ollama-cloud"), .ollamaWebPage)
         XCTAssertEqual(ProviderSourceMode.defaultMode(for: "openai-codex"), .appServer)
+        XCTAssertEqual(ProviderSourceMode.defaultMode(for: "minimax"), .miniMaxTokenPlan)
         XCTAssertEqual(ProviderSourceMode.defaultMode(for: "mock"), .manual)
     }
 
@@ -14,6 +15,7 @@ final class ProviderConfigurationTests: XCTestCase {
         let claude = adapters.first { $0.id == "claude-code" }
         let codex = adapters.first { $0.id == "openai-codex" }
         let ollama = adapters.first { $0.id == "ollama-cloud" }
+        let miniMax = adapters.first { $0.id == "minimax" }
 
         XCTAssertEqual(
             claude?.capabilities.capability(for: .claudeStatusLine)?.kind,
@@ -29,6 +31,10 @@ final class ProviderConfigurationTests: XCTestCase {
         )
         XCTAssertEqual(
             ollama?.capabilities.capability(for: .ollamaWebPage)?.kind,
+            .live
+        )
+        XCTAssertEqual(
+            miniMax?.capabilities.capability(for: .miniMaxTokenPlan)?.kind,
             .live
         )
     }
@@ -49,6 +55,33 @@ final class ProviderConfigurationTests: XCTestCase {
             ).sourceMode,
             .ollamaWebPage
         )
+        XCTAssertEqual(
+            ProviderAccount(
+                providerID: "minimax",
+                isEnabled: true,
+                sourceMode: .manual
+            ).sourceMode,
+            .miniMaxTokenPlan
+        )
+    }
+
+    func testMiniMaxTokenPlanSourceModeRoundTripsExplicitly() throws {
+        let account = ProviderAccount(
+            providerID: "minimax",
+            accountID: "team",
+            displayName: "Team",
+            isEnabled: true
+        )
+
+        let encoded = try JSONEncoder().encode(account)
+        let decoded = try JSONDecoder().decode(ProviderAccount.self, from: encoded)
+
+        XCTAssertEqual(decoded.sourceMode, .miniMaxTokenPlan)
+        XCTAssertTrue(
+            String(decoding: encoded, as: UTF8.self)
+                .contains(#""sourceMode":"minimax-token-plan""#)
+        )
+        XCTAssertTrue(decoded.sourceMode.isExperimental)
     }
 
     func testClaudeCodeAllowsExplicitSourceSelectionWithoutChangingDefault() {

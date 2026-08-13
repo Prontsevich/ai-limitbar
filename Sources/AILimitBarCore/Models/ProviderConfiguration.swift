@@ -7,6 +7,7 @@ public enum ProviderSourceMode: String, Codable, CaseIterable, Sendable {
     case ollamaWebPage = "ollama-web-page"
     case appServer = "app-server"
     case openRouterAPI = "openrouter-api"
+    case miniMaxTokenPlan = "minimax-token-plan"
 
     public var displayName: String {
         switch self {
@@ -16,12 +17,13 @@ public enum ProviderSourceMode: String, Codable, CaseIterable, Sendable {
         case .ollamaWebPage: "Experimental web page"
         case .appServer: "Experimental app-server"
         case .openRouterAPI: "OpenRouter API"
+        case .miniMaxTokenPlan: "MiniMax Global Token Plan (Experimental)"
         }
     }
 
     public var isExperimental: Bool {
         switch self {
-        case .claudeUsageCLI, .ollamaWebPage, .appServer:
+        case .claudeUsageCLI, .ollamaWebPage, .appServer, .miniMaxTokenPlan:
             true
         case .manual, .claudeStatusLine, .openRouterAPI:
             false
@@ -38,6 +40,8 @@ public enum ProviderSourceMode: String, Codable, CaseIterable, Sendable {
             .appServer
         case "openrouter":
             .openRouterAPI
+        case "minimax":
+            .miniMaxTokenPlan
         default:
             .manual
         }
@@ -55,6 +59,10 @@ public enum ProviderSourceMode: String, Codable, CaseIterable, Sendable {
 
         if providerID == "openrouter" {
             return .openRouterAPI
+        }
+
+        if providerID == "minimax" {
+            return .miniMaxTokenPlan
         }
 
         let providerDefault = defaultMode(for: providerID)
