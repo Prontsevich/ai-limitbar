@@ -177,11 +177,18 @@ final class KeychainVerificationCommandTests: XCTestCase {
         XCTAssertTrue(contributing.contains("Xcode-managed provisioning profile"))
         XCTAssertTrue(contributing.contains("AILIMITBAR_DEVELOPER_IDENTITY"))
         XCTAssertTrue(contributing.contains("AILIMITBAR_PROVISIONING_PROFILE"))
+        XCTAssertTrue(contributing.contains("AILIMITBAR_NOTARYTOOL_PROFILE"))
+        XCTAssertTrue(contributing.contains("YOUR_NOTARYTOOL_PROFILE"))
         XCTAssertTrue(
             contributing.contains(
-                "These archives are Developer ID signed"
+                "notarize_release.sh 0.2.0 20260813.1 arm64"
             )
         )
+
+        let prohibitedProfile = ["AILimitBar", "Notary"].joined(separator: "-")
+        for document in [agents, plan, contributing] {
+            XCTAssertFalse(document.contains(prohibitedProfile))
+        }
     }
 
     func testReleaseStagingRequiresAuthorizedDeveloperIDSigning() throws {
@@ -216,20 +223,79 @@ final class KeychainVerificationCommandTests: XCTestCase {
     }
 
     func testReleasePackagingRevalidatesDeveloperIDAfterArchiveRoundTrip() throws {
-        let script = try String(
+        let packageScript = try String(
             contentsOf: repositoryRoot
                 .appendingPathComponent("script/package_release.sh"),
             encoding: .utf8
         )
+        let validator = try String(
+            contentsOf: repositoryRoot
+                .appendingPathComponent("script/validate_release_bundle.sh"),
+            encoding: .utf8
+        )
 
-        XCTAssertTrue(script.contains("embedded.provisionprofile"))
-        XCTAssertTrue(script.contains("Authority=$EXPECTED_IDENTITY"))
-        XCTAssertTrue(script.contains("TeamIdentifier=$EXPECTED_TEAM"))
-        XCTAssertTrue(script.contains("flags="))
-        XCTAssertTrue(script.contains("runtime"))
-        XCTAssertTrue(script.contains("Timestamp="))
-        XCTAssertTrue(script.contains("script/validate_release_entitlements.sh"))
-        XCTAssertTrue(script.contains("codesign --verify --deep --strict"))
+        XCTAssertTrue(packageScript.contains("script/validate_release_bundle.sh"))
+        XCTAssertTrue(packageScript.contains("--signed-submission"))
+        XCTAssertTrue(validator.contains("embedded.provisionprofile"))
+        XCTAssertTrue(validator.contains("Authority=$EXPECTED_IDENTITY"))
+        XCTAssertTrue(validator.contains("TeamIdentifier=$EXPECTED_TEAM"))
+        XCTAssertTrue(validator.contains("flags="))
+        XCTAssertTrue(validator.contains("runtime"))
+        XCTAssertTrue(validator.contains("Timestamp="))
+        XCTAssertTrue(validator.contains("script/validate_release_entitlements.sh"))
+        XCTAssertTrue(validator.contains("--verify"))
+        XCTAssertTrue(validator.contains("--deep"))
+        XCTAssertTrue(validator.contains("--strict"))
+    }
+
+    func testNotarizationRequiresExplicitProfileAndAcceptedSubmission() throws {
+        let scriptURL = repositoryRoot
+            .appendingPathComponent("script/notarize_release.sh")
+        let script = try String(contentsOf: scriptURL, encoding: .utf8)
+
+        XCTAssertTrue(script.contains("AILIMITBAR_NOTARYTOOL_PROFILE"))
+        XCTAssertTrue(script.contains("notarytool submit"))
+        XCTAssertTrue(script.contains("--wait"))
+        XCTAssertTrue(script.contains("--output-format json"))
+        XCTAssertTrue(script.contains("SUBMISSION_STATUS\" != \"Accepted"))
+        XCTAssertTrue(script.contains("stapler staple"))
+        XCTAssertTrue(script.contains("--require-notarization"))
+        XCTAssertTrue(script.contains("-signed.zip"))
+        XCTAssertTrue(script.contains("PUBLISH_PREFIX"))
+        XCTAssertTrue(script.contains("/usr/bin/mktemp"))
+        XCTAssertTrue(script.contains("PUBLISH_COMPARE_COMMAND"))
+        XCTAssertTrue(script.contains("PUBLISH_RENAME_COMMAND"))
+        XCTAssertTrue(script.contains("AILIMITBAR_NOTARIZATION_TEST_MODE"))
+        XCTAssertTrue(script.contains("PUBLISH_COPY_COMMAND=\"/bin/cp\""))
+        XCTAssertTrue(script.contains("PUBLISH_COMPARE_COMMAND=\"/usr/bin/cmp\""))
+        XCTAssertTrue(script.contains("PUBLISH_RENAME_COMMAND=\"/bin/mv\""))
+        XCTAssertTrue(script.contains("final archive path is obstructed"))
+        XCTAssertTrue(script.contains("published release is not a nonempty regular file"))
+
+        let result = try runScript(
+            scriptURL,
+            arguments: ["0.2.0", "1", "arm64"],
+            removingEnvironment: ["AILIMITBAR_NOTARYTOOL_PROFILE"]
+        )
+        XCTAssertNotEqual(result.status, 0)
+        XCTAssertTrue(
+            result.output.contains(
+                "notarization requires AILIMITBAR_NOTARYTOOL_PROFILE"
+            ),
+            result.output
+        )
+    }
+
+    func testNotarizationFixturesFailClosedWithoutAppleServices() throws {
+        let fixtureTest = repositoryRoot
+            .appendingPathComponent("script/test_notarize_release.sh")
+        XCTAssertTrue(
+            FileManager.default.isExecutableFile(atPath: fixtureTest.path)
+        )
+        let result = try runScript(fixtureTest, arguments: [])
+
+        XCTAssertEqual(result.status, 0, result.output)
+        XCTAssertTrue(result.output.contains("PASS: notarization fixtures"))
     }
 
     func testReleaseEntrypointFailsClosedWithoutSigningInputs() throws {

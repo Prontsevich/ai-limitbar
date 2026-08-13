@@ -26,9 +26,13 @@ restricted application-identifier and default Keychain-group entitlements.
 Release staging requires an explicit Developer ID Application identity and a
 matching Developer ID provisioning profile supplied outside the repository. It
 signs the helper before the app, enables Hardened Runtime, requests secure
-timestamps, and preserves the authorized default Keychain group. Notarization
-and stapling remain a separate release step. All run modes use the same bundle
-shape.
+timestamps, and preserves the authorized default Keychain group. Local trusted
+packaging additionally requires a caller-owned Keychain profile such as
+`AILIMITBAR_NOTARYTOOL_PROFILE=YOUR_NOTARYTOOL_PROFILE`; it submits the signed
+architecture-specific ZIP, staples the accepted app, and revalidates the final
+archive with codesign, stapler, and Gatekeeper. Protected CI notarization and
+publication remain a separate disabled release step. All run modes use the same
+bundle shape.
 
 ## Architecture
 

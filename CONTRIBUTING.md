@@ -49,11 +49,30 @@ the single certificate in the supplied Developer ID provisioning profile. It
 signs the bundled helper and outer app with Hardened Runtime and secure
 timestamps, embeds the profile that authorizes the app's default Keychain
 group, and revalidates the signature after the ZIP round trip. The identity,
-profile, private key, Team ID, and future notarization credentials stay outside
-the repository.
+profile, private key, and Team ID stay outside the repository. These direct
+`package_release.sh` outputs are signing-only artifacts and must not be
+distributed without notarization.
 
-These archives are Developer ID signed but are not trusted release artifacts
-until Apple notarization, stapling, and Gatekeeper validation also succeed.
+For a local notarized release, first create a private `notarytool` Keychain
+profile outside the repository, then provide only its caller-owned name:
+
+```zsh
+export AILIMITBAR_NOTARYTOOL_PROFILE=YOUR_NOTARYTOOL_PROFILE
+./script/notarize_release.sh 0.2.0 20260813.1 arm64
+./script/notarize_release.sh 0.2.0 20260813.1 x86_64
+```
+
+The wrapper creates `AILimitBar-<version>-<architecture>-signed.zip` for the
+Apple submission, waits for an `Accepted` result, staples the app extracted
+from that exact submitted ZIP, and only then creates the final
+`AILimitBar-<version>-<architecture>.zip`. Both the stapled app and a fresh
+extraction of the final ZIP must pass exact bundle, architecture, entitlement,
+signature, stapler-ticket, and Gatekeeper validation. On failure, the command
+prints only the submission ID/status and a private temporary path plus a safe
+`notarytool log` command; it does not dump Apple's full log. Keychain profile
+values, Apple credentials, app-specific passwords, API keys, and notarization
+logs remain outside Git and public logs.
+
 The `Release` GitHub Actions workflow intentionally fails closed for both
 manual dispatches and version tags: protected CI signing, notarization,
 stapling, and Gatekeeper validation are not configured yet, so the workflow

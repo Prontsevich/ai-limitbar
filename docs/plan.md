@@ -486,17 +486,25 @@ both app bundle version keys, signs the nested helper and outer bundle with a
 caller-supplied Developer ID Application identity, enables Hardened Runtime and
 secure timestamps, embeds the matching Developer ID provisioning profile,
 verifies the authorized default Keychain group, then validates a round trip
-through that architecture-specific ZIP archive. Team-specific identity,
-profile, certificate, and private-key material remain outside the repository.
+through that architecture-specific ZIP archive. A separate local notarization
+wrapper requires an explicit caller-owned Keychain profile such as
+`AILIMITBAR_NOTARYTOOL_PROFILE=YOUR_NOTARYTOOL_PROFILE`. It creates a clearly
+named signed submission archive, waits for Apple `Accepted` status, staples the
+app extracted from that exact archive, and creates the final ZIP only after the
+stapled app passes exact metadata, architecture, signature, entitlement,
+ticket, and Gatekeeper validation. It extracts the final ZIP into a private
+temporary directory and repeats the complete validation. Team-specific
+identity, profile, certificate, private-key, Apple credential, and notary-log
+material remain outside the repository and public logs.
 
 The GitHub Actions `Release` workflow is currently an explicit trusted-
 distribution gate. Manual dispatches and version-tag pushes fail before build,
 upload, or publication because protected CI signing, notarization, stapling,
 and Gatekeeper validation are not configured. The workflow stores no signing
 identity, provisioning profile, private key, Team ID, or notarization
-credential. Local Developer ID archives remain authorized validation artifacts
-only; restoring CI packaging and GitHub Release publication belongs to the
-separate protected-distribution work after its complete trust chain is ready.
+credential. Local notarized archives remain authorized validation artifacts;
+restoring protected CI packaging and GitHub Release publication belongs to the
+separate CI work after its complete trust chain is ready.
 
 ### About AI Limitbar
 
@@ -515,13 +523,14 @@ direct e-mail, Telegram, and the existing Boosty support page. The About window
 uses the app-wide English/Russian localization alongside the other app-owned
 surfaces.
 
-The Apple Developer Program gate is complete. Local release packaging now
-produces Developer ID-signed archives with authorized production Keychain
-access, but those archives are not described as trusted until notarization,
-stapling, Gatekeeper validation, protected CI, and clean-Mac checks also pass.
-Certificates, private keys, provisioning profiles, Team IDs, payment
-information, and notarization credentials never belong in Git, public docs,
-or logs; private Linear notes may record the non-secret Team ID only.
+The Apple Developer Program gate is complete. Local release packaging can now
+produce Developer ID-signed and Apple-notarized architecture-specific archives
+with authorized production Keychain access. Publication remains disabled until
+protected CI and clean-Mac checks pass. Certificates, private keys,
+provisioning profiles, Team IDs, payment information, Apple credentials,
+Keychain profile values, and private notarization logs never belong in Git,
+public docs, or public logs; private Linear notes may record the non-secret
+Team ID only.
 
 ### Multi-Account Authenticated Web Research
 
@@ -864,8 +873,12 @@ Developer ID profile authorizes the exact application identifier and default
 Keychain group, contains the selected certificate, and targets all macOS
 devices. It signs the helper before the app with Hardened Runtime and secure
 timestamps and requires `codesign --verify --deep --strict` before and after
-the archive round trip. Notarization, stapling, protected CI, and clean-Mac
-validation remain subsequent trusted-distribution gates.
+the signing-only archive round trip. `script/notarize_release.sh` separately
+requires `AILIMITBAR_NOTARYTOOL_PROFILE=YOUR_NOTARYTOOL_PROFILE`, submits a
+private copy of the architecture-specific signed ZIP with `notarytool --wait`,
+requires `Accepted`, staples the exact submitted app, and revalidates the final
+app and extracted ZIP with codesign, stapler, and Gatekeeper. Protected CI and
+clean-Mac validation remain subsequent trusted-distribution gates.
 Platform references:
 [TN3137: On Mac keychain APIs and implementations](https://developer.apple.com/documentation/technotes/tn3137-on-mac-keychains),
 [TN3125: Inside Code Signing: Provisioning Profiles](https://developer.apple.com/documentation/technotes/tn3125-inside-code-signing-provisioning-profiles),
@@ -974,7 +987,9 @@ by default and are surfaced immediately without retry.
   exact default Keychain group for local staged DEBUG credential verification.
 - Require Developer ID signing, authorized production provisioning, Hardened
   Runtime, secure timestamps, and exact default Keychain-group validation for
-  release bundles; require notarization and stapling before distribution.
+  release bundles; require accepted notarization, stapling, ticket validation,
+  Gatekeeper assessment, and a validated final archive round trip before local
+  distribution validation.
 - Do not log secrets.
 - Do not store raw provider responses if they may contain sensitive account
   details.
