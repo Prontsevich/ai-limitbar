@@ -482,24 +482,21 @@ helper, compiles the selected `AppIcon` asset catalog into the bundle, and
 copies production SwiftPM resource bundles while excluding test bundles.
 The release packaging script builds one selected architecture at a time in
 release configuration, stages the app and helper as thin binaries, supplies
-both app bundle version keys, signs nested executables and the outer bundle
-ad-hoc, verifies the signature and metadata, then validates a round trip
-through that architecture-specific ZIP archive.
+both app bundle version keys, signs the nested helper and outer bundle with a
+caller-supplied Developer ID Application identity, enables Hardened Runtime and
+secure timestamps, embeds the matching Developer ID provisioning profile,
+verifies the authorized default Keychain group, then validates a round trip
+through that architecture-specific ZIP archive. Team-specific identity,
+profile, certificate, and private-key material remain outside the repository.
 
-The GitHub Actions workflow runs its package job on `macos-26` with read-only
-repository contents permission and builds both supported architectures.
-A manual dispatch produces a temporary Actions artifact containing both
-architecture-specific ZIPs for pre-release validation. A
-An annotated `vMAJOR.MINOR.PATCH` tag pointing to the current `main` commit
-unlocks a separate job with `contents: write`; that job publishes both already
-verified ZIPs through GitHub CLI with generated notes. The tag supplies the
-archive names and the user-facing `CFBundleShortVersionString`. Its UTC creation
-date and the tagged commit's history count produce the reproducible
-`CFBundleVersion` value `YYYYMMDD.<commit-count>`. Both architectures for one
-release receive the same build number. Manual package validation has no tag, so
-it uses the UTC workflow date with the checked-out commit's history count; its
-artifact is never published as a GitHub Release. The first published tag is
-`v0.1.0`, which created the original Apple Silicon archive.
+The GitHub Actions `Release` workflow is currently an explicit trusted-
+distribution gate. Manual dispatches and version-tag pushes fail before build,
+upload, or publication because protected CI signing, notarization, stapling,
+and Gatekeeper validation are not configured. The workflow stores no signing
+identity, provisioning profile, private key, Team ID, or notarization
+credential. Local Developer ID archives remain authorized validation artifacts
+only; restoring CI packaging and GitHub Release publication belongs to the
+separate protected-distribution work after its complete trust chain is ready.
 
 ### About AI Limitbar
 
@@ -518,20 +515,13 @@ direct e-mail, Telegram, and the existing Boosty support page. The About window
 uses the app-wide English/Russian localization alongside the other app-owned
 surfaces.
 
-This first distribution path deliberately has no Developer ID certificate,
-notarization credential, or Apple signing secret. It makes downloading simple,
-but it does not remove Gatekeeper's first-run warning for an app obtained from
-the internet. Release notes and installation instructions must say so plainly.
-Developer ID signing, notarization, stapling, and clean-Mac validation are a
-future enhancement to this same pipeline, not an implication of ad-hoc signing.
-
-Trusted direct distribution is gated by an active Apple Developer Program
-membership and verified access to the final Developer ID, Team ID, bundle
-identifier, and capability configuration. Research and entitlement inventory
-may happen before that gate, but production signing, notarization, protected CI
-credentials, final clean-Mac validation, and WidgetKit App Group registration
-must not begin until the gate is complete. Certificates, private keys, payment
-information, and notarization credentials never belong in Git, Linear, or logs.
+The Apple Developer Program gate is complete. Local release packaging now
+produces Developer ID-signed archives with authorized production Keychain
+access, but those archives are not described as trusted until notarization,
+stapling, Gatekeeper validation, protected CI, and clean-Mac checks also pass.
+Certificates, private keys, provisioning profiles, Team IDs, payment
+information, and notarization credentials never belong in Git, public docs,
+or logs; private Linear notes may record the non-secret Team ID only.
 
 ### Multi-Account Authenticated Web Research
 
@@ -867,11 +857,15 @@ the repository.
 
 A free Personal Team profile is sufficient for local verification but expires
 seven days after issuance and must be refreshed by Xcode. It is not a
-distribution identity. The existing ad-hoc release path remains explicitly
-non-credential-capable: it embeds no provisioning profile and claims no
-application-identifier or Keychain access-group entitlement. Production
-credential shipping remains gated on the separately chosen Developer ID
-signing, authorized provisioning, notarization, and clean-Mac validation path.
+distribution identity. Release staging instead requires explicit
+`AILIMITBAR_DEVELOPMENT_TEAM`, `AILIMITBAR_DEVELOPER_IDENTITY`, and
+`AILIMITBAR_PROVISIONING_PROFILE` inputs. The script verifies that the
+Developer ID profile authorizes the exact application identifier and default
+Keychain group, contains the selected certificate, and targets all macOS
+devices. It signs the helper before the app with Hardened Runtime and secure
+timestamps and requires `codesign --verify --deep --strict` before and after
+the archive round trip. Notarization, stapling, protected CI, and clean-Mac
+validation remain subsequent trusted-distribution gates.
 Platform references:
 [TN3137: On Mac keychain APIs and implementations](https://developer.apple.com/documentation/technotes/tn3137-on-mac-keychains),
 [TN3125: Inside Code Signing: Provisioning Profiles](https://developer.apple.com/documentation/technotes/tn3125-inside-code-signing-provisioning-profiles),
@@ -978,9 +972,9 @@ by default and are surfaced immediately without retry.
   items.
 - Require Apple Development signing, an embedded authorized profile, and the
   exact default Keychain group for local staged DEBUG credential verification.
-- Keep ad-hoc release bundles explicitly non-credential-capable; require the
-  future Developer ID provisioning and notarization gate before credentials
-  ship in a production build.
+- Require Developer ID signing, authorized production provisioning, Hardened
+  Runtime, secure timestamps, and exact default Keychain-group validation for
+  release bundles; require notarization and stapling before distribution.
 - Do not log secrets.
 - Do not store raw provider responses if they may contain sensitive account
   details.

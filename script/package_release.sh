@@ -36,6 +36,8 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP_NAME="AILimitBar"
 HELPER_NAME="AILimitBarClaudeStatusLine"
 EXPECTED_BUNDLE_ID="io.github.Prontsevich.AILimitBar"
+EXPECTED_TEAM="${AILIMITBAR_DEVELOPMENT_TEAM:-}"
+EXPECTED_IDENTITY="${AILIMITBAR_DEVELOPER_IDENTITY:-}"
 APP_BUNDLE="$ROOT_DIR/dist/$APP_NAME.app"
 ARCHIVE="$ROOT_DIR/dist/$APP_NAME-$VERSION-$ARCHITECTURE.zip"
 TEMP_DIRECTORY=""
@@ -67,12 +69,17 @@ validate_app_bundle() {
   local bundle_binary="$bundle/Contents/MacOS/$APP_NAME"
   local bundle_helper="$bundle/Contents/Helpers/$HELPER_NAME"
   local bundle_icon="$bundle/Contents/Resources/AppIcon.icns"
+  local bundle_profile="$bundle/Contents/embedded.provisionprofile"
   local english_strings="$bundle/Contents/Resources/en.lproj/Localizable.strings"
   local russian_strings="$bundle/Contents/Resources/ru.lproj/Localizable.strings"
+  local app_signing_state
+  local app_entitlements="$TEMP_DIRECTORY/app-entitlements.plist"
+  local helper_signing_state
 
   [[ -x "$bundle_binary" ]] || { echo "error: missing app executable" >&2; exit 1; }
   [[ -x "$bundle_helper" ]] || { echo "error: missing helper executable" >&2; exit 1; }
   [[ -s "$bundle_icon" ]] || { echo "error: missing compiled app icon" >&2; exit 1; }
+  [[ -s "$bundle_profile" ]] || { echo "error: missing Developer ID provisioning profile" >&2; exit 1; }
   [[ -s "$english_strings" ]] || { echo "error: missing English localization resources" >&2; exit 1; }
   [[ -s "$russian_strings" ]] || { echo "error: missing Russian localization resources" >&2; exit 1; }
   [[ -d "$bundle/Contents/Resources/GRDB_GRDB.bundle" ]] || {
@@ -95,22 +102,70 @@ validate_app_bundle() {
   assert_equal "$ARCHITECTURE" "$(/usr/bin/lipo -archs "$bundle_binary")" "app architecture"
   assert_equal "$ARCHITECTURE" "$(/usr/bin/lipo -archs "$bundle_helper")" "helper architecture"
 
-  /usr/bin/codesign --verify --deep --strict "$bundle"
+  /usr/bin/codesign --verify --deep --strict --verbose=2 "$bundle"
+  app_signing_state="$(/usr/bin/codesign -dvvv "$bundle" 2>&1)"
+  helper_signing_state="$(/usr/bin/codesign -dvvv "$bundle_helper" 2>&1)"
+  /usr/bin/codesign \
+    --display \
+    --entitlements - \
+    --xml \
+    "$bundle" \
+    >"$app_entitlements" \
+    2>/dev/null
+  /bin/bash \
+    "$ROOT_DIR/script/validate_release_entitlements.sh" \
+    "$app_entitlements" \
+    "$EXPECTED_TEAM" \
+    "$EXPECTED_BUNDLE_ID"
+
+  [[ "$app_signing_state" == *"Authority=$EXPECTED_IDENTITY"* ]] || {
+    echo "error: app is not Developer ID signed" >&2
+    exit 1
+  }
+  [[ "$app_signing_state" == *"TeamIdentifier=$EXPECTED_TEAM"* ]] || {
+    echo "error: app signature contains an unexpected team" >&2
+    exit 1
+  }
+  [[ "$app_signing_state" == *"flags="*"runtime"* ]] || {
+    echo "error: app signature is missing Hardened Runtime" >&2
+    exit 1
+  }
+  [[ "$app_signing_state" == *"Timestamp="* ]] || {
+    echo "error: app signature is missing a secure timestamp" >&2
+    exit 1
+  }
+  [[ "$helper_signing_state" == *"Authority=$EXPECTED_IDENTITY"* ]] || {
+    echo "error: helper is not Developer ID signed" >&2
+    exit 1
+  }
+  [[ "$helper_signing_state" == *"TeamIdentifier=$EXPECTED_TEAM"* ]] || {
+    echo "error: helper signature contains an unexpected team" >&2
+    exit 1
+  }
+  [[ "$helper_signing_state" == *"flags="*"runtime"* ]] || {
+    echo "error: helper signature is missing Hardened Runtime" >&2
+    exit 1
+  }
+  [[ "$helper_signing_state" == *"Timestamp="* ]] || {
+    echo "error: helper signature is missing a secure timestamp" >&2
+    exit 1
+  }
 }
 
+TEMP_DIRECTORY="$(mktemp -d "${TMPDIR:-/tmp}/AILimitBar-release.XXXXXX")"
 validate_app_bundle "$APP_BUNDLE"
 
 rm -f "$ARCHIVE"
 /usr/bin/ditto -c -k --sequesterRsrc --keepParent "$APP_BUNDLE" "$ARCHIVE"
 [[ -s "$ARCHIVE" ]] || { echo "error: release archive was not created" >&2; exit 1; }
 
-TEMP_DIRECTORY="$(mktemp -d "${TMPDIR:-/tmp}/AILimitBar-release.XXXXXX")"
-
-/usr/bin/ditto -x -k "$ARCHIVE" "$TEMP_DIRECTORY"
-EXTRACTED_APP="$TEMP_DIRECTORY/$APP_NAME.app"
+EXTRACTION_DIRECTORY="$TEMP_DIRECTORY/archive"
+mkdir -p "$EXTRACTION_DIRECTORY"
+/usr/bin/ditto -x -k "$ARCHIVE" "$EXTRACTION_DIRECTORY"
+EXTRACTED_APP="$EXTRACTION_DIRECTORY/$APP_NAME.app"
 [[ -d "$EXTRACTED_APP" ]] || { echo "error: archive does not expand to $APP_NAME.app" >&2; exit 1; }
 
-if find "$TEMP_DIRECTORY" -mindepth 1 -maxdepth 1 \
+if find "$EXTRACTION_DIRECTORY" -mindepth 1 -maxdepth 1 \
   ! -name "$APP_NAME.app" \
   ! -name '__MACOSX' \
   -print -quit | grep -q .; then

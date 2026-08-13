@@ -102,12 +102,29 @@ LOCAL_SIGNING_PROJECT="$ROOT_DIR/Support/LocalSigning/AILimitBarLocalSigning.xco
 LOCAL_SIGNING_SCHEME="AILimitBarLocalSigning"
 LOCAL_SIGNING_DERIVED_DATA="$ROOT_DIR/.build/local-signing"
 DEVELOPMENT_TEAM="${AILIMITBAR_DEVELOPMENT_TEAM:-}"
+DEVELOPER_IDENTITY="${AILIMITBAR_DEVELOPER_IDENTITY:-}"
+PROVISIONING_PROFILE="${AILIMITBAR_PROVISIONING_PROFILE:-}"
 
 if [[ "$CONFIGURATION" == "debug" && -z "$DEVELOPMENT_TEAM" ]]; then
   echo "error: DEBUG staging requires AILIMITBAR_DEVELOPMENT_TEAM." >&2
   echo "Set it to your Apple Development Team ID, for example:" >&2
   echo "  AILIMITBAR_DEVELOPMENT_TEAM=YOUR_TEAM_ID $0 --configuration debug" >&2
   exit 1
+fi
+
+if [[ "$CONFIGURATION" == "release" ]]; then
+  if [[ -z "$DEVELOPMENT_TEAM" ]]; then
+    echo "error: RELEASE staging requires AILIMITBAR_DEVELOPMENT_TEAM." >&2
+    exit 1
+  fi
+  if [[ -z "$DEVELOPER_IDENTITY" ]]; then
+    echo "error: RELEASE staging requires AILIMITBAR_DEVELOPER_IDENTITY." >&2
+    exit 1
+  fi
+  if [[ -z "$PROVISIONING_PROFILE" || ! -f "$PROVISIONING_PROFILE" ]]; then
+    echo "error: RELEASE staging requires an existing AILIMITBAR_PROVISIONING_PROFILE." >&2
+    exit 1
+  fi
 fi
 
 BUILD_ARGS=(--configuration "$CONFIGURATION")
@@ -361,11 +378,162 @@ if [[ "$CONFIGURATION" == "debug" ]]; then
     --generate-entitlement-der \
     "$APP_BUNDLE"
 else
-  rm -f "$APP_CONTENTS/embedded.provisionprofile"
-  /usr/bin/codesign --force --sign - --timestamp=none "$HELPER_BINARY"
-  /usr/bin/codesign --force --sign - --timestamp=none "$APP_BUNDLE"
+  SIGNING_TEMP_DIRECTORY="$(mktemp -d "${TMPDIR:-/tmp}/AILimitBar-signing.XXXXXX")"
+  SIGNING_ENTITLEMENTS="$SIGNING_TEMP_DIRECTORY/entitlements.plist"
+  SIGNING_PROFILE_PLIST="$SIGNING_TEMP_DIRECTORY/profile.plist"
+  PROFILE_CERTIFICATE_BASE64="$SIGNING_TEMP_DIRECTORY/profile-certificate.base64"
+  PROFILE_CERTIFICATE_DER="$SIGNING_TEMP_DIRECTORY/profile-certificate.der"
+  STAGED_ENTITLEMENTS="$SIGNING_TEMP_DIRECTORY/staged-entitlements.plist"
+
+  /usr/bin/security cms \
+    -D \
+    -i "$PROVISIONING_PROFILE" \
+    -o "$SIGNING_PROFILE_PLIST"
+  /usr/bin/plutil -lint "$SIGNING_PROFILE_PLIST" >/dev/null
+
+  PROFILE_NAME="$(
+    /usr/libexec/PlistBuddy -c "Print :Name" "$SIGNING_PROFILE_PLIST"
+  )"
+  PROFILE_TEAM="$(
+    /usr/libexec/PlistBuddy \
+      -c "Print :TeamIdentifier:0" \
+      "$SIGNING_PROFILE_PLIST"
+  )"
+  PROFILE_PLATFORM="$(
+    /usr/libexec/PlistBuddy -c "Print :Platform:0" "$SIGNING_PROFILE_PLIST"
+  )"
+  PROFILE_ALL_DEVICES="$(
+    /usr/libexec/PlistBuddy \
+      -c "Print :ProvisionsAllDevices" \
+      "$SIGNING_PROFILE_PLIST"
+  )"
+  PROFILE_APP_IDENTIFIER="$(
+    /usr/libexec/PlistBuddy \
+      -c "Print :Entitlements:com.apple.application-identifier" \
+      "$SIGNING_PROFILE_PLIST"
+  )"
+  PROFILE_SIGNED_TEAM="$(
+    /usr/libexec/PlistBuddy \
+      -c "Print :Entitlements:com.apple.developer.team-identifier" \
+      "$SIGNING_PROFILE_PLIST"
+  )"
+  PROFILE_KEYCHAIN_GROUPS="$(
+    /usr/bin/plutil \
+      -extract "Entitlements.keychain-access-groups" \
+      json \
+      -o - \
+      "$SIGNING_PROFILE_PLIST"
+  )"
+  EXPECTED_APP_IDENTIFIER="$DEVELOPMENT_TEAM.$BUNDLE_ID"
+
+  [[ "$PROFILE_TEAM" == "$DEVELOPMENT_TEAM" ]] || {
+    echo "error: Developer ID profile belongs to an unexpected team" >&2
+    exit 1
+  }
+  [[ "$PROFILE_SIGNED_TEAM" == "$DEVELOPMENT_TEAM" ]] || {
+    echo "error: Developer ID profile authorizes an unexpected signing team" >&2
+    exit 1
+  }
+  [[ "$PROFILE_PLATFORM" == "OSX" ]] || {
+    echo "error: Developer ID profile is not a macOS profile" >&2
+    exit 1
+  }
+  [[ "$PROFILE_ALL_DEVICES" == "true" ]] || {
+    echo "error: release profile is not a Developer ID profile" >&2
+    exit 1
+  }
+  [[ "$PROFILE_APP_IDENTIFIER" == "$EXPECTED_APP_IDENTIFIER" ]] || {
+    echo "error: Developer ID profile does not authorize the app identifier" >&2
+    exit 1
+  }
+  if [[ "$PROFILE_KEYCHAIN_GROUPS" != *"\"$EXPECTED_APP_IDENTIFIER\""* &&
+        "$PROFILE_KEYCHAIN_GROUPS" != *"\"$DEVELOPMENT_TEAM.*\""* ]]; then
+    echo "error: Developer ID profile does not authorize the Keychain group" >&2
+    exit 1
+  fi
+
+  PROFILE_CERTIFICATE_COUNT="$(
+    /usr/bin/plutil \
+      -extract DeveloperCertificates \
+      xml1 \
+      -o - \
+      "$SIGNING_PROFILE_PLIST" |
+      /usr/bin/grep -c '<data>'
+  )"
+  [[ "$PROFILE_CERTIFICATE_COUNT" == "1" ]] || {
+    echo "error: Developer ID profile must contain exactly one certificate" >&2
+    exit 1
+  }
+  /usr/bin/plutil \
+    -extract DeveloperCertificates.0 \
+    raw \
+    -o "$PROFILE_CERTIFICATE_BASE64" \
+    "$SIGNING_PROFILE_PLIST"
+  /usr/bin/base64 \
+    -D \
+    -i "$PROFILE_CERTIFICATE_BASE64" \
+    -o "$PROFILE_CERTIFICATE_DER"
+  PROFILE_CERTIFICATE_SHA1="$(
+    /usr/bin/openssl x509 \
+      -inform DER \
+      -in "$PROFILE_CERTIFICATE_DER" \
+      -noout \
+      -fingerprint \
+      -sha1 |
+      /usr/bin/cut -d= -f2 |
+      /usr/bin/tr -d ':'
+  )"
+  SIGNING_IDENTITY_SHA1="$(
+    /usr/bin/security find-identity -p codesigning -v |
+      /usr/bin/awk -v identity="\"$DEVELOPER_IDENTITY\"" \
+        'index($0, identity) { print $2; exit }'
+  )"
+  [[ -n "$SIGNING_IDENTITY_SHA1" ]] || {
+    echo "error: Developer ID signing identity was not found" >&2
+    exit 1
+  }
+  [[ "$SIGNING_IDENTITY_SHA1" == "$PROFILE_CERTIFICATE_SHA1" ]] || {
+    echo "error: Developer ID profile does not contain the selected identity" >&2
+    exit 1
+  }
+
+  cat >"$SIGNING_ENTITLEMENTS" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>com.apple.application-identifier</key>
+  <string>$EXPECTED_APP_IDENTIFIER</string>
+  <key>com.apple.developer.team-identifier</key>
+  <string>$DEVELOPMENT_TEAM</string>
+  <key>keychain-access-groups</key>
+  <array>
+    <string>$EXPECTED_APP_IDENTIFIER</string>
+  </array>
+</dict>
+</plist>
+PLIST
+  /usr/bin/plutil -lint "$SIGNING_ENTITLEMENTS" >/dev/null
+
+  cp "$PROVISIONING_PROFILE" "$APP_CONTENTS/embedded.provisionprofile"
+  /usr/bin/codesign \
+    --force \
+    --sign "$DEVELOPER_IDENTITY" \
+    --identifier "$BUNDLE_ID.ClaudeStatusLine" \
+    --options runtime \
+    --timestamp \
+    "$HELPER_BINARY"
+  /usr/bin/codesign \
+    --force \
+    --sign "$DEVELOPER_IDENTITY" \
+    --identifier "$BUNDLE_ID" \
+    --entitlements "$SIGNING_ENTITLEMENTS" \
+    --options runtime \
+    --timestamp \
+    --generate-entitlement-der \
+    "$APP_BUNDLE"
 fi
-/usr/bin/codesign --verify --deep --strict "$APP_BUNDLE"
+/usr/bin/codesign --verify --deep --strict --verbose=2 "$APP_BUNDLE"
 
 if [[ "$CONFIGURATION" == "debug" ]]; then
   /usr/bin/codesign \
@@ -386,17 +554,86 @@ if [[ "$CONFIGURATION" == "debug" ]]; then
   )"
   echo "Staged $APP_BUNDLE (Apple Development; profile expires $PROFILE_EXPIRATION)"
 else
+  /usr/bin/codesign \
+    --display \
+    --entitlements - \
+    --xml \
+    "$APP_BUNDLE" \
+    >"$STAGED_ENTITLEMENTS" \
+    2>/dev/null
+  /bin/bash \
+    "$ROOT_DIR/script/validate_release_entitlements.sh" \
+    "$STAGED_ENTITLEMENTS" \
+    "$DEVELOPMENT_TEAM" \
+    "$BUNDLE_ID"
+  STAGED_APP_IDENTIFIER="$(
+    /usr/libexec/PlistBuddy \
+      -c "Print :com.apple.application-identifier" \
+      "$STAGED_ENTITLEMENTS"
+  )"
+  STAGED_TEAM="$(
+    /usr/libexec/PlistBuddy \
+      -c "Print :com.apple.developer.team-identifier" \
+      "$STAGED_ENTITLEMENTS"
+  )"
+  STAGED_KEYCHAIN_GROUP="$(
+    /usr/libexec/PlistBuddy \
+      -c "Print :keychain-access-groups:0" \
+      "$STAGED_ENTITLEMENTS"
+  )"
+  [[ "$STAGED_APP_IDENTIFIER" == "$EXPECTED_APP_IDENTIFIER" ]] || {
+    echo "error: staged release contains an unexpected app identifier" >&2
+    exit 1
+  }
+  [[ "$STAGED_TEAM" == "$DEVELOPMENT_TEAM" ]] || {
+    echo "error: staged release contains an unexpected signing team" >&2
+    exit 1
+  }
+  [[ "$STAGED_KEYCHAIN_GROUP" == "$EXPECTED_APP_IDENTIFIER" ]] || {
+    echo "error: staged release contains an unexpected Keychain group" >&2
+    exit 1
+  }
   RELEASE_SIGNING_STATE="$(
     /usr/bin/codesign -dvvv --entitlements :- "$APP_BUNDLE" 2>&1
   )"
-  [[ ! -e "$APP_CONTENTS/embedded.provisionprofile" ]] || {
-    echo "error: ad-hoc release must not embed a development profile" >&2
+  HELPER_SIGNING_STATE="$(
+    /usr/bin/codesign -dvvv "$HELPER_BINARY" 2>&1
+  )"
+  [[ -f "$APP_CONTENTS/embedded.provisionprofile" ]] || {
+    echo "error: Developer ID release is missing its provisioning profile" >&2
     exit 1
   }
-  if [[ "$RELEASE_SIGNING_STATE" == *"com.apple.application-identifier"* ||
-        "$RELEASE_SIGNING_STATE" == *"keychain-access-groups"* ]]; then
-    echo "error: ad-hoc release must remain non-credential-capable" >&2
+  [[ "$RELEASE_SIGNING_STATE" == *"Authority=$DEVELOPER_IDENTITY"* ]] || {
+    echo "error: app is not signed by the requested Developer ID identity" >&2
     exit 1
-  fi
-  echo "Staged $APP_BUNDLE (non-credential-capable ad-hoc release)"
+  }
+  [[ "$RELEASE_SIGNING_STATE" == *"TeamIdentifier=$DEVELOPMENT_TEAM"* ]] || {
+    echo "error: app signature contains an unexpected team" >&2
+    exit 1
+  }
+  [[ "$RELEASE_SIGNING_STATE" == *"flags="*"runtime"* ]] || {
+    echo "error: app signature is missing Hardened Runtime" >&2
+    exit 1
+  }
+  [[ "$RELEASE_SIGNING_STATE" == *"Timestamp="* ]] || {
+    echo "error: app signature is missing a secure timestamp" >&2
+    exit 1
+  }
+  [[ "$HELPER_SIGNING_STATE" == *"Authority=$DEVELOPER_IDENTITY"* ]] || {
+    echo "error: helper is not signed by the requested Developer ID identity" >&2
+    exit 1
+  }
+  [[ "$HELPER_SIGNING_STATE" == *"TeamIdentifier=$DEVELOPMENT_TEAM"* ]] || {
+    echo "error: helper signature contains an unexpected team" >&2
+    exit 1
+  }
+  [[ "$HELPER_SIGNING_STATE" == *"flags="*"runtime"* ]] || {
+    echo "error: helper signature is missing Hardened Runtime" >&2
+    exit 1
+  }
+  [[ "$HELPER_SIGNING_STATE" == *"Timestamp="* ]] || {
+    echo "error: helper signature is missing a secure timestamp" >&2
+    exit 1
+  }
+  echo "Staged $APP_BUNDLE (Developer ID; profile $PROFILE_NAME)"
 fi

@@ -445,10 +445,11 @@ Xcode-managed Mac development provisioning profile that authorizes the exact
 application identifier and default Keychain group. Personal Team profiles are
 valid for seven days and are refreshed through Xcode automatic signing. The
 caller supplies its team explicitly through `AILIMITBAR_DEVELOPMENT_TEAM`; no
-developer Team ID is stored in the repository. The ad-hoc release path claims
-neither restricted entitlement and is explicitly non-credential-capable;
-production credential distribution remains a separate Developer ID
-provisioning and notarization gate.
+developer Team ID is stored in the repository. Release staging requires a
+caller-supplied Developer ID Application identity and matching Developer ID
+provisioning profile, then validates the exact application identifier and
+default Keychain group before signing with Hardened Runtime and a secure
+timestamp. Notarization and stapling remain required before distribution.
 
 SQLite and Keychain cannot participate in one atomic transaction, so lifecycle
 states make their partial-failure boundary explicit. All operations for one

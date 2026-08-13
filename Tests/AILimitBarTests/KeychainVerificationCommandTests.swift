@@ -170,40 +170,217 @@ final class KeychainVerificationCommandTests: XCTestCase {
         }
         XCTAssertTrue(
             agents.contains(
-                "Release staging remains ad-hoc and explicitly non-credential-capable"
+                "Release staging requires an explicit Developer ID Application identity"
             )
         )
         XCTAssertTrue(contributing.contains("Apple Development"))
         XCTAssertTrue(contributing.contains("Xcode-managed provisioning profile"))
+        XCTAssertTrue(contributing.contains("AILIMITBAR_DEVELOPER_IDENTITY"))
+        XCTAssertTrue(contributing.contains("AILIMITBAR_PROVISIONING_PROFILE"))
         XCTAssertTrue(
             contributing.contains(
-                "Release staging remains ad-hoc and non-credential-capable"
+                "These archives are Developer ID signed"
             )
         )
     }
 
-    func testReleaseStagingIsExplicitlyNonCredentialCapable() throws {
+    func testReleaseStagingRequiresAuthorizedDeveloperIDSigning() throws {
         let script = try String(
             contentsOf: repositoryRoot
                 .appendingPathComponent("script/stage_app_bundle.sh"),
             encoding: .utf8
         )
 
+        XCTAssertTrue(script.contains("AILIMITBAR_DEVELOPER_IDENTITY"))
+        XCTAssertTrue(script.contains("AILIMITBAR_PROVISIONING_PROFILE"))
+        XCTAssertTrue(script.contains("ProvisionsAllDevices"))
+        XCTAssertTrue(script.contains("DeveloperCertificates.0"))
+        XCTAssertTrue(script.contains("PROFILE_CERTIFICATE_SHA1"))
+        XCTAssertTrue(script.contains("--options runtime"))
+        XCTAssertTrue(script.contains("--timestamp"))
+        XCTAssertTrue(script.contains("com.apple.application-identifier"))
+        XCTAssertTrue(script.contains("com.apple.developer.team-identifier"))
+        XCTAssertTrue(script.contains("keychain-access-groups"))
         XCTAssertTrue(
             script.contains(
-                "rm -f \"$APP_CONTENTS/embedded.provisionprofile\""
+                "script/validate_release_entitlements.sh"
             )
         )
         XCTAssertTrue(
             script.contains(
-                "error: ad-hoc release must remain non-credential-capable"
+                "Staged $APP_BUNDLE (Developer ID; profile $PROFILE_NAME)"
             )
         )
-        XCTAssertTrue(
-            script.contains(
-                "Staged $APP_BUNDLE (non-credential-capable ad-hoc release)"
-            )
+        XCTAssertFalse(script.contains("--sign - --timestamp=none"))
+        XCTAssertFalse(script.contains("non-credential-capable ad-hoc release"))
+    }
+
+    func testReleasePackagingRevalidatesDeveloperIDAfterArchiveRoundTrip() throws {
+        let script = try String(
+            contentsOf: repositoryRoot
+                .appendingPathComponent("script/package_release.sh"),
+            encoding: .utf8
         )
+
+        XCTAssertTrue(script.contains("embedded.provisionprofile"))
+        XCTAssertTrue(script.contains("Authority=$EXPECTED_IDENTITY"))
+        XCTAssertTrue(script.contains("TeamIdentifier=$EXPECTED_TEAM"))
+        XCTAssertTrue(script.contains("flags="))
+        XCTAssertTrue(script.contains("runtime"))
+        XCTAssertTrue(script.contains("Timestamp="))
+        XCTAssertTrue(script.contains("script/validate_release_entitlements.sh"))
+        XCTAssertTrue(script.contains("codesign --verify --deep --strict"))
+    }
+
+    func testReleaseEntrypointFailsClosedWithoutSigningInputs() throws {
+        let script = repositoryRoot
+            .appendingPathComponent("script/package_release.sh")
+        let removedEnvironment: Set<String> = [
+            "AILIMITBAR_DEVELOPMENT_TEAM",
+            "AILIMITBAR_DEVELOPER_IDENTITY",
+            "AILIMITBAR_PROVISIONING_PROFILE"
+        ]
+        let cases: [([String: String], String)] = [
+            (
+                [:],
+                "RELEASE staging requires AILIMITBAR_DEVELOPMENT_TEAM."
+            ),
+            (
+                ["AILIMITBAR_DEVELOPMENT_TEAM": "TEST_TEAM"],
+                "RELEASE staging requires AILIMITBAR_DEVELOPER_IDENTITY."
+            ),
+            (
+                [
+                    "AILIMITBAR_DEVELOPMENT_TEAM": "TEST_TEAM",
+                    "AILIMITBAR_DEVELOPER_IDENTITY":
+                        "Developer ID Application: Test Identity (TEST_TEAM)"
+                ],
+                "RELEASE staging requires an existing AILIMITBAR_PROVISIONING_PROFILE."
+            )
+        ]
+
+        for (environment, expectedError) in cases {
+            let result = try runScript(
+                script,
+                arguments: ["0.2.0", "1", "arm64"],
+                removingEnvironment: removedEnvironment,
+                environmentOverrides: environment
+            )
+
+            XCTAssertNotEqual(result.status, 0)
+            XCTAssertTrue(
+                result.output.contains(expectedError),
+                result.output
+            )
+        }
+    }
+
+    func testReleaseEntitlementValidatorIsExactAndOrderIndependent() throws {
+        let directory = temporaryDirectory()
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let appIdentifier = "TEST_TEAM.io.example.AILimitBar"
+        let appIdentifierEntry = """
+          <key>com.apple.application-identifier</key>
+          <string>\(appIdentifier)</string>
+        """
+        let teamEntry = """
+          <key>com.apple.developer.team-identifier</key>
+          <string>TEST_TEAM</string>
+        """
+        let keychainEntry = """
+          <key>keychain-access-groups</key>
+          <array>
+            <string>\(appIdentifier)</string>
+          </array>
+        """
+        let validator = repositoryRoot
+            .appendingPathComponent("script/validate_release_entitlements.sh")
+
+        for (name, entries) in [
+            ("expected-order", [appIdentifierEntry, teamEntry, keychainEntry]),
+            ("reordered", [keychainEntry, appIdentifierEntry, teamEntry])
+        ] {
+            let fixture = try writeEntitlements(
+                entries,
+                name: name,
+                directory: directory
+            )
+            let result = try runScript(
+                validator,
+                arguments: [fixture.path, "TEST_TEAM", "io.example.AILimitBar"]
+            )
+            XCTAssertEqual(result.status, 0, "\(name): \(result.output)")
+        }
+
+        let invalidFixtures: [(String, [String])] = [
+            ("missing-team", [appIdentifierEntry, keychainEntry]),
+            (
+                "wrong-value",
+                [
+                    appIdentifierEntry.replacingOccurrences(
+                        of: appIdentifier,
+                        with: "TEST_TEAM.io.example.Other"
+                    ),
+                    teamEntry,
+                    keychainEntry
+                ]
+            ),
+            (
+                "extra-key",
+                [
+                    appIdentifierEntry,
+                    teamEntry,
+                    keychainEntry,
+                    "<key>unexpected</key><dict><key>nested</key><true/></dict>"
+                ]
+            ),
+            (
+                "extra-keychain-group",
+                [
+                    appIdentifierEntry,
+                    teamEntry,
+                    """
+                      <key>keychain-access-groups</key>
+                      <array>
+                        <string>\(appIdentifier)</string>
+                        <string>TEST_TEAM.io.example.Other</string>
+                      </array>
+                    """
+                ]
+            )
+        ]
+
+        for (name, entries) in invalidFixtures {
+            let fixture = try writeEntitlements(
+                entries,
+                name: name,
+                directory: directory
+            )
+            let result = try runScript(
+                validator,
+                arguments: [fixture.path, "TEST_TEAM", "io.example.AILimitBar"]
+            )
+            XCTAssertNotEqual(result.status, 0, "\(name) unexpectedly passed")
+        }
+    }
+
+    func testReleaseWorkflowFailsClosedUntilTrustedDistributionIsConfigured() throws {
+        let workflow = try String(
+            contentsOf: repositoryRoot
+                .appendingPathComponent(".github/workflows/release.yml"),
+            encoding: .utf8
+        )
+
+        XCTAssertTrue(workflow.contains("Trusted distribution is disabled"))
+        XCTAssertTrue(workflow.contains("exit 1"))
+        XCTAssertFalse(workflow.contains("./script/package_release.sh"))
+        XCTAssertFalse(workflow.contains("gh release create"))
+        XCTAssertFalse(workflow.contains("ad-hoc signed"))
     }
 
     private var repositoryRoot: URL {
@@ -216,6 +393,57 @@ final class KeychainVerificationCommandTests: XCTestCase {
     private func temporaryDirectory() -> URL {
         FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    }
+
+    private func writeEntitlements(
+        _ entries: [String],
+        name: String,
+        directory: URL
+    ) throws -> URL {
+        let url = directory.appendingPathComponent("\(name).plist")
+        let plist = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+        \(entries.joined(separator: "\n"))
+        </dict>
+        </plist>
+        """
+        try plist.write(to: url, atomically: true, encoding: .utf8)
+        return url
+    }
+
+    private func runScript(
+        _ script: URL,
+        arguments: [String],
+        removingEnvironment removedKeys: Set<String> = [],
+        environmentOverrides: [String: String] = [:]
+    ) throws -> (status: Int32, output: String) {
+        let process = Process()
+        let output = Pipe()
+        var environment = ProcessInfo.processInfo.environment
+        for key in removedKeys {
+            environment.removeValue(forKey: key)
+        }
+        for (key, value) in environmentOverrides {
+            environment[key] = value
+        }
+
+        process.executableURL = URL(fileURLWithPath: "/bin/bash")
+        process.arguments = [script.path] + arguments
+        process.currentDirectoryURL = repositoryRoot
+        process.environment = environment
+        process.standardOutput = output
+        process.standardError = output
+        try process.run()
+        process.waitUntilExit()
+
+        let data = output.fileHandleForReading.readDataToEndOfFile()
+        return (
+            process.terminationStatus,
+            String(decoding: data, as: UTF8.self)
+        )
     }
 }
 

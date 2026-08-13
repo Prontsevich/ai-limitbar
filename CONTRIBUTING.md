@@ -37,21 +37,29 @@ check and must be performed manually.
 Create locally validated architecture-specific release archives:
 
 ```zsh
-./script/package_release.sh 0.2.0 arm64
-./script/package_release.sh 0.2.0 x86_64
+export AILIMITBAR_DEVELOPMENT_TEAM=YOUR_TEAM_ID
+export AILIMITBAR_DEVELOPER_IDENTITY="Developer ID Application: YOUR_NAME (YOUR_TEAM_ID)"
+export AILIMITBAR_PROVISIONING_PROFILE=/private/path/AILimitBar.provisionprofile
+./script/package_release.sh 0.2.0 20260813.1 arm64
+./script/package_release.sh 0.2.0 20260813.1 x86_64
 ```
 
-The `Release` GitHub Actions workflow can be run manually to validate a package
-before publication. A tag in `vMAJOR.MINOR.PATCH` format publishes the matching
-archive automatically. Release tags must point to commits contained in `main`:
+Release staging fails closed unless the selected Developer ID identity matches
+the single certificate in the supplied Developer ID provisioning profile. It
+signs the bundled helper and outer app with Hardened Runtime and secure
+timestamps, embeds the profile that authorizes the app's default Keychain
+group, and revalidates the signature after the ZIP round trip. The identity,
+profile, private key, Team ID, and future notarization credentials stay outside
+the repository.
 
-```zsh
-git tag -a v0.2.0 -m "AI Limitbar 0.2.0"
-git push origin v0.2.0
-```
-
-Release staging remains ad-hoc and non-credential-capable pending the separate
-distribution signing, authorized provisioning, and notarization gate.
+These archives are Developer ID signed but are not trusted release artifacts
+until Apple notarization, stapling, and Gatekeeper validation also succeed.
+The `Release` GitHub Actions workflow intentionally fails closed for both
+manual dispatches and version tags: protected CI signing, notarization,
+stapling, and Gatekeeper validation are not configured yet, so the workflow
+must not package, upload, or publish an artifact. Local archives are for
+authorized validation only and must not be represented as downloadable trusted
+releases.
 
 ## Architecture
 

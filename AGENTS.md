@@ -23,9 +23,12 @@ The run script builds the SwiftPM product, stages the DEBUG `.app` bundle in
 `AILIMITBAR_DEVELOPMENT_TEAM`; Xcode automatic signing supplies an installed
 Apple Development identity and an Xcode-managed profile that authorizes the
 restricted application-identifier and default Keychain-group entitlements.
-Release staging remains ad-hoc and explicitly non-credential-capable pending
-the separate distribution signing and notarization gate. All run modes use the
-same bundle shape.
+Release staging requires an explicit Developer ID Application identity and a
+matching Developer ID provisioning profile supplied outside the repository. It
+signs the helper before the app, enables Hardened Runtime, requests secure
+timestamps, and preserves the authorized default Keychain group. Notarization
+and stapling remain a separate release step. All run modes use the same bundle
+shape.
 
 ## Architecture
 

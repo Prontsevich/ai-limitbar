@@ -218,8 +218,10 @@ inside the app's provisioned default Keychain group, so local staged
 verification requires Apple Development signing and an embedded authorized
 profile. The local developer supplies its Team ID explicitly through
 `AILIMITBAR_DEVELOPMENT_TEAM`; the repository stores no team-specific value.
-The ad-hoc release bundle remains non-credential-capable until the separate
-production signing and notarization gate is complete.
+Release staging accepts the Developer ID identity and matching provisioning
+profile only through explicit caller-owned inputs, validates the exact default
+Keychain group, and signs with Hardened Runtime and a secure timestamp.
+Notarization and stapling remain required before distribution.
 
 Each ordinary slot attaches to one app-owned `credential` child context. The
 optional management slot attaches to the saved billing-account root, so its
