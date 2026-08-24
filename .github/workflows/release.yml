@@ -1,7 +1,6 @@
 name: Release
 
-run-name: >-
-  ${{ github.event_name == 'workflow_dispatch' && format('Distribution gate {0}', inputs.version) || format('Distribution gate {0}', github.ref_name) }}
+run-name: Protected release validation ${{ inputs.version }} (${{ inputs.build_number }})
 
 on:
   workflow_dispatch:
@@ -11,25 +10,177 @@ on:
         required: true
         default: 0.2.0
         type: string
-  push:
-    tags:
-      - 'v*'
+      build_number:
+        description: Bundle build number with one to three numeric components
+        required: true
+        type: string
 
 permissions:
   contents: read
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: protected-release-${{ inputs.version }}-${{ inputs.build_number }}
   cancel-in-progress: false
 
 jobs:
-  trusted-distribution-gate:
-    name: Trusted distribution is disabled
+  authorize:
+    name: Authorize protected main-branch dispatch
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Block unsigned or unnotarized publication
+      - name: Reject untrusted dispatch context
+        env:
+          RELEASE_EVENT_NAME: ${{ github.event_name }}
+          RELEASE_REF: ${{ github.ref }}
+          RELEASE_REF_PROTECTED: ${{ github.ref_protected }}
+          RELEASE_VERSION: ${{ inputs.version }}
+          RELEASE_BUILD_NUMBER: ${{ inputs.build_number }}
         run: |
-          echo "::error::Trusted distribution is disabled until protected CI signing, notarization, stapling, and Gatekeeper validation are configured."
-          echo "The local Developer ID packaging script is for authorized local validation only."
-          exit 1
+          set -euo pipefail
+          [[ "$RELEASE_EVENT_NAME" == "workflow_dispatch" ]] || {
+            echo "::error::Release validation is manual-only."
+            exit 1
+          }
+          [[ "$RELEASE_REF" == "refs/heads/main" ]] || {
+            echo "::error::Release validation requires the main branch."
+            exit 1
+          }
+          [[ "$RELEASE_REF_PROTECTED" == "true" ]] || {
+            echo "::error::Release validation requires a protected main ref."
+            exit 1
+          }
+          [[ "$RELEASE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+            echo "::error::Version must use MAJOR.MINOR.PATCH."
+            exit 1
+          }
+          [[ "$RELEASE_BUILD_NUMBER" =~ ^[0-9]+(\.[0-9]+){0,2}$ ]] || {
+            echo "::error::Build number must contain one to three numeric components."
+            exit 1
+          }
+
+  build-notarized-artifacts:
+    name: Build ${{ matrix.architecture }} notarized artifact
+    needs: authorize
+    environment:
+      name: protected-release
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - architecture: arm64
+            runner: macos-15
+          - architecture: x86_64
+            runner: macos-15-intel
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    env:
+      AILIMITBAR_CI_PRIVATE_DIRECTORY: ${{ runner.temp }}/AILimitBar-ci-release-private
+      AILIMITBAR_CI_KEYCHAIN_PATH: ${{ runner.temp }}/AILimitBar-ci-release.keychain-db
+    steps:
+      - name: Check out protected source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Select installed Xcode 26 toolchain
+        run: |
+          set -euo pipefail
+          xcode_candidates=(/Applications/Xcode_26*.app)
+          xcode_path="${xcode_candidates[${#xcode_candidates[@]} - 1]}"
+          developer_directory="$xcode_path/Contents/Developer"
+          [[ -x "$developer_directory/usr/bin/xcodebuild" ]] || {
+            echo "::error::An installed Xcode 26 toolchain is required."
+            exit 1
+          }
+          xcode_version="$(
+            DEVELOPER_DIR="$developer_directory" \
+              /usr/bin/xcodebuild -version | /usr/bin/head -n 1
+          )"
+          [[ "$xcode_version" == "Xcode 26"* ]] || {
+            echo "::error::The selected toolchain is not Xcode 26."
+            exit 1
+          }
+          printf 'DEVELOPER_DIR=%s\n' "$developer_directory" >>"$GITHUB_ENV"
+
+      - name: Configure ephemeral release credentials
+        env:
+          AILIMITBAR_CI_DEVELOPER_ID_P12_BASE64: ${{ secrets.DEVELOPER_ID_P12_BASE64 }}
+          AILIMITBAR_CI_DEVELOPER_ID_P12_PASSWORD: ${{ secrets.DEVELOPER_ID_P12_PASSWORD }}
+          AILIMITBAR_CI_PROVISIONING_PROFILE_BASE64: ${{ secrets.DEVELOPER_ID_PROVISIONING_PROFILE_BASE64 }}
+          AILIMITBAR_CI_NOTARYTOOL_APPLE_ID: ${{ secrets.NOTARYTOOL_APPLE_ID }}
+          AILIMITBAR_CI_NOTARYTOOL_TEAM_ID: ${{ secrets.NOTARYTOOL_TEAM_ID }}
+          AILIMITBAR_CI_NOTARYTOOL_PASSWORD: ${{ secrets.NOTARYTOOL_PASSWORD }}
+        run: /bin/bash script/setup_ci_release_credentials.sh
+
+      - name: Build, notarize, and staple release
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+          RELEASE_BUILD_NUMBER: ${{ inputs.build_number }}
+          RELEASE_ARCHITECTURE: ${{ matrix.architecture }}
+        run: |
+          set -euo pipefail
+          pipeline_log="$AILIMITBAR_CI_PRIVATE_DIRECTORY/release-pipeline.log"
+          if ! TMPDIR="$AILIMITBAR_CI_PRIVATE_DIRECTORY" \
+            /bin/bash script/notarize_release.sh \
+              "$RELEASE_VERSION" \
+              "$RELEASE_BUILD_NUMBER" \
+              "$RELEASE_ARCHITECTURE" \
+              >"$pipeline_log" \
+              2>&1; then
+            echo "::error::Release signing and notarization failed."
+            exit 1
+          fi
+
+      - name: Independently validate final archive
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+          RELEASE_BUILD_NUMBER: ${{ inputs.build_number }}
+          RELEASE_ARCHITECTURE: ${{ matrix.architecture }}
+        run: |
+          set -euo pipefail
+          archive="$GITHUB_WORKSPACE/dist/AILimitBar-$RELEASE_VERSION-$RELEASE_ARCHITECTURE.zip"
+          [[ -f "$archive" && ! -L "$archive" && -s "$archive" ]] || {
+            echo "::error::Expected notarized archive is missing or unsafe."
+            exit 1
+          }
+          verification_directory="$(
+            /usr/bin/mktemp -d \
+              "$AILIMITBAR_CI_PRIVATE_DIRECTORY/final-verification.XXXXXX"
+          )"
+          /usr/bin/ditto -x -k "$archive" "$verification_directory"
+          app="$verification_directory/AILimitBar.app"
+          [[ -d "$app" ]] || {
+            echo "::error::Final archive does not expand to AILimitBar.app."
+            exit 1
+          }
+          if find "$verification_directory" -mindepth 1 -maxdepth 1 \
+            ! -name AILimitBar.app \
+            ! -name __MACOSX \
+            -print -quit | grep -q .; then
+            echo "::error::Final archive contains an unexpected top-level item."
+            exit 1
+          fi
+          if ! /bin/bash script/validate_release_bundle.sh \
+            "$app" \
+            "$RELEASE_VERSION" \
+            "$RELEASE_BUILD_NUMBER" \
+            "$RELEASE_ARCHITECTURE" \
+            --require-notarization \
+            >"$AILIMITBAR_CI_PRIVATE_DIRECTORY/final-validation.log" \
+            2>&1; then
+            echo "::error::Independent release trust validation failed."
+            exit 1
+          fi
+
+      - name: Destroy ephemeral release credentials
+        if: ${{ always() }}
+        run: /bin/bash script/cleanup_ci_release_credentials.sh
+
+      - name: Upload architecture-specific artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: AILimitBar-${{ inputs.version }}-${{ matrix.architecture }}
+          path: dist/AILimitBar-${{ inputs.version }}-${{ matrix.architecture }}.zip
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 0

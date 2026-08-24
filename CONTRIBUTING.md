@@ -54,10 +54,14 @@ profile, private key, and Team ID stay outside the repository. These direct
 distributed without notarization.
 
 For a local notarized release, first create a private `notarytool` Keychain
-profile outside the repository, then provide only its caller-owned name:
+profile outside the repository, then provide its caller-owned name. If the
+profile lives in an isolated file-based Keychain, also provide that Keychain's
+path:
 
 ```zsh
 export AILIMITBAR_NOTARYTOOL_PROFILE=YOUR_NOTARYTOOL_PROFILE
+# Optional for an isolated file-based Keychain:
+export AILIMITBAR_NOTARYTOOL_KEYCHAIN=/private/path/release.keychain-db
 ./script/notarize_release.sh 0.2.0 20260813.1 arm64
 ./script/notarize_release.sh 0.2.0 20260813.1 x86_64
 ```
@@ -73,12 +77,37 @@ prints only the submission ID/status and a private temporary path plus a safe
 values, Apple credentials, app-specific passwords, API keys, and notarization
 logs remain outside Git and public logs.
 
-The `Release` GitHub Actions workflow intentionally fails closed for both
-manual dispatches and version tags: protected CI signing, notarization,
-stapling, and Gatekeeper validation are not configured yet, so the workflow
-must not package, upload, or publish an artifact. Local archives are for
-authorized validation only and must not be represented as downloadable trusted
-releases.
+The `Release` GitHub Actions workflow is manual-only and produces workflow
+artifacts; it does not respond to tags or create a GitHub Release. Before using
+it, repository administrators must configure the `protected-release` GitHub
+Environment with required reviewers, restrict deployment branches to `main`,
+and prevent unreviewed access to its secrets. The `main` branch itself must be
+protected because the workflow rejects any other or unprotected ref before the
+credential jobs start.
+
+The Environment supplies these required secrets without storing values in the
+repository:
+
+- `DEVELOPER_ID_P12_BASE64`
+- `DEVELOPER_ID_P12_PASSWORD`
+- `DEVELOPER_ID_PROVISIONING_PROFILE_BASE64`
+- `NOTARYTOOL_APPLE_ID`
+- `NOTARYTOOL_TEAM_ID`
+- `NOTARYTOOL_PASSWORD`
+
+Each architecture job checks the complete secret set before decoding or
+building, imports the P12 into an ephemeral file-based Keychain, derives the
+matching Developer ID identity from the provisioning profile certificate, and
+creates a temporary validated `notarytool` profile in that exact Keychain. The
+existing notarization pipeline runs on `macos-15` for `arm64` and
+`macos-15-intel` for `x86_64`. A separate extraction and trust-validation pass
+must succeed before the architecture-specific ZIP is uploaded for three days.
+An invocation-specific ownership marker prevents collision failures from
+removing pre-existing paths. Success and failure paths delete only their owned
+temporary Keychain, decoded material, and private diagnostics, and cleanup must
+succeed before upload. Workflow artifacts remain protected validation outputs;
+tag-triggered GitHub Release publication stays disabled until the separate
+publication and clean-Mac gates are complete.
 
 ## Architecture
 

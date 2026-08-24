@@ -32,12 +32,12 @@ case "$ARCHITECTURE" in
 esac
 
 NOTARYTOOL_PROFILE="${AILIMITBAR_NOTARYTOOL_PROFILE:-}"
+NOTARYTOOL_KEYCHAIN="${AILIMITBAR_NOTARYTOOL_KEYCHAIN:-}"
 if [[ -z "$NOTARYTOOL_PROFILE" ]]; then
   echo "error: notarization requires AILIMITBAR_NOTARYTOOL_PROFILE." >&2
   echo "Set it to a caller-owned Keychain profile; no profile value is stored in this repository." >&2
   exit 1
 fi
-
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP_NAME="AILimitBar"
 OUTPUT_DIRECTORY="$ROOT_DIR/dist"
@@ -137,12 +137,21 @@ SUBMISSION_ERROR="$PRIVATE_WORK_DIRECTORY/submission-error.log"
 }
 
 submission_exit=0
-if "$XCRUN_COMMAND" notarytool submit "$SUBMISSION_ARCHIVE" \
-  --keychain-profile "$NOTARYTOOL_PROFILE" \
-  --wait \
-  --output-format json \
-  >"$SUBMISSION_RESULT" \
-  2>"$SUBMISSION_ERROR"; then
+submit_archive() {
+  if [[ -n "$NOTARYTOOL_KEYCHAIN" ]]; then
+    "$XCRUN_COMMAND" notarytool submit "$SUBMISSION_ARCHIVE" \
+      --keychain-profile "$NOTARYTOOL_PROFILE" \
+      --keychain "$NOTARYTOOL_KEYCHAIN" \
+      --wait \
+      --output-format json
+  else
+    "$XCRUN_COMMAND" notarytool submit "$SUBMISSION_ARCHIVE" \
+      --keychain-profile "$NOTARYTOOL_PROFILE" \
+      --wait \
+      --output-format json
+  fi
+}
+if submit_archive >"$SUBMISSION_RESULT" 2>"$SUBMISSION_ERROR"; then
   submission_exit=0
 else
   submission_exit=$?
@@ -160,7 +169,11 @@ if [[ "$submission_exit" -ne 0 || "$SUBMISSION_STATUS" != "Accepted" || -z "$SUB
   echo "Private notarytool output: $SUBMISSION_RESULT and $SUBMISSION_ERROR" >&2
   if [[ -n "$SUBMISSION_ID" ]]; then
     echo "Fetch Apple's private log without printing it to public output:" >&2
-    echo "  xcrun notarytool log \"$SUBMISSION_ID\" --keychain-profile \"\$AILIMITBAR_NOTARYTOOL_PROFILE\" \"$PRIVATE_WORK_DIRECTORY/apple-notary-log.json\"" >&2
+    if [[ -n "$NOTARYTOOL_KEYCHAIN" ]]; then
+      echo "  xcrun notarytool log \"$SUBMISSION_ID\" --keychain-profile \"\$AILIMITBAR_NOTARYTOOL_PROFILE\" --keychain \"\$AILIMITBAR_NOTARYTOOL_KEYCHAIN\" \"$PRIVATE_WORK_DIRECTORY/apple-notary-log.json\"" >&2
+    else
+      echo "  xcrun notarytool log \"$SUBMISSION_ID\" --keychain-profile \"\$AILIMITBAR_NOTARYTOOL_PROFILE\" \"$PRIVATE_WORK_DIRECTORY/apple-notary-log.json\"" >&2
+    fi
   fi
   exit 1
 fi

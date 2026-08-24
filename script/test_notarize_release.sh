@@ -236,6 +236,7 @@ run_fixture() {
     AILIMITBAR_DEVELOPER_IDENTITY="Developer ID Application: Fixture (TEST_TEAM)" \
     AILIMITBAR_PROVISIONING_PROFILE="$FIXTURE_ROOT/fixture.provisionprofile" \
     AILIMITBAR_NOTARYTOOL_PROFILE="FIXTURE_PRIVATE_PROFILE" \
+    AILIMITBAR_NOTARYTOOL_KEYCHAIN="$FIXTURE_ROOT/fixture.keychain-db" \
     AILIMITBAR_NOTARIZATION_TEST_MODE=1 \
     AILIMITBAR_TEST_OUTPUT_DIRECTORY="$output_directory" \
     AILIMITBAR_TEST_PACKAGE_RELEASE_SCRIPT="$FAKE_TOOLS/package-release" \
@@ -321,6 +322,8 @@ accepted_result="$(run_fixture "$accepted_output" 2>&1)" || \
   fail "accepted notarization fixture failed: $accepted_result"
 [[ "$accepted_result" != *"FIXTURE_PRIVATE_PROFILE"* ]] || \
   fail "Keychain profile value leaked to public output"
+[[ "$accepted_result" != *"$FIXTURE_ROOT/fixture.keychain-db"* ]] || \
+  fail "Keychain path leaked to public output"
 [[ -s "$accepted_output/AILimitBar-1.2.3-arm64-signed.zip" ]] || \
   fail "signed submission archive is missing"
 [[ -s "$accepted_output/AILimitBar-1.2.3-arm64.zip" ]] || \
@@ -344,8 +347,29 @@ mkdir -p "$accepted_extract"
   fail "codesign verification did not run for both final app copies"
 [[ "$(grep -c '^spctl --assess --type execute ' "$TOOL_LOG")" -eq 2 ]] || \
   fail "Gatekeeper assessment did not run for both final app copies"
+grep -q -- "--keychain $FIXTURE_ROOT/fixture.keychain-db" "$TOOL_LOG" || \
+  fail "notarytool submit did not receive the explicit Keychain path"
 assert_full_publish_order
 assert_no_publish_temporary "$accepted_output" "successful publication"
+
+default_keychain_output="$FIXTURE_ROOT/default-keychain"
+: >"$TOOL_LOG"
+default_keychain_result="$(run_fixture \
+  "$default_keychain_output" \
+  AILIMITBAR_NOTARYTOOL_KEYCHAIN= \
+  2>&1)" || \
+  fail "default Keychain notarization fixture failed: $default_keychain_result"
+[[ -s "$default_keychain_output/AILimitBar-1.2.3-arm64.zip" ]] || \
+  fail "default Keychain fixture did not create the final archive"
+default_keychain_submit="$(
+  grep '^xcrun notarytool submit ' "$TOOL_LOG" | /usr/bin/head -n 1
+)"
+[[ -n "$default_keychain_submit" ]] || \
+  fail "default Keychain fixture did not submit for notarization"
+[[ " $default_keychain_submit " != *" --keychain "* ]] || \
+  fail "default Keychain fixture passed an empty explicit Keychain"
+[[ "$default_keychain_result" != *"FIXTURE_PRIVATE_PROFILE"* ]] || \
+  fail "default Keychain profile value leaked to public output"
 
 directory_obstruction_output="$FIXTURE_ROOT/directory-obstruction"
 directory_obstruction="$directory_obstruction_output/AILimitBar-1.2.3-arm64.zip"

@@ -497,14 +497,29 @@ temporary directory and repeats the complete validation. Team-specific
 identity, profile, certificate, private-key, Apple credential, and notary-log
 material remain outside the repository and public logs.
 
-The GitHub Actions `Release` workflow is currently an explicit trusted-
-distribution gate. Manual dispatches and version-tag pushes fail before build,
-upload, or publication because protected CI signing, notarization, stapling,
-and Gatekeeper validation are not configured. The workflow stores no signing
-identity, provisioning profile, private key, Team ID, or notarization
-credential. Local notarized archives remain authorized validation artifacts;
-restoring protected CI packaging and GitHub Release publication belongs to the
-separate CI work after its complete trust chain is ready.
+The GitHub Actions `Release` workflow is a protected, manual-only validation
+path. A non-secret authorization job requires a protected `main` ref before two
+jobs can request the named `protected-release` Environment. Repository settings
+must restrict that Environment to `main` and required reviewers. Its secrets
+provide an encoded Developer ID P12 and provisioning profile plus Apple
+notarization authentication only at the credential setup step; their values do
+not live in the repository. The setup fails before build when any input is
+missing or when the P12, profile certificate, signing team, imported identity,
+or notarization authentication do not agree. It isolates the matching derived
+Developer ID identity and a temporary `notarytool` profile in one ephemeral
+file-based Keychain.
+
+Native `macos-15` Apple Silicon and `macos-15-intel` jobs each invoke the same
+local release notarization wrapper, then independently extract and validate the
+final archive's exact bundle shape, architecture, signature, entitlements,
+stapler ticket, and Gatekeeper evidence before uploading a three-day workflow
+artifact. Pipeline and credential diagnostics remain private, and an always-
+running cleanup step verifies an invocation-specific ownership marker before
+removing the ephemeral Keychain, decoded material, and private diagnostics on
+success or failure. Pre-existing collision paths are never treated as owned,
+and cleanup must succeed before artifact upload. The workflow has no tag
+trigger and does not create a GitHub Release; public publication and clean-Mac
+validation remain separate gates.
 
 ### About AI Limitbar
 
@@ -523,10 +538,11 @@ direct e-mail, Telegram, and the existing Boosty support page. The About window
 uses the app-wide English/Russian localization alongside the other app-owned
 surfaces.
 
-The Apple Developer Program gate is complete. Local release packaging can now
-produce Developer ID-signed and Apple-notarized architecture-specific archives
-with authorized production Keychain access. Publication remains disabled until
-protected CI and clean-Mac checks pass. Certificates, private keys,
+The Apple Developer Program gate is complete. Local and protected manual CI
+release packaging can now produce Developer ID-signed and Apple-notarized
+architecture-specific validation archives with authorized production Keychain
+access. Publication remains disabled until clean-Mac checks and the separate
+publication gate pass. Certificates, private keys,
 provisioning profiles, Team IDs, payment information, Apple credentials,
 Keychain profile values, and private notarization logs never belong in Git,
 public docs, or public logs; private Linear notes may record the non-secret
@@ -874,11 +890,14 @@ Keychain group, contains the selected certificate, and targets all macOS
 devices. It signs the helper before the app with Hardened Runtime and secure
 timestamps and requires `codesign --verify --deep --strict` before and after
 the signing-only archive round trip. `script/notarize_release.sh` separately
-requires `AILIMITBAR_NOTARYTOOL_PROFILE=YOUR_NOTARYTOOL_PROFILE`, submits a
-private copy of the architecture-specific signed ZIP with `notarytool --wait`,
-requires `Accepted`, staples the exact submitted app, and revalidates the final
-app and extracted ZIP with codesign, stapler, and Gatekeeper. Protected CI and
-clean-Mac validation remain subsequent trusted-distribution gates.
+requires `AILIMITBAR_NOTARYTOOL_PROFILE=YOUR_NOTARYTOOL_PROFILE`, and accepts an
+explicit file-based Keychain through `AILIMITBAR_NOTARYTOOL_KEYCHAIN`. It
+submits a private copy of the architecture-specific signed ZIP with
+`notarytool --wait`, requires `Accepted`, staples the exact submitted app, and
+revalidates the final app and extracted ZIP with codesign, stapler, and
+Gatekeeper. Protected manual CI uses this path with ephemeral credentials;
+clean-Mac validation and public publication remain subsequent trusted-
+distribution gates.
 Platform references:
 [TN3137: On Mac keychain APIs and implementations](https://developer.apple.com/documentation/technotes/tn3137-on-mac-keychains),
 [TN3125: Inside Code Signing: Provisioning Profiles](https://developer.apple.com/documentation/technotes/tn3125-inside-code-signing-provisioning-profiles),

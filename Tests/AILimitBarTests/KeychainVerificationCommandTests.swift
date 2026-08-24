@@ -435,18 +435,18 @@ final class KeychainVerificationCommandTests: XCTestCase {
         }
     }
 
-    func testReleaseWorkflowFailsClosedUntilTrustedDistributionIsConfigured() throws {
-        let workflow = try String(
-            contentsOf: repositoryRoot
-                .appendingPathComponent(".github/workflows/release.yml"),
-            encoding: .utf8
+    func testProtectedReleaseWorkflowFixtures() throws {
+        let fixtureTest = repositoryRoot
+            .appendingPathComponent("script/test_release_workflow.sh")
+        XCTAssertTrue(
+            FileManager.default.isExecutableFile(atPath: fixtureTest.path)
         )
+        let result = try runScript(fixtureTest, arguments: [])
 
-        XCTAssertTrue(workflow.contains("Trusted distribution is disabled"))
-        XCTAssertTrue(workflow.contains("exit 1"))
-        XCTAssertFalse(workflow.contains("./script/package_release.sh"))
-        XCTAssertFalse(workflow.contains("gh release create"))
-        XCTAssertFalse(workflow.contains("ad-hoc signed"))
+        XCTAssertEqual(result.status, 0, result.output)
+        XCTAssertTrue(
+            result.output.contains("PASS: protected release workflow fixtures")
+        )
     }
 
     private var repositoryRoot: URL {
