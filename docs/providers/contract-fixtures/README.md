@@ -30,10 +30,12 @@ The four examples exercise different contract boundaries:
   for one local identity;
 - `claude.json`: separate subscription, API, and organization surfaces plus
   provider-reported versus local-estimate observations;
-- `minimax.json`: explicit regional Team contexts, provider-defined 5-hour and
-  weekly included-usage windows, unlimited capacity, and weekly boost; the
-  provider note separately records the verified per-model response structure
-  without assigning legacy request or modality units;
+- `minimax.json`: generic regional Team-context evidence for provider-defined
+  current and weekly included-usage windows, unlimited capacity, and weekly
+  boost. It is not the shipped MiniMax category mapping: the runtime maps the
+  reviewed API entries to neutral quota categories separately, without exposing
+  raw identifiers, assigning legacy request or modality units, or aggregating
+  categories;
 - `openrouter.json`: one billing account with child API-key credential contexts,
   an optional elevated account-credits source, per-key and account-wide currency
   observations, a workspace budget without fabricated spend, BYOK usage, and a

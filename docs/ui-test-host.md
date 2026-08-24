@@ -33,7 +33,7 @@ Supported values:
 
 | Argument | Values | Default |
 | --- | --- | --- |
-| `--ui-test-host` | `dashboard-empty`, `dashboard-healthy`, `dashboard-mixed`, `dashboard-openrouter`, `settings`, `settings-dirty-editor`, `settings-openrouter`, `settings-openrouter-missing-management` | `dashboard-healthy` when the host bundle is opened directly |
+| `--ui-test-host` | `dashboard-empty`, `dashboard-healthy`, `dashboard-mixed`, `dashboard-openrouter`, `dashboard-minimax`, `settings`, `settings-dirty-editor`, `settings-openrouter`, `settings-openrouter-missing-management` | `dashboard-healthy` when the host bundle is opened directly |
 | `--ui-test-language` | `en`, `ru` | `en` |
 | `--ui-test-appearance` | `light`, `dark` | `dark` |
 | `--ui-test-height` | `compact`, `standard`, `tall` | `standard` |
@@ -71,6 +71,10 @@ The launcher terminates only a previous `AILimitBarTest` process. A production
   authentication-error states. Its scripted Refresh response
   preserves the synthetic native fixture instead of reloading nonexistent
   credential metadata from the isolated database.
+- `dashboard-minimax` renders one synthetic MiniMax account with two separate,
+  neutral quota categories. Each has independent Current and Weekly windows,
+  counts, percentage/used-left toggle where finite, and reset information. It
+  contains no credential, raw response identifier, or callable-model mapping.
 - `settings` opens the real Settings surface with healthy synthetic accounts.
 - `settings-dirty-editor` opens Accounts with the first synthetic account in
   edit mode so an account-name edit can exercise the discard confirmation flow.
@@ -103,6 +107,10 @@ identifiers include:
   `details.openrouter.key.<context>.expanded`;
 - `dashboard.meter.<provider>.<account>.<window>`;
 - `dashboard.openrouter.shared.<account>`;
+- `dashboard.minimax.category.<account>.<category>` and
+  `dashboard.minimax.window.<account>.<category>.<window>`;
+- `details.minimax.category.<account>.<category>` and
+  `details.minimax.window.<account>.<category>.<window>`;
 - `openrouter.key.<context>` and
   `openrouter.metric.<context>:<source>:<metric>`;
 - `settings.navigation.<section>`;
@@ -118,6 +126,10 @@ identifiers include:
   `settings.openrouter.actions.<context>`, `settings.openrouter.key-name`,
   `settings.openrouter.credential-value`, and
   `settings.openrouter.editor-save`.
+- `settings.minimax.boundary`, `settings.minimax.subscription-key`,
+  `settings.minimax.primary-action`, `settings.minimax.enabled-action`,
+  `settings.minimax.remove-action`, `settings.minimax.credential-value`,
+  `settings.minimax.editor-save`, and `settings.minimax.editor-error`.
 
 Use the host AX tree and screenshots to verify app-owned layout, labels, values,
 focus, keyboard paths, Settings navigation, preference controls, scrolling, and
@@ -163,3 +175,9 @@ scrolling, key overflow and editor actions, Settings alignment, and the
 non-OpenRouter regression remains an explicit manual gate. Physical
 multi-display status-item behavior remains a separate production-only manual
 gate.
+
+MiniMax visual and AX verification is an explicit remaining gate. It has not
+been performed because staging the host requires a caller-owned
+`AILIMITBAR_DEVELOPMENT_TEAM`, which is not currently available. When it is
+available, inspect `dashboard-minimax` in English/Russian and Light/Dark,
+including keyboard focus, the Account Details overlay, and MiniMax Settings.
