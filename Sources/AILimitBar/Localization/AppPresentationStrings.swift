@@ -12,6 +12,14 @@ struct MiniMaxLocalizedString {
             .map(String.init)
         return language == "ru" ? russian : english
     }
+
+    func formatted(locale: Locale, _ arguments: CVarArg...) -> String {
+        String(
+            format: localized(locale: locale),
+            locale: locale,
+            arguments: arguments
+        )
+    }
 }
 
 extension AppStrings {
@@ -396,6 +404,30 @@ extension AppStrings {
     }
 
     enum MiniMax {
+        static let quotaCategoryA = MiniMaxLocalizedString(
+            english: "Token Plan quota category A",
+            russian: "Категория квоты Token Plan A"
+        )
+        static let quotaCategoryB = MiniMaxLocalizedString(
+            english: "Token Plan quota category B",
+            russian: "Категория квоты Token Plan B"
+        )
+        static let currentWindow = MiniMaxLocalizedString(
+            english: "Current window",
+            russian: "Текущее окно"
+        )
+        static let weeklyWindow = MiniMaxLocalizedString(
+            english: "Weekly window",
+            russian: "Недельное окно"
+        )
+        static let capacitySummary = MiniMaxLocalizedString(
+            english: "Used %@ · Remaining %@ · Total %@",
+            russian: "Использовано %@ · Осталось %@ · Всего %@"
+        )
+        static let quotaWindowAccessibility = MiniMaxLocalizedString(
+            english: "%@, %@",
+            russian: "%@, %@"
+        )
         static let credentialsTitle = MiniMaxLocalizedString(
             english: "SUBSCRIPTION KEY",
             russian: "КЛЮЧ ПОДПИСКИ"

@@ -46,6 +46,17 @@ struct DashboardAccountRowView: View {
         )
     }
 
+    private var miniMaxPresentation: MiniMaxCapacityPresentation? {
+        MiniMaxCapacityPresentation(
+            account: row.account,
+            snapshot: appModel.nativeCapacitySnapshot(for: row.account),
+            displayModeForWindow: {
+                appModel.usageDisplayMode(for: row.account, windowID: $0)
+            },
+            locale: locale
+        )
+    }
+
     var body: some View {
         TerminalFieldset(
             title: presentation.accountName,
@@ -130,6 +141,20 @@ struct DashboardAccountRowView: View {
         if let openRouterPresentation {
             OpenRouterCapacityDashboardContent(
                 presentation: openRouterPresentation
+            )
+        } else if let miniMaxPresentation {
+            MiniMaxCapacityDashboardContent(
+                presentation: miniMaxPresentation,
+                providerID: row.account.providerID,
+                onToggleWindow: {
+                    appModel.toggleUsageDisplayMode(
+                        for: row.account,
+                        windowID: $0
+                    )
+                },
+                focusedLimitWindow: $focusedLimitWindow,
+                showsKeyboardFocus: $showsKeyboardFocus,
+                onClearLimitWindowFocus: onClearLimitWindowFocus
             )
         } else {
             if let statusText = presentation.statusText {
@@ -228,9 +253,90 @@ struct DashboardAccountRowView: View {
     }
 }
 
+private struct MiniMaxCapacityDashboardContent: View {
+    let presentation: MiniMaxCapacityPresentation
+    let providerID: String
+    let onToggleWindow: (String) -> Void
+    @Binding var focusedLimitWindow: DashboardLimitWindowFocusTarget?
+    @Binding var showsKeyboardFocus: Bool
+    let onClearLimitWindowFocus: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ForEach(Array(presentation.categories.enumerated()), id: \.element.id) {
+                index,
+                category in
+                if index > 0 {
+                    TerminalRule()
+                        .padding(.vertical, 1)
+                }
+
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(category.displayName)
+                        .font(TerminalTheme.legendFont)
+                        .foregroundStyle(TerminalTheme.primary)
+                        .accessibilityAddTraits(.isHeader)
+
+                    ForEach(category.windows) { window in
+                        if let meter = window.meterPresentation {
+                            LimitWindowProgressRow(
+                                window: meter,
+                                tint: TerminalTheme.border,
+                                supportingText: window.capacityText,
+                                supportingAccessibilityValue: window.accessibilityValue,
+                                onToggle: {
+                                    onToggleWindow(window.id)
+                                },
+                                focusTarget: DashboardLimitWindowFocusTarget(
+                                    providerID: providerID,
+                                    accountID: presentation.accountID,
+                                    windowID: window.id
+                                ),
+                                focusedLimitWindow: $focusedLimitWindow,
+                                showsKeyboardFocus: $showsKeyboardFocus,
+                                onClearFocus: onClearLimitWindowFocus
+                            )
+                        } else {
+                            VStack(alignment: .leading, spacing: 3) {
+                                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                                    Text(window.displayName)
+                                        .font(TerminalTheme.bodyFont)
+                                        .foregroundStyle(TerminalTheme.secondary)
+
+                                    Spacer(minLength: 8)
+
+                                    Text(window.capacityText)
+                                        .font(TerminalTheme.emphasizedBodyFont)
+                                        .foregroundStyle(TerminalTheme.primary)
+                                        .multilineTextAlignment(.trailing)
+                                }
+
+                                if let resetText = window.resetText {
+                                    Text(resetText)
+                                        .font(TerminalTheme.captionFont)
+                                        .foregroundStyle(TerminalTheme.secondary)
+                                }
+                            }
+                            .accessibilityElement(children: .ignore)
+                            .accessibilityLabel(window.accessibilityLabel)
+                            .accessibilityValue(window.accessibilityValue)
+                            .accessibilityIdentifier(
+                                "dashboard.minimax.window.\(presentation.accountID).\(window.id)"
+                            )
+                        }
+                    }
+                }
+                .accessibilityIdentifier(category.accessibilityIdentifier)
+            }
+        }
+    }
+}
+
 private struct LimitWindowProgressRow: View {
     let window: DashboardLimitWindowPresentation
     let tint: Color
+    var supportingText: String? = nil
+    var supportingAccessibilityValue: String? = nil
     let onToggle: () -> Void
     let focusTarget: DashboardLimitWindowFocusTarget
     @Binding var focusedLimitWindow: DashboardLimitWindowFocusTarget?
@@ -260,6 +366,13 @@ private struct LimitWindowProgressRow: View {
 
                 TerminalStatusMeter(value: window.displayPercent, tint: tint)
 
+                if let supportingText {
+                    Text(supportingText)
+                        .font(TerminalTheme.captionFont)
+                        .foregroundStyle(TerminalTheme.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
                 if let resetText = window.resetText {
                     Text(resetText)
                         .font(TerminalTheme.captionFont)
@@ -283,7 +396,9 @@ private struct LimitWindowProgressRow: View {
         }
         .help(window.toggleHelp)
         .accessibilityLabel(window.accessibilityLabel)
-        .accessibilityValue(window.accessibilityValue)
+        .accessibilityValue(
+            supportingAccessibilityValue ?? window.accessibilityValue
+        )
         .accessibilityHint(window.toggleAccessibilityHint)
         .accessibilityIdentifier(
             "dashboard.meter.\(focusTarget.providerID).\(focusTarget.accountID).\(focusTarget.windowID)"

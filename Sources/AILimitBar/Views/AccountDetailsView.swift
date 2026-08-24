@@ -21,6 +21,17 @@ struct AccountDetailsView: View {
         )
     }
 
+    private var miniMaxPresentation: MiniMaxCapacityPresentation? {
+        MiniMaxCapacityPresentation(
+            account: currentAccount,
+            snapshot: appModel.nativeCapacitySnapshot(for: currentAccount),
+            displayModeForWindow: {
+                appModel.usageDisplayMode(for: currentAccount, windowID: $0)
+            },
+            locale: locale
+        )
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             ScrollView {
@@ -97,6 +108,13 @@ struct AccountDetailsView: View {
             OpenRouterCapacityDetailsContent(
                 presentation: openRouterPresentation
             )
+        } else if let miniMaxPresentation {
+            TerminalInspectorRow(
+                label: AppStrings.AccountDetails.source.localized(locale: locale),
+                value: currentAccount.sourceMode.localizedDisplayName(locale: locale),
+                valueColor: TerminalTheme.secondary
+            )
+            miniMaxDetailsContent(miniMaxPresentation)
         } else if let snapshot = row.snapshot {
             TerminalInspectorRow(
                 label: AppStrings.AccountDetails.source.localized(locale: locale),
@@ -187,6 +205,55 @@ struct AccountDetailsView: View {
                         title: $0.localizedDisplayName(locale: locale)
                     )
                 }
+            )
+        }
+    }
+
+    @ViewBuilder
+    private func miniMaxDetailsContent(
+        _ presentation: MiniMaxCapacityPresentation
+    ) -> some View {
+        ForEach(presentation.categories) { category in
+            TerminalRule()
+            VStack(alignment: .leading, spacing: 8) {
+                Text(category.displayName)
+                    .font(TerminalTheme.legendFont)
+                    .foregroundStyle(TerminalTheme.primary)
+                    .accessibilityAddTraits(.isHeader)
+
+                ForEach(category.windows) { window in
+                    TerminalInspectorRow(
+                        label: window.displayName.uppercased(with: locale),
+                        value: [window.percentageText, window.capacityText]
+                            .compactMap { $0 }
+                            .joined(separator: "\n"),
+                        valueColor: TerminalTheme.primary
+                    )
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(window.accessibilityLabel)
+                    .accessibilityValue(window.accessibilityValue)
+                    .accessibilityIdentifier(
+                        "details.minimax.window.\(presentation.accountID).\(window.id)"
+                    )
+
+                    if window.displayPercent != nil {
+                        usageDisplayControl(for: window.usageLimitWindow)
+                    }
+
+                    if let resetAt = window.resetAt {
+                        TerminalInspectorRow(
+                            label: AppStrings.AccountDetails.reset.formatted(
+                                locale: locale,
+                                window.displayName.uppercased(with: locale)
+                            ),
+                            value: preciseDate(resetAt),
+                            valueColor: TerminalTheme.secondary
+                        )
+                    }
+                }
+            }
+            .accessibilityIdentifier(
+                "details.minimax.category.\(presentation.accountID).\(category.id)"
             )
         }
     }

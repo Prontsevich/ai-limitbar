@@ -9,6 +9,7 @@ enum UITestHostScenario: String, CaseIterable {
     case dashboardHealthy = "dashboard-healthy"
     case dashboardMixed = "dashboard-mixed"
     case dashboardOpenRouter = "dashboard-openrouter"
+    case dashboardMiniMax = "dashboard-minimax"
     case settings
     case settingsDirtyEditor = "settings-dirty-editor"
     case settingsOpenRouter = "settings-openrouter"
@@ -18,7 +19,7 @@ enum UITestHostScenario: String, CaseIterable {
     var initialSurface: UITestHostSurface {
         switch self {
         case .dashboardEmpty, .dashboardHealthy, .dashboardMixed,
-             .dashboardOpenRouter:
+             .dashboardOpenRouter, .dashboardMiniMax:
             .dashboard
         case .settings, .settingsDirtyEditor, .settingsOpenRouter,
              .settingsOpenRouterMissingManagement:
@@ -338,6 +339,8 @@ struct UITestHostFixture {
             return mixedFixture(anchor: anchor)
         case .dashboardOpenRouter:
             return openRouterFixture(anchor: anchor, managementState: .active)
+        case .dashboardMiniMax:
+            return miniMaxFixture(anchor: anchor)
         case .settingsOpenRouter:
             return openRouterFixture(anchor: anchor, managementState: .disabled)
         case .settingsOpenRouterMissingManagement:
@@ -436,6 +439,144 @@ struct UITestHostFixture {
         case active
         case disabled
         case missing
+    }
+
+    private static func miniMaxFixture(anchor: Date) -> UITestHostFixture {
+        let account = ProviderAccount(
+            providerID: MiniMaxProviderContract.providerID,
+            accountID: "synthetic-minimax",
+            displayName: "Synthetic MiniMax",
+            isEnabled: true,
+            sourceMode: .miniMaxTokenPlan
+        )
+        let rootContext = AccountContext(
+            contextID: "synthetic-minimax-team",
+            kind: .team,
+            displayName: "Synthetic Default Team",
+            regionID: "global"
+        )
+        let nativeSnapshot = CapacitySnapshot(
+            providerID: account.providerID,
+            surfaceID: MiniMaxProviderContract.surfaceID,
+            savedAccountID: account.accountID,
+            accountContexts: [rootContext],
+            observedAt: anchor,
+            metrics: [
+                miniMaxMetric(
+                    id: "quota-category-a.current",
+                    contextID: rootContext.contextID,
+                    consumed: 40,
+                    remaining: 60,
+                    limit: 100,
+                    resetAt: anchor.addingTimeInterval(2 * 3_600),
+                    observedAt: anchor
+                ),
+                miniMaxMetric(
+                    id: "quota-category-a.weekly",
+                    contextID: rootContext.contextID,
+                    consumed: 120,
+                    remaining: 380,
+                    limit: 500,
+                    resetAt: anchor.addingTimeInterval(3 * 24 * 3_600),
+                    observedAt: anchor
+                ),
+                miniMaxMetric(
+                    id: "quota-category-b.current",
+                    contextID: rootContext.contextID,
+                    consumed: 3,
+                    remaining: 17,
+                    limit: 20,
+                    resetAt: anchor.addingTimeInterval(4 * 3_600),
+                    observedAt: anchor
+                ),
+                miniMaxMetric(
+                    id: "quota-category-b.weekly",
+                    contextID: rootContext.contextID,
+                    consumed: 9,
+                    remaining: 31,
+                    limit: 40,
+                    resetAt: anchor.addingTimeInterval(5 * 24 * 3_600),
+                    observedAt: anchor
+                ),
+            ]
+        )
+        let compatibilitySnapshot = UsageSnapshot(
+            providerID: account.providerID,
+            accountID: account.accountID,
+            accountDisplayName: account.displayName,
+            displayName: "MiniMax",
+            status: .ok,
+            remainingLabel: "Synthetic Token Plan capacity",
+            lastUpdatedAt: anchor,
+            confidence: .live,
+            source: "Synthetic UI test fixture"
+        )
+        let adapter = UITestScriptedProviderAdapter(
+            id: MiniMaxProviderContract.providerID,
+            displayName: "MiniMax",
+            capabilities: ProviderCapabilities(sources: [
+                ProviderSourceCapability(
+                    mode: .miniMaxTokenPlan,
+                    kind: .live,
+                    summary: "Synthetic MiniMax data for UI verification."
+                )
+            ]),
+            responses: [
+                account.accountID: .snapshot(
+                    compatibilitySnapshot,
+                    delayNanoseconds: 150_000_000
+                )
+            ],
+            preservesNativePresentationFixture: true
+        )
+        return UITestHostFixture(
+            adapters: [adapter],
+            accounts: [account],
+            snapshots: [compatibilitySnapshot],
+            refreshIssues: [:],
+            nativeCapacitySnapshots: [account.id: nativeSnapshot]
+        )
+    }
+
+    private static func miniMaxMetric(
+        id: String,
+        contextID: String,
+        consumed: Decimal,
+        remaining: Decimal,
+        limit: Decimal,
+        resetAt: Date,
+        observedAt: Date
+    ) -> CapacityMetric {
+        CapacityMetric(
+            metricID: id,
+            accountContextID: contextID,
+            sourceID: MiniMaxProviderContract.sourceID,
+            capability: "quota-windows",
+            displayName: "Synthetic reviewed quota capacity",
+            availability: .known,
+            unit: CapacityUnit(
+                kind: .providerDefined,
+                providerUnitID: MiniMaxProviderContract.providerUnitID
+            ),
+            values: CapacityValues(
+                consumed: CapacityValue(value: consumed, origin: .reported),
+                remaining: CapacityValue(value: remaining, origin: .derived),
+                limit: CapacityValue(value: limit, origin: .reported)
+            ),
+            window: CapacityWindow(
+                kind: id.hasSuffix(".weekly") ? .fixed : .rolling,
+                nextTransition: CapacityTransition(kind: .reset, at: resetAt)
+            ),
+            freshness: ObservationFreshness(observedAt: observedAt),
+            confidence: .live,
+            derivations: [
+                Derivation(
+                    kind: .remainingFromLimitMinusConsumed,
+                    target: .remaining,
+                    inputs: [.limit, .consumed]
+                )
+            ]
+        )
     }
 
     private static func openRouterFixture(

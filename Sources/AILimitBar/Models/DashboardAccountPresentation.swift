@@ -51,6 +51,26 @@ struct DashboardLimitWindowPresentation: Identifiable, Equatable {
         resetText = Self.resetText(for: window.resetAt, now: now, locale: locale)
     }
 
+    init(
+        id: String,
+        displayName: String,
+        displayPercent: Double,
+        displayText: String,
+        accessibilityLabel: String,
+        toggleHelp: String,
+        toggleAccessibilityHint: String,
+        resetText: String?
+    ) {
+        self.id = id
+        self.displayName = displayName
+        self.displayPercent = displayPercent
+        self.displayText = displayText
+        self.accessibilityLabel = accessibilityLabel
+        self.toggleHelp = toggleHelp
+        self.toggleAccessibilityHint = toggleAccessibilityHint
+        self.resetText = resetText
+    }
+
     private static func displayText(for percent: Double, mode: UsageDisplayMode, locale: Locale) -> String {
         let formattedPercent = AppFormatters.percentage(percent, locale: locale)
         return switch mode {
@@ -68,6 +88,276 @@ struct DashboardLimitWindowPresentation: Identifiable, Equatable {
         return resetAt >= now
             ? AppStrings.Dashboard.resets.formatted(locale: locale, relativeText)
             : AppStrings.Dashboard.reset.formatted(locale: locale, relativeText)
+    }
+}
+
+struct MiniMaxQuotaWindowPresentation: Identifiable, Equatable {
+    let id: String
+    let displayName: String
+    let capacityText: String
+    let percentageText: String?
+    let displayPercent: Double?
+    let resetText: String?
+    let resetAt: Date?
+    let accessibilityLabel: String
+    let accessibilityValue: String
+    let meterPresentation: DashboardLimitWindowPresentation?
+
+    var usageLimitWindow: UsageLimitWindow {
+        UsageLimitWindow(
+            id: id,
+            displayName: displayName,
+            usedPercent: displayPercent,
+            resetAt: resetAt
+        )
+    }
+}
+
+struct MiniMaxQuotaCategoryPresentation: Identifiable, Equatable {
+    let id: String
+    let displayName: String
+    let windows: [MiniMaxQuotaWindowPresentation]
+    let accessibilityIdentifier: String
+    let accessibilityValue: String
+}
+
+struct MiniMaxCapacityPresentation: Equatable {
+    let accountID: String
+    let accountName: String
+    let categories: [MiniMaxQuotaCategoryPresentation]
+
+    init?(
+        account: ProviderAccount,
+        snapshot: CapacitySnapshot?,
+        displayModeForWindow: (String) -> UsageDisplayMode = { _ in .used },
+        now: Date = Date(),
+        locale: Locale = Locale(identifier: "en_US")
+    ) {
+        guard account.providerID == MiniMaxProviderContract.providerID,
+              let snapshot,
+              snapshot.providerID == MiniMaxProviderContract.providerID,
+              snapshot.surfaceID == MiniMaxProviderContract.surfaceID,
+              snapshot.savedAccountID == account.accountID else {
+            return nil
+        }
+
+        accountID = account.accountID
+        accountName = account.displayName
+
+        let knownContextIDs = Set(snapshot.accountContexts.map(\.contextID))
+        let safeMetrics = snapshot.metrics.filter {
+            $0.sourceID == MiniMaxProviderContract.sourceID
+                && $0.unit.kind == .providerDefined
+                && $0.unit.providerUnitID == MiniMaxProviderContract.providerUnitID
+                && knownContextIDs.contains($0.accountContextID)
+        }
+        var metricByID: [String: CapacityMetric] = [:]
+        for metric in safeMetrics where metricByID[metric.metricID] == nil {
+            metricByID[metric.metricID] = metric
+        }
+
+        categories = Self.categoryDescriptors(locale: locale).map { category in
+            let windows = Self.windowDescriptors(locale: locale).map { window in
+                let metricID = "\(category.id).\(window.idSuffix)"
+                return Self.windowPresentation(
+                    metric: metricByID[metricID],
+                    metricID: metricID,
+                    categoryName: category.displayName,
+                    windowName: window.displayName,
+                    mode: displayModeForWindow(metricID),
+                    now: now,
+                    locale: locale
+                )
+            }
+            return MiniMaxQuotaCategoryPresentation(
+                id: category.id,
+                displayName: category.displayName,
+                windows: windows,
+                accessibilityIdentifier: "dashboard.minimax.category.\(account.accountID).\(category.id)",
+                accessibilityValue: windows
+                    .map { "\($0.accessibilityLabel), \($0.accessibilityValue)" }
+                    .joined(separator: "; ")
+            )
+        }
+    }
+
+    private static func categoryDescriptors(
+        locale: Locale
+    ) -> [(id: String, displayName: String)] {
+        [
+            (
+                "quota-category-a",
+                AppStrings.MiniMax.quotaCategoryA.localized(locale: locale)
+            ),
+            (
+                "quota-category-b",
+                AppStrings.MiniMax.quotaCategoryB.localized(locale: locale)
+            ),
+        ]
+    }
+
+    private static func windowDescriptors(
+        locale: Locale
+    ) -> [(idSuffix: String, displayName: String)] {
+        [
+            (
+                "current",
+                AppStrings.MiniMax.currentWindow.localized(locale: locale)
+            ),
+            (
+                "weekly",
+                AppStrings.MiniMax.weeklyWindow.localized(locale: locale)
+            ),
+        ]
+    }
+
+    private static func windowPresentation(
+        metric: CapacityMetric?,
+        metricID: String,
+        categoryName: String,
+        windowName: String,
+        mode: UsageDisplayMode,
+        now: Date,
+        locale: Locale
+    ) -> MiniMaxQuotaWindowPresentation {
+        let resetAt = metric?.window.nextTransition.flatMap {
+            $0.kind == .reset ? $0.at : nil
+        }
+        let resetText = resetAt.map {
+            let relative = AppFormatters.relativeDate(
+                $0,
+                relativeTo: now,
+                locale: locale
+            )
+            return $0 >= now
+                ? AppStrings.Dashboard.resets.formatted(locale: locale, relative)
+                : AppStrings.Dashboard.reset.formatted(locale: locale, relative)
+        }
+        let accessibilityLabel = AppStrings.MiniMax.quotaWindowAccessibility
+            .formatted(locale: locale, categoryName, windowName)
+
+        guard let metric else {
+            let unavailable = AppStrings.Common.unavailable.localized(locale: locale)
+            return MiniMaxQuotaWindowPresentation(
+                id: metricID,
+                displayName: windowName,
+                capacityText: unavailable,
+                percentageText: nil,
+                displayPercent: nil,
+                resetText: nil,
+                resetAt: nil,
+                accessibilityLabel: accessibilityLabel,
+                accessibilityValue: unavailable,
+                meterPresentation: nil
+            )
+        }
+
+        let capacityText: String
+        let usedPercent: Double?
+        switch metric.availability {
+        case .known:
+            let values = metric.values
+            let consumed = values?.consumed?.value
+            let limit = values?.limit?.value
+            let remaining = values?.remaining?.value ?? {
+                guard let consumed, let limit else { return nil }
+                return limit - consumed
+            }()
+            if let consumed, let remaining, let limit {
+                capacityText = AppStrings.MiniMax.capacitySummary.formatted(
+                    locale: locale,
+                    AppFormatters.decimal(consumed, locale: locale),
+                    AppFormatters.decimal(remaining, locale: locale),
+                    AppFormatters.decimal(limit, locale: locale)
+                )
+            } else {
+                capacityText = AppStrings.Common.unknown.localized(locale: locale)
+            }
+            if let consumed, let limit {
+                let total = NSDecimalNumber(decimal: limit).doubleValue
+                let used = NSDecimalNumber(decimal: consumed).doubleValue
+                usedPercent = total > 0 && total.isFinite && used.isFinite
+                    ? min(max((used / total) * 100, 0), 100)
+                    : nil
+            } else {
+                usedPercent = nil
+            }
+        case .unlimited:
+            capacityText = AppStrings.Common.unlimited.localized(locale: locale)
+            usedPercent = nil
+        case .unavailable:
+            capacityText = AppStrings.Common.unavailable.localized(locale: locale)
+            usedPercent = nil
+        case .unknown:
+            capacityText = AppStrings.Common.unknown.localized(locale: locale)
+            usedPercent = nil
+        case .manual:
+            capacityText = AppStrings.Common.manual.localized(locale: locale)
+            usedPercent = nil
+        }
+
+        let displayPercent = usedPercent.map {
+            mode == .used ? $0 : 100 - $0
+        }
+        let percentageText = displayPercent.map {
+            let percentage = AppFormatters.percentage($0, locale: locale)
+            return mode == .used
+                ? AppStrings.Dashboard.used.formatted(locale: locale, percentage)
+                : AppStrings.Dashboard.left.formatted(locale: locale, percentage)
+        }
+        let accessibilityValue = [percentageText, capacityText, resetText]
+            .compactMap { $0 }
+            .joined(separator: ", ")
+        let meterPresentation = displayPercent.flatMap { displayPercent in
+            percentageText.map { percentageText in
+                let nextMode: UsageDisplayMode = mode == .used ? .left : .used
+                let nextPercent = nextMode == .used
+                    ? usedPercent ?? displayPercent
+                    : 100 - (usedPercent ?? displayPercent)
+                let nextFormatted = AppFormatters.percentage(
+                    nextPercent,
+                    locale: locale
+                )
+                let nextText = nextMode == .used
+                    ? AppStrings.Dashboard.used.formatted(
+                        locale: locale,
+                        nextFormatted
+                    )
+                    : AppStrings.Dashboard.left.formatted(
+                        locale: locale,
+                        nextFormatted
+                    )
+                return DashboardLimitWindowPresentation(
+                    id: metricID,
+                    displayName: windowName,
+                    displayPercent: displayPercent,
+                    displayText: percentageText,
+                    accessibilityLabel: accessibilityLabel,
+                    toggleHelp: AppStrings.Dashboard.meterToggleHelp.formatted(
+                        locale: locale,
+                        accessibilityLabel,
+                        percentageText,
+                        nextText
+                    ),
+                    toggleAccessibilityHint: AppStrings.Dashboard
+                        .meterToggleHint.localized(locale: locale),
+                    resetText: resetText
+                )
+            }
+        }
+
+        return MiniMaxQuotaWindowPresentation(
+            id: metricID,
+            displayName: windowName,
+            capacityText: capacityText,
+            percentageText: percentageText,
+            displayPercent: usedPercent,
+            resetText: resetText,
+            resetAt: resetAt,
+            accessibilityLabel: accessibilityLabel,
+            accessibilityValue: accessibilityValue,
+            meterPresentation: meterPresentation
+        )
     }
 }
 

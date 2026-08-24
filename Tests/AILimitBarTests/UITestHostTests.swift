@@ -261,6 +261,91 @@ final class UITestHostTests: XCTestCase {
         })
     }
 
+    func testMiniMaxFixturePresentsTwoPrivacySafeQuotaCategories() throws {
+        let anchor = Date(timeIntervalSince1970: 1_800_000_000)
+        let fixture = UITestHostFixture.make(
+            scenario: .dashboardMiniMax,
+            anchor: anchor
+        )
+        let account = try XCTUnwrap(fixture.accounts.first)
+        let snapshot = try XCTUnwrap(fixture.nativeCapacitySnapshots[account.id])
+
+        XCTAssertEqual(account.providerID, MiniMaxProviderContract.providerID)
+        XCTAssertEqual(account.sourceMode, .miniMaxTokenPlan)
+        XCTAssertEqual(snapshot.metrics.count, 4)
+        XCTAssertTrue(fixture.credentialContexts.isEmpty)
+        XCTAssertTrue(fixture.credentialDiagnostics.isEmpty)
+
+        let english = try XCTUnwrap(
+            MiniMaxCapacityPresentation(
+                account: account,
+                snapshot: snapshot,
+                now: anchor,
+                locale: Locale(identifier: "en_US")
+            )
+        )
+        XCTAssertEqual(english.categories.count, 2)
+        XCTAssertEqual(
+            english.categories.map(\.displayName),
+            [
+                "Token Plan quota category A",
+                "Token Plan quota category B",
+            ]
+        )
+        XCTAssertEqual(english.categories.map(\.windows.count), [2, 2])
+        XCTAssertEqual(
+            english.categories.first?.windows.first?.capacityText,
+            "Used 40 · Remaining 60 · Total 100"
+        )
+        XCTAssertEqual(
+            english.categories.first?.windows.first?.percentageText,
+            "40% used"
+        )
+
+        let russian = try XCTUnwrap(
+            MiniMaxCapacityPresentation(
+                account: account,
+                snapshot: snapshot,
+                now: anchor,
+                locale: Locale(identifier: "ru_RU")
+            )
+        )
+        XCTAssertEqual(
+            russian.categories.map(\.displayName),
+            [
+                "Категория квоты Token Plan A",
+                "Категория квоты Token Plan B",
+            ]
+        )
+
+        let presentationText = [english, russian].flatMap { presentation in
+            presentation.categories.flatMap { category in
+                [
+                    category.displayName,
+                    category.accessibilityIdentifier,
+                    category.accessibilityValue,
+                ] + category.windows.flatMap { window in
+                    [
+                        window.displayName,
+                        window.capacityText,
+                        window.percentageText ?? "",
+                        window.resetText ?? "",
+                        window.accessibilityLabel,
+                        window.accessibilityValue,
+                    ]
+                }
+            }
+        }.joined(separator: " ").lowercased()
+        let storedFixture = String(
+            decoding: try JSONEncoder().encode(snapshot),
+            as: UTF8.self
+        ).lowercased()
+        for rawIdentifier in ["general", "video"] {
+            XCTAssertFalse(presentationText.contains(rawIdentifier))
+            XCTAssertFalse(storedFixture.contains(rawIdentifier))
+        }
+    }
+
     func testFieldsetHeaderControlMasksAreIndividualAndExact() {
         XCTAssertEqual(DashboardAccountHeaderLayout.controlSize, 24)
         XCTAssertEqual(
@@ -407,6 +492,49 @@ final class UITestHostTests: XCTestCase {
         XCTAssertEqual(after.sharedCredits, before.sharedCredits)
         XCTAssertEqual(after.credentials, before.credentials)
         XCTAssertEqual(after.credentials.count, 3)
+        XCTAssertNil(runtime.appModel.accountRefreshIssues[account.id])
+    }
+
+    @MainActor
+    func testMiniMaxHostRefreshPreservesSyntheticNativeFixture() async throws {
+        let storageDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "ai-limitbar-ui-test-minimax-\(UUID().uuidString)"
+            )
+        let options = AppLaunchOptions(
+            arguments: [
+                "app",
+                UITestHostConfiguration.modeArgument,
+                UITestHostScenario.dashboardMiniMax.rawValue,
+                AppLaunchOptions.storageDirectoryArgument,
+                storageDirectory.path,
+            ],
+            bundleIdentifier: UITestHostConfiguration.bundleIdentifier
+        )
+        let runtime = AppRuntime(launchOptions: options)
+        let session = try XCTUnwrap(runtime.uiTestHostSession)
+        defer { session.cleanup() }
+        let account = try XCTUnwrap(runtime.appModel.providerAccounts.first)
+        let before = try XCTUnwrap(
+            MiniMaxCapacityPresentation(
+                account: account,
+                snapshot: runtime.appModel.nativeCapacitySnapshot(for: account),
+                locale: Locale(identifier: "en_US")
+            )
+        )
+
+        runtime.appModel.refresh()
+        await runtime.appModel.waitForRefreshCompletionForTesting()
+
+        let after = try XCTUnwrap(
+            MiniMaxCapacityPresentation(
+                account: account,
+                snapshot: runtime.appModel.nativeCapacitySnapshot(for: account),
+                locale: Locale(identifier: "en_US")
+            )
+        )
+        XCTAssertEqual(after.categories, before.categories)
+        XCTAssertEqual(after.categories.count, 2)
         XCTAssertNil(runtime.appModel.accountRefreshIssues[account.id])
     }
 
