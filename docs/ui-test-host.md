@@ -176,8 +176,13 @@ non-OpenRouter regression remains an explicit manual gate. Physical
 multi-display status-item behavior remains a separate production-only manual
 gate.
 
-MiniMax visual and AX verification is an explicit remaining gate. It has not
-been performed because staging the host requires a caller-owned
-`AILIMITBAR_DEVELOPMENT_TEAM`, which is not currently available. When it is
-available, inspect `dashboard-minimax` in English/Russian and Light/Dark,
-including keyboard focus, the Account Details overlay, and MiniMax Settings.
+MiniMax signed-host verification on 2026-08-24 launched `dashboard-minimax`
+in English/Dark and Russian/Light. Screenshots and the AX tree confirmed the
+two neutral category rows, independent Current and Weekly values, reset text,
+and the Used/Remaining meter toggle. The Account Details overlay opened and
+closed, and MiniMax Settings showed the boundary disclosure plus an Add Key
+sheet whose secure field exposed only a redacted AX value; no credential was
+entered. Keyboard navigation remains an explicit manual follow-up: the desktop
+automation's synthetic Tab input did not report a focused element. The host
+does not verify real credentials, provider responses, or the production status
+item/popover.

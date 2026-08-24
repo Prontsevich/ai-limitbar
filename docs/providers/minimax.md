@@ -124,11 +124,15 @@ The MiniMax Core and app tests cover:
   `dashboard-minimax` host fixture.
 
 `swift build` and the full `swift test` suite passed for the implemented
-provider changes. The remaining manual gate is visual and accessibility-tree
-verification of `dashboard-minimax` and MiniMax Settings in English/Russian and
-Light/Dark, including keyboard focus and Account Details. It has **not** been
-performed: the required caller-owned `AILIMITBAR_DEVELOPMENT_TEAM` is currently
-not available for staging the UI test host.
+provider changes. Signed UI-host verification on 2026-08-24 covered
+`dashboard-minimax` in English/Dark and Russian/Light: screenshots and the AX
+tree showed both neutral categories, independent windows, reset text, and the
+Used/Remaining meter toggle. Account Details opened and closed; MiniMax Settings
+showed the boundary disclosure and an Add Key sheet whose secure field exposed
+only a redacted AX value, with no credential entered. Keyboard navigation is
+still an explicit manual follow-up because synthetic Tab input did not report a
+focused element. Real credentials, provider responses, and the production
+status item/popover remain outside the host's verified boundary.
 
 ## References
 
