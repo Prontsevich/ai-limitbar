@@ -22,7 +22,8 @@ final class MiniMaxAppIntegrationTests: XCTestCase {
         let account = try XCTUnwrap(
             model.addAccount(providerID: "minimax", displayName: "Local Team")
         )
-        try configureCredential(model: model, account: account)
+        let credential = try configureCredential(model: model, account: account)
+        await client.useContextID(credential.context.contextID)
 
         let initialCallCount = await client.callCount
         XCTAssertEqual(initialCallCount, 0)
@@ -54,7 +55,10 @@ final class MiniMaxAppIntegrationTests: XCTestCase {
             native.metrics.map(\.metricID),
             ["quota-category-a.current"]
         )
-        XCTAssertEqual(native.metrics.map(\.accountContextID), ["team-root"])
+        XCTAssertEqual(
+            native.metrics.map(\.accountContextID),
+            ["\(account.accountID)-\(AppModel.miniMaxRootContextSuffix)"]
+        )
         XCTAssertEqual(
             native.metrics.map(\.displayName),
             ["Included usage — current rolling window"]
@@ -95,6 +99,455 @@ final class MiniMaxAppIntegrationTests: XCTestCase {
         XCTAssertNil(mapping.reviewedCategory(forProviderIdentifier: "MiniMax-M*"))
         XCTAssertFalse(categoryA.displayName.contains("general"))
         XCTAssertFalse(categoryB.displayName.contains("video"))
+    }
+
+    func testMiniMaxSettingsCredentialLifecycleUsesOneIsolatedKeychainSlot() throws {
+        let directory = temporaryDirectory()
+        let keychain = MiniMaxAppIntegrationKeychain()
+        let defaults = isolatedDefaults()
+        let model = AppModel(
+            storageDirectory: directory,
+            userDefaults: defaults,
+            miniMaxAPIClient: InjectedMiniMaxAPIClient(),
+            credentialKeychainService: keychain
+        )
+        let account = try XCTUnwrap(
+            model.addAccount(providerID: "minimax", displayName: "Lifecycle")
+        )
+        XCTAssertEqual(account.sourceMode, .miniMaxTokenPlan)
+
+        let initialContexts = try model.accountCredentialStore.loadContexts(
+            providerID: account.providerID,
+            accountID: account.accountID
+        )
+        XCTAssertEqual(initialContexts.count, 1)
+        XCTAssertEqual(initialContexts[0].kind, .team)
+        XCTAssertEqual(initialContexts[0].displayName, "Personal Default Team")
+        XCTAssertEqual(initialContexts[0].regionID, "global")
+        XCTAssertNil(initialContexts[0].parentContextID)
+        XCTAssertTrue(model.miniMaxCredentialContexts(for: account).isEmpty)
+        XCTAssertThrowsError(
+            try model.createMiniMaxSubscriptionKey(
+                for: account,
+                credentialValue: ""
+            )
+        ) {
+            XCTAssertEqual($0 as? MiniMaxSettingsError, .emptyCredential)
+        }
+        XCTAssertEqual(keychain.credentialCount, 0)
+
+        let created = try model.createMiniMaxSubscriptionKey(
+            for: account,
+            credentialValue: "first-private-subscription-key"
+        )
+        XCTAssertEqual(created.slot.role, .ordinary)
+        XCTAssertEqual(created.slot.slotID, AppModel.miniMaxSubscriptionSlotID)
+        XCTAssertEqual(created.context.kind, .credential)
+        XCTAssertEqual(created.context.parentContextID, initialContexts[0].contextID)
+        let configuredContexts = try model.accountCredentialStore.loadContexts(
+            providerID: account.providerID,
+            accountID: account.accountID
+        )
+        XCTAssertEqual(configuredContexts.count, 2)
+        XCTAssertEqual(
+            configuredContexts.filter { $0.parentContextID == nil }.count,
+            1
+        )
+        XCTAssertEqual(model.miniMaxCredentialContexts(for: account).count, 1)
+        XCTAssertEqual(keychain.credentialCount, 1)
+        XCTAssertTrue(
+            try keychain.matchesCredential(
+                reference: created.slot.keychainReference,
+                value: "first-private-subscription-key"
+            )
+        )
+        try seedRefreshMetadata(
+            model: model,
+            account: account,
+            occurredAt: Date(timeIntervalSince1970: 75_000)
+        )
+        model.reloadMiniMaxPresentationData(for: account)
+        XCTAssertEqual(model.miniMaxCredentialRefreshStates(for: account).count, 1)
+        XCTAssertEqual(model.miniMaxCredentialDiagnostics(for: account).count, 1)
+
+        XCTAssertThrowsError(
+            try model.createMiniMaxSubscriptionKey(
+                for: account,
+                credentialValue: "second-slot-must-not-exist"
+            )
+        ) {
+            XCTAssertEqual($0 as? MiniMaxSettingsError, .credentialExists)
+        }
+        XCTAssertThrowsError(
+            try model.replaceMiniMaxSubscriptionKey(
+                for: account,
+                credentialValue: ""
+            )
+        ) {
+            XCTAssertEqual($0 as? MiniMaxSettingsError, .emptyCredential)
+        }
+
+        try model.replaceMiniMaxSubscriptionKey(
+            for: account,
+            credentialValue: "replacement-private-subscription-key"
+        )
+        let replaced = try XCTUnwrap(
+            model.miniMaxCredentialContexts(for: account).first
+        )
+        XCTAssertTrue(
+            replaced.slot.keychainReference == created.slot.keychainReference
+        )
+        XCTAssertEqual(replaced.slot.credentialRevision, 2)
+        XCTAssertEqual(model.miniMaxCredentialRefreshStates(for: account).count, 1)
+        XCTAssertEqual(model.miniMaxCredentialDiagnostics(for: account).count, 1)
+        XCTAssertTrue(
+            try keychain.matchesCredential(
+                reference: replaced.slot.keychainReference,
+                value: "replacement-private-subscription-key"
+            )
+        )
+
+        try model.setMiniMaxSubscriptionKeyEnabled(false, for: account)
+        XCTAssertFalse(
+            try XCTUnwrap(model.miniMaxCredentialContexts(for: account).first)
+                .slot.isEnabled
+        )
+        try model.setMiniMaxSubscriptionKeyEnabled(true, for: account)
+        XCTAssertTrue(
+            try XCTUnwrap(model.miniMaxCredentialContexts(for: account).first)
+                .slot.isEnabled
+        )
+
+        XCTAssertFalse(
+            String(describing: defaults.dictionaryRepresentation()).contains(
+                "replacement-private-subscription-key"
+            )
+        )
+        XCTAssertFalse(
+            initialContexts[0].displayName?.contains(
+                replaced.slot.keychainReference
+            ) ?? false
+        )
+        try assertStorage(
+            at: directory,
+            excludes: [
+                "first-private-subscription-key",
+                "replacement-private-subscription-key"
+            ]
+        )
+
+        keychain.failDeletion(for: replaced.slot.keychainReference)
+        XCTAssertThrowsError(
+            try model.deleteMiniMaxSubscriptionKey(for: account)
+        ) {
+            XCTAssertEqual($0 as? MiniMaxSettingsError, .keychainUnavailable)
+        }
+        XCTAssertEqual(
+            model.miniMaxCredentialContexts(for: account)
+                .first?.slot.lifecycleState,
+            .pendingDeletion
+        )
+        keychain.allowDeletion(for: replaced.slot.keychainReference)
+        try model.deleteMiniMaxSubscriptionKey(for: account)
+        XCTAssertTrue(model.miniMaxCredentialContexts(for: account).isEmpty)
+        XCTAssertTrue(model.miniMaxCredentialRefreshStates(for: account).isEmpty)
+        XCTAssertTrue(model.miniMaxCredentialDiagnostics(for: account).isEmpty)
+        XCTAssertEqual(keychain.credentialCount, 0)
+        let remainingContexts = try model.accountCredentialStore.loadContexts(
+            providerID: account.providerID,
+            accountID: account.accountID
+        )
+        XCTAssertEqual(remainingContexts, initialContexts)
+    }
+
+    func testSeveralMiniMaxAccountsKeepCredentialMutationsIsolated() throws {
+        let keychain = MiniMaxAppIntegrationKeychain()
+        let model = AppModel(
+            storageDirectory: temporaryDirectory(),
+            userDefaults: isolatedDefaults(),
+            miniMaxAPIClient: InjectedMiniMaxAPIClient(),
+            credentialKeychainService: keychain
+        )
+        let first = try XCTUnwrap(
+            model.addAccount(providerID: "minimax", displayName: "First")
+        )
+        let second = try XCTUnwrap(
+            model.addAccount(providerID: "minimax", displayName: "Second")
+        )
+        let firstCredential = try model.createMiniMaxSubscriptionKey(
+            for: first,
+            credentialValue: "first-isolated-secret"
+        )
+        let secondCredential = try model.createMiniMaxSubscriptionKey(
+            for: second,
+            credentialValue: "second-isolated-secret"
+        )
+
+        XCTAssertFalse(
+            firstCredential.slot.keychainReference
+                == secondCredential.slot.keychainReference
+        )
+        try model.replaceMiniMaxSubscriptionKey(
+            for: first,
+            credentialValue: "first-replaced-secret"
+        )
+        try model.setMiniMaxSubscriptionKeyEnabled(false, for: first)
+
+        let unchangedSecond = try XCTUnwrap(
+            model.miniMaxCredentialContexts(for: second).first
+        )
+        XCTAssertTrue(unchangedSecond.slot.isEnabled)
+        XCTAssertEqual(unchangedSecond.slot.credentialRevision, 1)
+        XCTAssertTrue(
+            try keychain.matchesCredential(
+                reference: unchangedSecond.slot.keychainReference,
+                value: "second-isolated-secret"
+            )
+        )
+
+        try model.deleteMiniMaxSubscriptionKey(for: first)
+        XCTAssertFalse(
+            keychain.containsCredential(
+                reference: firstCredential.slot.keychainReference
+            )
+        )
+        XCTAssertTrue(
+            keychain.containsCredential(
+                reference: secondCredential.slot.keychainReference
+            )
+        )
+        XCTAssertEqual(model.miniMaxCredentialContexts(for: second).count, 1)
+    }
+
+    func testCredentialReplacementDiscardsAccountALateResultAndGlobalRefreshCompletesAccountB() async throws {
+        let directory = temporaryDirectory()
+        let keychain = MiniMaxAppIntegrationKeychain()
+        let client = BarrierMiniMaxAPIClient()
+        let model = AppModel(
+            storageDirectory: directory,
+            userDefaults: isolatedDefaults(),
+            refreshCoordinator: ProviderRefreshCoordinator(
+                retryPolicy: ProviderRetryPolicy(maxAttempts: 1, initialDelay: 0)
+            ),
+            miniMaxAPIClient: client,
+            credentialKeychainService: keychain
+        )
+        let accountA = try XCTUnwrap(
+            model.addAccount(providerID: "minimax", displayName: "Account A")
+        )
+        let accountB = try XCTUnwrap(
+            model.addAccount(providerID: "minimax", displayName: "Account B")
+        )
+        let credentialA = try model.createMiniMaxSubscriptionKey(
+            for: accountA,
+            credentialValue: "account-a-initial-secret"
+        )
+        let credentialB = try model.createMiniMaxSubscriptionKey(
+            for: accountB,
+            credentialValue: "account-b-secret"
+        )
+        await client.useContextIDs([
+            credentialA.context.contextID,
+            credentialB.context.contextID
+        ])
+        await client.blockNextRequest()
+
+        model.refresh()
+        await client.waitUntilRequestIsBlocked()
+        try model.replaceMiniMaxSubscriptionKey(
+            for: accountA,
+            credentialValue: "account-a-replacement-secret"
+        )
+        await client.releaseBlockedRequest()
+        await model.waitForRefreshCompletionForTesting()
+
+        let callCount = await client.callCount
+        XCTAssertEqual(callCount, 2)
+        XCTAssertNil(model.snapshot(for: accountA))
+        XCTAssertNil(model.accountRefreshIssues[accountA.id])
+        XCTAssertNil(model.providerRefreshStatuses[accountA.id])
+        XCTAssertTrue(model.miniMaxCredentialDiagnostics(for: accountA).isEmpty)
+        XCTAssertEqual(
+            try XCTUnwrap(model.miniMaxCredentialContexts(for: accountA).first)
+                .slot.credentialRevision,
+            2
+        )
+
+        let snapshotB = try XCTUnwrap(model.snapshot(for: accountB))
+        XCTAssertEqual(snapshotB.status, .ok)
+        XCTAssertNil(model.accountRefreshIssues[accountB.id])
+        XCTAssertNotNil(
+            model.sourceRefreshStates[accountB.id]?.lastSuccessfulRefreshAt
+        )
+        guard case .succeeded = model.providerRefreshStatuses[accountB.id] else {
+            return XCTFail("Account B did not finish its global refresh.")
+        }
+        XCTAssertNil(
+            try model.nativeCapacitySnapshotStore.load(
+                providerID: accountA.providerID,
+                accountID: accountA.accountID,
+                surface: MiniMaxProviderContract.surface,
+                sources: MiniMaxProviderContract.sources
+            )
+        )
+        XCTAssertNotNil(
+            try model.nativeCapacitySnapshotStore.load(
+                providerID: accountB.providerID,
+                accountID: accountB.accountID,
+                surface: MiniMaxProviderContract.surface,
+                sources: MiniMaxProviderContract.sources
+            )
+        )
+
+        let reloaded = AppModel(
+            storageDirectory: directory,
+            userDefaults: isolatedDefaults(),
+            miniMaxAPIClient: client,
+            credentialKeychainService: keychain
+        )
+        XCTAssertNil(reloaded.snapshot(for: accountA))
+        let reloadedSnapshotB = try XCTUnwrap(reloaded.snapshot(for: accountB))
+        XCTAssertEqual(reloadedSnapshotB.id, snapshotB.id)
+        XCTAssertEqual(reloadedSnapshotB.status, snapshotB.status)
+        XCTAssertEqual(reloadedSnapshotB.remainingLabel, snapshotB.remainingLabel)
+        XCTAssertEqual(reloadedSnapshotB.source, snapshotB.source)
+        XCTAssertEqual(
+            reloadedSnapshotB.lastUpdatedAt.timeIntervalSince1970,
+            snapshotB.lastUpdatedAt.timeIntervalSince1970,
+            accuracy: 0.001
+        )
+    }
+
+    func testCredentialReplacementDiscardsLateDirectAccountRefresh() async throws {
+        let directory = temporaryDirectory()
+        let keychain = MiniMaxAppIntegrationKeychain()
+        let client = BarrierMiniMaxAPIClient()
+        let model = AppModel(
+            storageDirectory: directory,
+            userDefaults: isolatedDefaults(),
+            refreshCoordinator: ProviderRefreshCoordinator(
+                retryPolicy: ProviderRetryPolicy(maxAttempts: 1, initialDelay: 0)
+            ),
+            miniMaxAPIClient: client,
+            credentialKeychainService: keychain
+        )
+        let accountA = try XCTUnwrap(
+            model.addAccount(providerID: "minimax", displayName: "Account A")
+        )
+        let credentialA = try model.createMiniMaxSubscriptionKey(
+            for: accountA,
+            credentialValue: "account-a-initial-secret"
+        )
+        let sourceDiagnostic = SourceDiagnostic(
+            providerID: accountA.providerID,
+            accountID: accountA.accountID,
+            code: "refresh-0",
+            message: "Sanitized direct-refresh persistence sentinel.",
+            occurredAt: Date(timeIntervalSince1970: 76_543)
+        )
+        try model.diagnosticStore.replaceRefreshDiagnostics(
+            providerID: accountA.providerID,
+            accountID: accountA.accountID,
+            occurredAt: sourceDiagnostic.occurredAt,
+            messages: [sourceDiagnostic.message]
+        )
+        model.loadDiagnostics()
+        XCTAssertEqual(
+            model.diagnosticStore.load().filter {
+                $0.providerID == accountA.providerID
+                    && $0.accountID == accountA.accountID
+            },
+            [sourceDiagnostic]
+        )
+        await client.useContextIDs([credentialA.context.contextID])
+        await client.blockNextRequest()
+
+        model.refreshAccount(
+            providerID: accountA.providerID,
+            accountID: accountA.accountID
+        )
+        await client.waitUntilRequestIsBlocked()
+        let refreshTask = try XCTUnwrap(model.accountRefreshTasks[accountA.id])
+        try model.replaceMiniMaxSubscriptionKey(
+            for: accountA,
+            credentialValue: "account-a-replacement-secret"
+        )
+        await client.releaseBlockedRequest()
+        await refreshTask.value
+
+        let callCount = await client.callCount
+        model.reloadMiniMaxPresentationData(for: accountA)
+        XCTAssertEqual(callCount, 1)
+        XCTAssertNil(model.snapshot(for: accountA))
+        XCTAssertEqual(
+            model.accountRefreshIssues[accountA.id],
+            AccountRefreshIssue(
+                occurredAt: sourceDiagnostic.occurredAt,
+                warnings: [sourceDiagnostic.message]
+            )
+        )
+        XCTAssertNil(model.providerRefreshStatuses[accountA.id])
+        XCTAssertEqual(
+            model.sourceDiagnostics.filter {
+                $0.providerID == accountA.providerID
+                    && $0.accountID == accountA.accountID
+            },
+            [sourceDiagnostic]
+        )
+        XCTAssertNil(model.sourceRefreshStates[accountA.id])
+        XCTAssertTrue(model.miniMaxCredentialRefreshStates(for: accountA).isEmpty)
+        XCTAssertTrue(model.miniMaxCredentialDiagnostics(for: accountA).isEmpty)
+        XCTAssertEqual(
+            model.diagnosticStore.load().filter {
+                $0.providerID == accountA.providerID
+                    && $0.accountID == accountA.accountID
+            },
+            [sourceDiagnostic]
+        )
+        XCTAssertNil(
+            try model.nativeCapacitySnapshotStore.load(
+                providerID: accountA.providerID,
+                accountID: accountA.accountID,
+                surface: MiniMaxProviderContract.surface,
+                sources: MiniMaxProviderContract.sources
+            )
+        )
+
+        let reloaded = AppModel(
+            storageDirectory: directory,
+            userDefaults: isolatedDefaults(),
+            miniMaxAPIClient: client,
+            credentialKeychainService: keychain
+        )
+        reloaded.reloadMiniMaxPresentationData(for: accountA)
+        XCTAssertNil(reloaded.snapshot(for: accountA))
+        XCTAssertEqual(
+            reloaded.sourceDiagnostics.filter {
+                $0.providerID == accountA.providerID
+                    && $0.accountID == accountA.accountID
+            },
+            [sourceDiagnostic]
+        )
+        XCTAssertEqual(
+            reloaded.accountRefreshIssues[accountA.id],
+            AccountRefreshIssue(
+                occurredAt: sourceDiagnostic.occurredAt,
+                warnings: [sourceDiagnostic.message]
+            )
+        )
+        XCTAssertNil(reloaded.sourceRefreshStates[accountA.id])
+        XCTAssertTrue(
+            reloaded.miniMaxCredentialRefreshStates(for: accountA).isEmpty
+        )
+        XCTAssertTrue(reloaded.miniMaxCredentialDiagnostics(for: accountA).isEmpty)
+        XCTAssertNil(
+            try reloaded.nativeCapacitySnapshotStore.load(
+                providerID: accountA.providerID,
+                accountID: accountA.accountID,
+                surface: MiniMaxProviderContract.surface,
+                sources: MiniMaxProviderContract.sources
+            )
+        )
     }
 
     func testDeletingMiniMaxAccountRemovesOnlyItsCredentials() throws {
@@ -351,38 +804,14 @@ final class MiniMaxAppIntegrationTests: XCTestCase {
         )
     }
 
+    @discardableResult
     private func configureCredential(
         model: AppModel,
         account: ProviderAccount
-    ) throws {
-        try model.accountCredentialStore.createContext(
-            ProviderAccountContextConfiguration(
-                providerID: account.providerID,
-                accountID: account.accountID,
-                contextID: "team-root",
-                kind: .team,
-                displayName: "Configured Team",
-                regionID: "global"
-            )
-        )
-        try model.accountCredentialStore.createContext(
-            ProviderAccountContextConfiguration(
-                providerID: account.providerID,
-                accountID: account.accountID,
-                contextID: "credential-local",
-                kind: .credential,
-                displayName: "Subscription Key",
-                regionID: "global",
-                parentContextID: "team-root"
-            )
-        )
-        try model.accountCredentialStore.createCredential(
-            providerID: account.providerID,
-            accountID: account.accountID,
-            slotID: "subscription",
-            contextID: "credential-local",
-            role: .ordinary,
-            credential: CredentialSecret(MiniMaxAppIntegrationKeychain.secretMarker)
+    ) throws -> ProviderCredentialContext {
+        try model.createMiniMaxSubscriptionKey(
+            for: account,
+            credentialValue: MiniMaxAppIntegrationKeychain.secretMarker
         )
     }
 
@@ -405,7 +834,7 @@ final class MiniMaxAppIntegrationTests: XCTestCase {
         try model.accountCredentialStore.recordRefreshFailure(
             providerID: account.providerID,
             accountID: account.accountID,
-            slotID: "subscription",
+            slotID: AppModel.miniMaxSubscriptionSlotID,
             code: .transientFailure,
             occurredAt: occurredAt
         )
@@ -454,6 +883,11 @@ private actor InjectedMiniMaxAPIClient: MiniMaxAPIClient {
     static let rawMarker = "raw-response-marker"
 
     private(set) var callCount = 0
+    private var contextID = "unconfigured-context"
+
+    func useContextID(_ contextID: String) {
+        self.contextID = contextID
+    }
 
     func fetchTokenPlanCapacity(
         credential: MiniMaxSubscriptionKey
@@ -465,7 +899,7 @@ private actor InjectedMiniMaxAPIClient: MiniMaxAPIClient {
             metrics: [
                 CapacityMetric(
                     metricID: "quota-category-a.current",
-                    accountContextID: "credential-local",
+                    accountContextID: contextID,
                     sourceID: MiniMaxProviderContract.sourceID,
                     capability: "quota-windows",
                     displayName: "unrecognized-category-marker \(Self.rawMarker)",
@@ -486,6 +920,90 @@ private actor InjectedMiniMaxAPIClient: MiniMaxAPIClient {
                             kind: .reset,
                             at: observedAt.addingTimeInterval(18_000)
                         )
+                    ),
+                    freshness: ObservationFreshness(observedAt: observedAt),
+                    confidence: .live
+                )
+            ],
+            diagnostics: []
+        )
+    }
+}
+
+private actor BarrierMiniMaxAPIClient: MiniMaxAPIClient {
+    private var contextIDs: [String] = []
+    private var shouldBlockNextRequest = false
+    private var requestIsBlocked = false
+    private var blockedWaiters: [CheckedContinuation<Void, Never>] = []
+    private var releaseContinuation: CheckedContinuation<Void, Never>?
+    private(set) var callCount = 0
+
+    func useContextIDs(_ contextIDs: [String]) {
+        self.contextIDs = contextIDs
+    }
+
+    func blockNextRequest() {
+        shouldBlockNextRequest = true
+    }
+
+    func waitUntilRequestIsBlocked() async {
+        if requestIsBlocked {
+            return
+        }
+        await withCheckedContinuation { continuation in
+            blockedWaiters.append(continuation)
+        }
+    }
+
+    func releaseBlockedRequest() {
+        releaseContinuation?.resume()
+        releaseContinuation = nil
+    }
+
+    func fetchTokenPlanCapacity(
+        credential: MiniMaxSubscriptionKey
+    ) async throws -> MiniMaxCapacityResult {
+        guard contextIDs.indices.contains(callCount) else {
+            throw MiniMaxAPIClientError.decodingFailure
+        }
+        let contextID = contextIDs[callCount]
+        callCount += 1
+
+        if shouldBlockNextRequest {
+            shouldBlockNextRequest = false
+            requestIsBlocked = true
+            let waiters = blockedWaiters
+            blockedWaiters.removeAll()
+            waiters.forEach { $0.resume() }
+            await withCheckedContinuation { continuation in
+                releaseContinuation = continuation
+            }
+            requestIsBlocked = false
+        }
+
+        let observedAt = Date(timeIntervalSince1970: 80_000)
+        return MiniMaxCapacityResult(
+            observedAt: observedAt,
+            metrics: [
+                CapacityMetric(
+                    metricID: "quota-category-a.current",
+                    accountContextID: contextID,
+                    sourceID: MiniMaxProviderContract.sourceID,
+                    capability: "quota-windows",
+                    displayName: "Local test capacity",
+                    availability: .known,
+                    unit: CapacityUnit(
+                        kind: .providerDefined,
+                        providerUnitID: MiniMaxProviderContract.providerUnitID
+                    ),
+                    values: CapacityValues(
+                        consumed: CapacityValue(value: 1, origin: .reported)
+                    ),
+                    window: CapacityWindow(
+                        kind: .rolling,
+                        durationSeconds: 18_000,
+                        startsAt: observedAt,
+                        endsAt: observedAt.addingTimeInterval(18_000)
                     ),
                     freshness: ObservationFreshness(observedAt: observedAt),
                     confidence: .live
@@ -554,10 +1072,31 @@ private final class MiniMaxAppIntegrationKeychain:
         return values[reference] != nil
     }
 
+    var credentialCount: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return values.count
+    }
+
+    func matchesCredential(reference: String, value: String) throws -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        guard let credential = values[reference] else {
+            throw KeychainServiceError.credentialNotFound
+        }
+        return try credential.withUTF8String { $0 == value }
+    }
+
     func failDeletion(for reference: String) {
         lock.lock()
         defer { lock.unlock() }
         deletionFailures.insert(reference)
+    }
+
+    func allowDeletion(for reference: String) {
+        lock.lock()
+        defer { lock.unlock() }
+        deletionFailures.remove(reference)
     }
 }
 #endif

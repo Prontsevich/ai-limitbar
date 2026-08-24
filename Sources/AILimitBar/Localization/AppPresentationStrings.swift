@@ -1,5 +1,19 @@
 import Foundation
 
+struct MiniMaxLocalizedString {
+    let english: String
+    let russian: String
+
+    func localized(locale: Locale) -> String {
+        let language = locale.identifier
+            .replacingOccurrences(of: "-", with: "_")
+            .split(separator: "_", maxSplits: 1)
+            .first
+            .map(String.init)
+        return language == "ru" ? russian : english
+    }
+}
+
 extension AppStrings {
     enum Common {
         static let cancel = AppString("common.action.cancel", defaultValue: "Cancel", comment: "Cancel button")
@@ -379,6 +393,149 @@ extension AppStrings {
         static let detailsCollapsed = AppString("openrouter.details.collapsed", defaultValue: "Collapsed", comment: "OpenRouter key details disclosure state")
         static let showKeyDetails = AppString("openrouter.details.show", defaultValue: "Show key details.", comment: "OpenRouter key details disclosure hint")
         static let hideKeyDetails = AppString("openrouter.details.hide", defaultValue: "Hide key details.", comment: "OpenRouter key details disclosure hint")
+    }
+
+    enum MiniMax {
+        static let credentialsTitle = MiniMaxLocalizedString(
+            english: "SUBSCRIPTION KEY",
+            russian: "КЛЮЧ ПОДПИСКИ"
+        )
+        static let boundaryLabel = MiniMaxLocalizedString(
+            english: "Account boundary",
+            russian: "Граница аккаунта"
+        )
+        static let boundaryDescription = MiniMaxLocalizedString(
+            english: "Global · personal Default Team · locally configured. AI Limitbar does not verify this boundary upstream.",
+            russian: "Global · личная Default Team · настроено локально. AI Limitbar не проверяет эту границу на стороне MiniMax."
+        )
+        static let keyLabel = MiniMaxLocalizedString(
+            english: "Subscription Key",
+            russian: "Ключ подписки"
+        )
+        static let notAdded = MiniMaxLocalizedString(
+            english: "Not added",
+            russian: "Не добавлен"
+        )
+        static let storedEnabled = MiniMaxLocalizedString(
+            english: "Stored securely · Enabled",
+            russian: "Безопасно сохранён · Включён"
+        )
+        static let storedDisabled = MiniMaxLocalizedString(
+            english: "Stored securely · Disabled",
+            russian: "Безопасно сохранён · Отключён"
+        )
+        static let recoveryRequired = MiniMaxLocalizedString(
+            english: "Recovery required",
+            russian: "Требуется восстановление"
+        )
+        static let deletionPending = MiniMaxLocalizedString(
+            english: "Secure removal pending",
+            russian: "Ожидается безопасное удаление"
+        )
+        static let authenticationFailed = MiniMaxLocalizedString(
+            english: "Stored securely · Authentication failed",
+            russian: "Безопасно сохранён · Ошибка аутентификации"
+        )
+        static let throttled = MiniMaxLocalizedString(
+            english: "Stored securely · Refresh throttled",
+            russian: "Безопасно сохранён · Обновление ограничено"
+        )
+        static let temporaryFailure = MiniMaxLocalizedString(
+            english: "Stored securely · Refresh failed temporarily",
+            russian: "Безопасно сохранён · Временная ошибка обновления"
+        )
+        static let unavailable = MiniMaxLocalizedString(
+            english: "Stored key unavailable",
+            russian: "Сохранённый ключ недоступен"
+        )
+        static let addKey = MiniMaxLocalizedString(
+            english: "Add Key",
+            russian: "Добавить ключ"
+        )
+        static let replaceKey = MiniMaxLocalizedString(
+            english: "Replace Key",
+            russian: "Заменить ключ"
+        )
+        static let recoverKey = MiniMaxLocalizedString(
+            english: "Recover Key",
+            russian: "Восстановить ключ"
+        )
+        static let enableKey = MiniMaxLocalizedString(
+            english: "Enable",
+            russian: "Включить"
+        )
+        static let disableKey = MiniMaxLocalizedString(
+            english: "Disable",
+            russian: "Отключить"
+        )
+        static let removeKey = MiniMaxLocalizedString(
+            english: "Remove",
+            russian: "Удалить"
+        )
+        static let removeTitle = MiniMaxLocalizedString(
+            english: "Remove Subscription Key?",
+            russian: "Удалить ключ подписки?"
+        )
+        static let removeMessage = MiniMaxLocalizedString(
+            english: "This securely removes the locally stored MiniMax Subscription Key from Keychain. The MiniMax account remains configured.",
+            russian: "Ключ подписки MiniMax будет безопасно удалён из Keychain. Аккаунт MiniMax останется настроенным."
+        )
+        static let addTitle = MiniMaxLocalizedString(
+            english: "Add MiniMax Subscription Key",
+            russian: "Добавить ключ подписки MiniMax"
+        )
+        static let replaceTitle = MiniMaxLocalizedString(
+            english: "Replace MiniMax Subscription Key",
+            russian: "Заменить ключ подписки MiniMax"
+        )
+        static let recoverTitle = MiniMaxLocalizedString(
+            english: "Recover MiniMax Subscription Key",
+            russian: "Восстановить ключ подписки MiniMax"
+        )
+        static let keyDetails = MiniMaxLocalizedString(
+            english: "KEY DETAILS",
+            russian: "ДАННЫЕ КЛЮЧА"
+        )
+        static let keyPlaceholder = MiniMaxLocalizedString(
+            english: "Paste Subscription Key",
+            russian: "Вставьте ключ подписки"
+        )
+        static let storageDisclosure = MiniMaxLocalizedString(
+            english: "The entered key is written directly to Keychain. AI Limitbar never reads it back into Settings or exposes it to accessibility.",
+            russian: "Введённый ключ записывается напрямую в Keychain. AI Limitbar не возвращает его в Settings и не передаёт через accessibility."
+        )
+        static let errorTitle = MiniMaxLocalizedString(
+            english: "MiniMax Key Error",
+            russian: "Ошибка ключа MiniMax"
+        )
+        static let invalidAccountError = MiniMaxLocalizedString(
+            english: "The MiniMax account is unavailable.",
+            russian: "Аккаунт MiniMax недоступен."
+        )
+        static let credentialExistsError = MiniMaxLocalizedString(
+            english: "This MiniMax account already has a Subscription Key.",
+            russian: "Для этого аккаунта MiniMax уже сохранён ключ подписки."
+        )
+        static let emptyCredentialError = MiniMaxLocalizedString(
+            english: "Enter a Subscription Key.",
+            russian: "Введите ключ подписки."
+        )
+        static let pendingDeletionError = MiniMaxLocalizedString(
+            english: "Secure removal is pending. Retry removal before replacing this key.",
+            russian: "Ожидается безопасное удаление. Повторите удаление перед заменой ключа."
+        )
+        static let unavailableCredentialError = MiniMaxLocalizedString(
+            english: "The Subscription Key is unavailable. Reload Settings and try again.",
+            russian: "Ключ подписки недоступен. Перезагрузите Settings и повторите попытку."
+        )
+        static let keychainError = MiniMaxLocalizedString(
+            english: "Keychain access failed. No stored key was displayed.",
+            russian: "Не удалось обратиться к Keychain. Сохранённый ключ не отображался."
+        )
+        static let storageError = MiniMaxLocalizedString(
+            english: "MiniMax key settings could not be saved.",
+            russian: "Не удалось сохранить настройки ключа MiniMax."
+        )
     }
 
     enum Window {

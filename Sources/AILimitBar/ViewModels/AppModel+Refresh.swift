@@ -61,6 +61,10 @@ extension AppModel {
             == OpenRouterProviderContract.providerID
             ? openRouterRefreshGeneration(for: account.id)
             : nil
+        let miniMaxGeneration = account.providerID
+            == MiniMaxProviderContract.providerID
+            ? miniMaxRefreshGeneration(for: account.id)
+            : nil
         accountRefreshTaskIDs[account.id] = taskID
 
         accountRefreshTasks[account.id] = Task { [weak self] in
@@ -74,7 +78,8 @@ extension AppModel {
             }
             if handleRefreshedSnapshot(
                 snapshot,
-                expectedOpenRouterGeneration: openRouterGeneration
+                expectedOpenRouterGeneration: openRouterGeneration,
+                expectedMiniMaxGeneration: miniMaxGeneration
             ) {
                 saveSnapshots()
             }
@@ -92,6 +97,10 @@ extension AppModel {
             == OpenRouterProviderContract.providerID
             ? openRouterRefreshGeneration(for: account.id)
             : nil
+        let miniMaxGeneration = account.providerID
+            == MiniMaxProviderContract.providerID
+            ? miniMaxRefreshGeneration(for: account.id)
+            : nil
         accountRefreshTaskIDs[account.id] = taskID
 
         accountRefreshTasks[account.id] = Task { [weak self] in
@@ -105,7 +114,8 @@ extension AppModel {
             }
             if handleRefreshedSnapshot(
                 snapshot,
-                expectedOpenRouterGeneration: openRouterGeneration
+                expectedOpenRouterGeneration: openRouterGeneration,
+                expectedMiniMaxGeneration: miniMaxGeneration
             ) {
                 saveSnapshots()
             }
@@ -135,6 +145,16 @@ extension AppModel {
                     : nil
             }
         )
+        let miniMaxGenerations = Dictionary(
+            uniqueKeysWithValues: enabledAccounts.compactMap { account in
+                account.providerID == MiniMaxProviderContract.providerID
+                    ? (
+                        account.id,
+                        miniMaxRefreshGeneration(for: account.id)
+                    )
+                    : nil
+            }
+        )
         let refreshedSnapshots = await refreshCoordinator.refresh(requests)
         guard !Task.isCancelled else { return }
 
@@ -142,7 +162,8 @@ extension AppModel {
         for snapshot in refreshedSnapshots {
             didChangeSnapshots = handleRefreshedSnapshot(
                 snapshot,
-                expectedOpenRouterGeneration: openRouterGenerations[snapshot.id]
+                expectedOpenRouterGeneration: openRouterGenerations[snapshot.id],
+                expectedMiniMaxGeneration: miniMaxGenerations[snapshot.id]
             ) || didChangeSnapshots
         }
         if didChangeSnapshots {
@@ -153,12 +174,19 @@ extension AppModel {
     @discardableResult
     func handleRefreshedSnapshot(
         _ snapshot: UsageSnapshot,
-        expectedOpenRouterGeneration: UInt64? = nil
+        expectedOpenRouterGeneration: UInt64? = nil,
+        expectedMiniMaxGeneration: UInt64? = nil
     ) -> Bool {
         if snapshot.providerID == OpenRouterProviderContract.providerID,
            let expectedOpenRouterGeneration,
            openRouterRefreshGeneration(for: snapshot.id)
                != expectedOpenRouterGeneration {
+            return false
+        }
+        if snapshot.providerID == MiniMaxProviderContract.providerID,
+           let expectedMiniMaxGeneration,
+           miniMaxRefreshGeneration(for: snapshot.id)
+               != expectedMiniMaxGeneration {
             return false
         }
         guard account(

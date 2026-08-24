@@ -3,8 +3,15 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct SettingsAccountDetailPresentation: Equatable {
+    enum ContentKind: Equatable {
+        case standard
+        case openRouter
+        case miniMax
+    }
+
     let providerSubtitle: String?
     let accountExceptionText: String?
+    let contentKind: ContentKind
 
     init(
         account: ProviderAccount,
@@ -16,7 +23,12 @@ struct SettingsAccountDetailPresentation: Equatable {
     ) {
         let isOpenRouter =
             account.providerID == OpenRouterProviderContract.providerID
+        let isMiniMax =
+            account.providerID == MiniMaxProviderContract.providerID
         providerSubtitle = isOpenRouter ? nil : providerDisplayName
+        contentKind = isOpenRouter
+            ? .openRouter
+            : (isMiniMax ? .miniMax : .standard)
 
         guard isOpenRouter else {
             accountExceptionText = nil
@@ -93,6 +105,12 @@ struct AccountDetailView: View {
                             appModel: appModel,
                             account: currentAccount
                         )
+                    } else if isMiniMax {
+                        standardAccountDetails
+                        MiniMaxCredentialsSettingsView(
+                            appModel: appModel,
+                            account: currentAccount
+                        )
                     } else {
                         standardAccountDetails
                     }
@@ -166,6 +184,10 @@ struct AccountDetailView: View {
 
     private var isOpenRouter: Bool {
         currentAccount.providerID == OpenRouterProviderContract.providerID
+    }
+
+    private var isMiniMax: Bool {
+        currentAccount.providerID == MiniMaxProviderContract.providerID
     }
 
     private var detailPresentation: SettingsAccountDetailPresentation {

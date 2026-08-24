@@ -234,6 +234,18 @@ extension AppModel {
                 storageWarning = "OpenRouter credential metadata could not be loaded."
                 return nil
             }
+        } else if providerID == MiniMaxProviderContract.providerID {
+            do {
+                try initializeMiniMaxAccount(account)
+            } catch {
+                try? accountCredentialStore.deleteAccount(
+                    providerID: providerID,
+                    accountID: account.accountID
+                )
+                providerAccounts = previousAccounts
+                storageWarning = "Provider settings could not be saved."
+                return nil
+            }
         }
         return account
     }
