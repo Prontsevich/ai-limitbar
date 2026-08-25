@@ -80,7 +80,7 @@ struct AccountDetailsView: View {
 
         TerminalInspectorRow(
             label: AppStrings.AccountDetails.sourceState.localized(locale: locale),
-            value: appModel.localizedAccountDiagnosticsMessage(for: currentAccount, locale: locale),
+            value: sourceStateMessage,
             valueColor: sourceAvailabilityColor(diagnostics.availability)
         )
 
@@ -260,19 +260,18 @@ struct AccountDetailsView: View {
 
     @ViewBuilder
     private var diagnosticsContent: some View {
-        if let issue = row.refreshIssue {
+        if let issue = row.refreshIssue,
+           let messages = refreshIssueDiagnosticMessages {
             diagnosticItem(
                 title: AppStrings.AccountDetails.lastRefreshFailed.localized(locale: locale),
-                messages: issue.warnings.isEmpty
-                    ? [AppStrings.AccountDetails.noErrorDetails.localized(locale: locale)]
-                    : issue.warnings,
+                messages: messages,
                 date: issue.occurredAt,
                 color: TerminalTheme.error
             )
         }
 
         if let snapshot = row.snapshot, appModel.isSnapshotStale(snapshot) {
-            if row.refreshIssue != nil {
+            if hasRefreshIssueDiagnostics {
                 TerminalRule()
             }
             diagnosticItem(
@@ -284,7 +283,7 @@ struct AccountDetailsView: View {
         }
 
         if let snapshot = row.snapshot, !diagnosticWarnings.isEmpty {
-            if row.refreshIssue != nil || appModel.isSnapshotStale(snapshot) {
+            if hasRefreshIssueDiagnostics || appModel.isSnapshotStale(snapshot) {
                 TerminalRule()
             }
             diagnosticItem(
@@ -355,9 +354,22 @@ struct AccountDetailsView: View {
     }
 
     private var hasDiagnostics: Bool {
-        row.refreshIssue != nil ||
+        hasRefreshIssueDiagnostics ||
             row.snapshot.map { appModel.isSnapshotStale($0) } == true ||
             !diagnosticWarnings.isEmpty
+    }
+
+    private var refreshIssueDiagnosticMessages: [String]? {
+        guard let issue = row.refreshIssue else { return nil }
+        return AccountDetailsRefreshIssuePresentation.diagnosticMessages(
+            for: currentAccount,
+            issue: issue,
+            locale: locale
+        )
+    }
+
+    private var hasRefreshIssueDiagnostics: Bool {
+        refreshIssueDiagnosticMessages != nil
     }
 
     private var diagnosticWarnings: [String] {
@@ -365,7 +377,39 @@ struct AccountDetailsView: View {
         if row.account.sourceMode.isExperimental && snapshot.status == .ok {
             return []
         }
-        return snapshot.warnings
+        return localizedDiagnosticMessages(
+            AccountDetailsRefreshIssuePresentation.snapshotWarnings(
+                for: currentAccount,
+                warnings: snapshot.warnings
+            )
+        )
+    }
+
+    private var sourceStateMessage: String {
+        hasUnavailableMiniMaxSubscription
+            ? AppStrings.MiniMax.subscriptionUnavailable.localized(locale: locale)
+            : appModel.localizedAccountDiagnosticsMessage(
+                for: currentAccount,
+                locale: locale
+            )
+    }
+
+    private var hasUnavailableMiniMaxSubscription: Bool {
+        AccountDetailsRefreshIssuePresentation.hasUnavailableSubscription(
+            for: currentAccount,
+            issue: row.refreshIssue
+        )
+    }
+
+    private func localizedDiagnosticMessages(_ messages: [String]) -> [String] {
+        guard currentAccount.providerID == MiniMaxProviderContract.providerID else {
+            return messages
+        }
+        return messages.map {
+            $0 == MiniMaxProviderContract.unavailableSubscriptionWarning
+                ? AppStrings.MiniMax.subscriptionUnavailable.localized(locale: locale)
+                : $0
+        }
     }
 
     private var actionsDisabled: Bool {
@@ -517,6 +561,51 @@ struct AccountDetailsView: View {
 
     private func preciseDate(_ date: Date) -> String {
         AppFormatters.preciseDate(date, locale: locale)
+    }
+}
+
+enum AccountDetailsRefreshIssuePresentation {
+    static func hasUnavailableSubscription(
+        for account: ProviderAccount,
+        issue: AccountRefreshIssue?
+    ) -> Bool {
+        guard account.providerID == MiniMaxProviderContract.providerID else {
+            return false
+        }
+        return issue?.warnings.contains(
+            MiniMaxProviderContract.unavailableSubscriptionWarning
+        ) == true
+    }
+
+    static func diagnosticMessages(
+        for account: ProviderAccount,
+        issue: AccountRefreshIssue,
+        locale: Locale
+    ) -> [String]? {
+        guard !issue.warnings.isEmpty else {
+            return [AppStrings.AccountDetails.noErrorDetails.localized(locale: locale)]
+        }
+
+        let messages = issue.warnings.compactMap { warning -> String? in
+            guard account.providerID == MiniMaxProviderContract.providerID,
+                  warning == MiniMaxProviderContract.unavailableSubscriptionWarning else {
+                return warning
+            }
+            return nil
+        }
+        return messages.isEmpty ? nil : messages
+    }
+
+    static func snapshotWarnings(
+        for account: ProviderAccount,
+        warnings: [String]
+    ) -> [String] {
+        guard account.providerID == MiniMaxProviderContract.providerID else {
+            return warnings
+        }
+        return warnings.filter {
+            $0 != MiniMaxProviderContract.unavailableSubscriptionWarning
+        }
     }
 }
 

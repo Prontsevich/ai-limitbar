@@ -79,6 +79,44 @@ final class MiniMaxAppIntegrationTests: XCTestCase {
         )
     }
 
+    func testAcceptedMiniMaxRefreshReloadsCurrentSettingsDiagnostics() async throws {
+        let client = InjectedMiniMaxAPIClient()
+        let model = AppModel(
+            storageDirectory: temporaryDirectory(),
+            userDefaults: isolatedDefaults(),
+            refreshCoordinator: ProviderRefreshCoordinator(
+                retryPolicy: ProviderRetryPolicy(maxAttempts: 1, initialDelay: 0)
+            ),
+            miniMaxAPIClient: client,
+            credentialKeychainService: MiniMaxAppIntegrationKeychain()
+        )
+        let account = try XCTUnwrap(
+            model.addAccount(providerID: "minimax", displayName: "Settings Cache")
+        )
+        let credential = try configureCredential(model: model, account: account)
+        await client.useContextID(credential.context.contextID)
+
+        await client.enqueueFailure(.unavailableSubscription)
+        model.refreshAccount(providerID: account.providerID, accountID: account.accountID)
+        await model.waitForRefreshCompletionForTesting()
+        XCTAssertEqual(
+            model.miniMaxCredentialDiagnostics(for: account).first?.code,
+            .insufficientPrivilege
+        )
+
+        await client.enqueueFailure(.authenticationFailure)
+        model.refreshAccount(providerID: account.providerID, accountID: account.accountID)
+        await model.waitForRefreshCompletionForTesting()
+        XCTAssertEqual(
+            model.miniMaxCredentialDiagnostics(for: account).first?.code,
+            .authentication
+        )
+
+        model.refreshAccount(providerID: account.providerID, accountID: account.accountID)
+        await model.waitForRefreshCompletionForTesting()
+        XCTAssertTrue(model.miniMaxCredentialDiagnostics(for: account).isEmpty)
+    }
+
     func testProductionQuotaCategoryMappingUsesOnlyLocalOutputLabels() throws {
         let mapping = MiniMaxProviderContract.reviewedQuotaCategories
         let categoryA = try XCTUnwrap(
@@ -884,15 +922,23 @@ private actor InjectedMiniMaxAPIClient: MiniMaxAPIClient {
 
     private(set) var callCount = 0
     private var contextID = "unconfigured-context"
+    private var failures: [MiniMaxAPIClientError] = []
 
     func useContextID(_ contextID: String) {
         self.contextID = contextID
+    }
+
+    func enqueueFailure(_ error: MiniMaxAPIClientError) {
+        failures.append(error)
     }
 
     func fetchTokenPlanCapacity(
         credential: MiniMaxSubscriptionKey
     ) async throws -> MiniMaxCapacityResult {
         callCount += 1
+        if !failures.isEmpty {
+            throw failures.removeFirst()
+        }
         let observedAt = Date(timeIntervalSince1970: 50_000)
         return MiniMaxCapacityResult(
             observedAt: observedAt,

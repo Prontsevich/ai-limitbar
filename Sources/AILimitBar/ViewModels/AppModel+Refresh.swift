@@ -223,6 +223,13 @@ extension AppModel {
 #endif
             reloadOpenRouterPresentationData(for: account)
         }
+        if snapshot.providerID == MiniMaxProviderContract.providerID,
+           let account = account(
+               providerID: snapshot.providerID,
+               accountID: snapshot.accountID
+           ) {
+            reloadMiniMaxPresentationData(for: account)
+        }
         return true
     }
 

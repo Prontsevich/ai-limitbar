@@ -1,3 +1,4 @@
+import AILimitBarCore
 import AppKit
 import SwiftUI
 
@@ -145,6 +146,10 @@ struct DashboardAccountRowView: View {
         } else if let miniMaxPresentation {
             MiniMaxCapacityDashboardContent(
                 presentation: miniMaxPresentation,
+                refreshStatusText: MiniMaxCapacityRefreshStatusPresentation.text(
+                    for: row,
+                    dashboardPresentation: presentation
+                ),
                 providerID: row.account.providerID,
                 onToggleWindow: {
                     appModel.toggleUsageDisplayMode(
@@ -253,8 +258,24 @@ struct DashboardAccountRowView: View {
     }
 }
 
+enum MiniMaxCapacityRefreshStatusPresentation {
+    static func text(
+        for row: AccountSnapshotRow,
+        dashboardPresentation: DashboardAccountPresentation
+    ) -> String? {
+        guard row.account.providerID == MiniMaxProviderContract.providerID,
+              row.refreshIssue?.warnings.contains(
+                  MiniMaxProviderContract.unavailableSubscriptionWarning
+              ) == true else {
+            return nil
+        }
+        return dashboardPresentation.statusText
+    }
+}
+
 private struct MiniMaxCapacityDashboardContent: View {
     let presentation: MiniMaxCapacityPresentation
+    let refreshStatusText: String?
     let providerID: String
     let onToggleWindow: (String) -> Void
     @Binding var focusedLimitWindow: DashboardLimitWindowFocusTarget?
@@ -263,6 +284,13 @@ private struct MiniMaxCapacityDashboardContent: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
+            if let refreshStatusText {
+                Label(refreshStatusText, systemImage: "exclamationmark.triangle")
+                    .font(TerminalTheme.captionFont)
+                    .foregroundStyle(TerminalTheme.error)
+                    .accessibilityLabel(refreshStatusText)
+            }
+
             ForEach(Array(presentation.categories.enumerated()), id: \.element.id) {
                 index,
                 category in

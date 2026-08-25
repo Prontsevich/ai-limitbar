@@ -189,6 +189,46 @@ final class MiniMaxCapacityPresentationTests: XCTestCase {
         XCTAssertTrue(current.accessibilityValue.contains("resets in 1 hour"))
     }
 
+    func testUnavailableSubscriptionStatusIsIncludedAlongsideNativeCapacityRows() throws {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let account = makeAccount()
+        let nativeCapacity = try XCTUnwrap(
+            MiniMaxCapacityPresentation(
+                account: account,
+                snapshot: makeSnapshot(anchor: now),
+                now: now,
+                locale: Locale(identifier: "en_US")
+            )
+        )
+        let issue = AccountRefreshIssue(
+            occurredAt: now,
+            warnings: [MiniMaxProviderContract.unavailableSubscriptionWarning]
+        )
+        let row = AccountSnapshotRow(
+            account: account,
+            providerDisplayName: "MiniMax",
+            snapshot: nil,
+            refreshStatus: .failed(now),
+            refreshIssue: issue
+        )
+        let dashboardPresentation = DashboardAccountPresentation(
+            row: row,
+            isStale: false,
+            isGlobalRefresh: false,
+            locale: Locale(identifier: "en_US")
+        )
+
+        XCTAssertFalse(nativeCapacity.categories.isEmpty)
+        XCTAssertEqual(
+            MiniMaxCapacityRefreshStatusPresentation.text(
+                for: row,
+                dashboardPresentation: dashboardPresentation
+            ),
+            "MiniMax Token Plan subscription is unavailable or expired"
+        )
+        XCTAssertNil(dashboardPresentation.bodyMessage)
+    }
+
     private func makeAccount() -> ProviderAccount {
         ProviderAccount(
             providerID: MiniMaxProviderContract.providerID,

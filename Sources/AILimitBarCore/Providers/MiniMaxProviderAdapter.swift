@@ -5,6 +5,8 @@ public enum MiniMaxProviderContract {
     public static let surfaceID = "token-plan"
     public static let sourceID = "token-plan-remains-api"
     public static let providerUnitID = "minimax.included-usage"
+    public static let unavailableSubscriptionWarning =
+        "MiniMax Token Plan subscription is unavailable or expired."
 
     public static let surface = ProviderSurface(
         providerID: providerID,
@@ -195,7 +197,9 @@ public struct MiniMaxProviderAdapter: ProviderAdapter {
         var warnings: [String] = []
         if result.failedSourceCount > 0 {
             warnings.append(
-                "MiniMax refresh failed; the last valid native observation was preserved."
+                result.failureDiagnosticCode == .insufficientPrivilege
+                    ? MiniMaxProviderContract.unavailableSubscriptionWarning
+                    : "MiniMax refresh failed; the last valid native observation was preserved."
             )
         }
         if result.deferredSourceCount > 0 {

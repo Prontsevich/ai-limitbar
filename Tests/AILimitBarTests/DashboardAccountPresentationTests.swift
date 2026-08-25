@@ -208,6 +208,101 @@ final class DashboardAccountPresentationTests: XCTestCase {
         XCTAssertEqual(failed.windows.count, 1)
     }
 
+    func testMiniMaxUnavailableSubscriptionFailureUsesLocalizedPresentation() {
+        let account = ProviderAccount(
+            providerID: MiniMaxProviderContract.providerID,
+            accountID: "minimax-account",
+            displayName: "MiniMax",
+            isEnabled: true,
+            sourceMode: .miniMaxTokenPlan
+        )
+        let issue = AccountRefreshIssue(
+            occurredAt: Date(timeIntervalSince1970: 1_000_000),
+            warnings: [MiniMaxProviderContract.unavailableSubscriptionWarning]
+        )
+
+        let english = DashboardAccountPresentation(
+            row: AccountSnapshotRow(
+                account: account,
+                providerDisplayName: "MiniMax",
+                snapshot: nil,
+                refreshStatus: .failed(issue.occurredAt),
+                refreshIssue: issue
+            ),
+            isStale: false,
+            isGlobalRefresh: false,
+            locale: Locale(identifier: "en_US")
+        )
+        let russian = DashboardAccountPresentation(
+            row: AccountSnapshotRow(
+                account: account,
+                providerDisplayName: "MiniMax",
+                snapshot: nil,
+                refreshStatus: .failed(issue.occurredAt),
+                refreshIssue: issue
+            ),
+            isStale: false,
+            isGlobalRefresh: false,
+            locale: Locale(identifier: "ru_RU")
+        )
+        let unrelated = DashboardAccountPresentation(
+            row: makeRow(
+                snapshot: nil,
+                refreshIssue: AccountRefreshIssue(
+                    occurredAt: issue.occurredAt,
+                    warnings: ["Timed out"]
+                )
+            ),
+            isStale: false,
+            isGlobalRefresh: false
+        )
+        let laterAuthentication = DashboardAccountPresentation(
+            row: AccountSnapshotRow(
+                account: account,
+                providerDisplayName: "MiniMax",
+                snapshot: makeSnapshot(
+                    status: .error,
+                    providerID: MiniMaxProviderContract.providerID,
+                    accountID: account.accountID,
+                    warnings: [MiniMaxProviderContract.unavailableSubscriptionWarning]
+                ),
+                refreshStatus: .failed(issue.occurredAt),
+                refreshIssue: AccountRefreshIssue(
+                    occurredAt: issue.occurredAt,
+                    warnings: ["Authentication failed"]
+                )
+            ),
+            isStale: false,
+            isGlobalRefresh: false
+        )
+        let laterSuccess = DashboardAccountPresentation(
+            row: AccountSnapshotRow(
+                account: account,
+                providerDisplayName: "MiniMax",
+                snapshot: makeSnapshot(
+                    status: .ok,
+                    providerID: MiniMaxProviderContract.providerID,
+                    accountID: account.accountID,
+                    warnings: [MiniMaxProviderContract.unavailableSubscriptionWarning]
+                ),
+                refreshStatus: .succeeded(issue.occurredAt),
+                refreshIssue: nil
+            ),
+            isStale: false,
+            isGlobalRefresh: false
+        )
+
+        XCTAssertEqual(english.statusText, "MiniMax Token Plan subscription is unavailable or expired")
+        XCTAssertNil(english.bodyMessage)
+        XCTAssertEqual(russian.statusText, "Подписка MiniMax Token Plan недоступна или истекла")
+        XCTAssertEqual(unrelated.statusText, "Refresh failed")
+        XCTAssertEqual(laterAuthentication.statusText, "Refresh failed")
+        XCTAssertNotEqual(
+            laterSuccess.statusText,
+            "MiniMax Token Plan subscription is unavailable or expired"
+        )
+    }
+
     func testRefreshAvailabilityMatchesGlobalAndAccountRefreshRules() {
         let row = makeRow(snapshot: makeSnapshot())
 
@@ -323,14 +418,16 @@ final class DashboardAccountPresentationTests: XCTestCase {
         status: UsageStatus = .ok,
         confidence: ConfidenceLevel = .live,
         remainingLabel: String? = nil,
+        providerID: String = "test",
+        accountID: String = "work",
         warnings: [String] = [],
         limitWindows: [UsageLimitWindow] = [
             UsageLimitWindow(id: "weekly", displayName: "7-day", usedPercent: 42)
         ]
     ) -> UsageSnapshot {
         UsageSnapshot(
-            providerID: "test",
-            accountID: "work",
+            providerID: providerID,
+            accountID: accountID,
             accountDisplayName: "Work",
             displayName: "Test Provider",
             status: status,

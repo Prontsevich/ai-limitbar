@@ -392,6 +392,9 @@ struct DashboardAccountPresentation: Equatable {
 
         let snapshot = row.snapshot
         let resolvedState = Self.state(for: row, isStale: isStale)
+        let hasUnavailableMiniMaxSubscription = Self.hasUnavailableMiniMaxSubscription(
+            row
+        )
         let visibleWindows = snapshot?.displayLimitWindows.compactMap {
             DashboardLimitWindowPresentation(
                 window: $0,
@@ -410,12 +413,14 @@ struct DashboardAccountPresentation: Equatable {
         statusText = Self.statusText(
             for: resolvedState,
             limitWindows: snapshot?.displayLimitWindows ?? [],
+            hasUnavailableMiniMaxSubscription: hasUnavailableMiniMaxSubscription,
             locale: locale
         )
         bodyMessage = Self.bodyMessage(
             for: resolvedState,
             snapshot: snapshot,
             hasVisibleWindows: !windows.isEmpty,
+            hasUnavailableMiniMaxSubscription: hasUnavailableMiniMaxSubscription,
             locale: locale
         )
     }
@@ -456,11 +461,14 @@ struct DashboardAccountPresentation: Equatable {
     private static func statusText(
         for state: DashboardAccountState,
         limitWindows: [UsageLimitWindow],
+        hasUnavailableMiniMaxSubscription: Bool,
         locale: Locale
     ) -> String? {
         switch state {
         case .failed:
-            AppStrings.Dashboard.refreshFailed.localized(locale: locale)
+            hasUnavailableMiniMaxSubscription
+                ? AppStrings.MiniMax.subscriptionUnavailable.localized(locale: locale)
+                : AppStrings.Dashboard.refreshFailed.localized(locale: locale)
         case .stale:
             AppStrings.Common.stale.localized(locale: locale)
         case .warning:
@@ -476,6 +484,7 @@ struct DashboardAccountPresentation: Equatable {
         for state: DashboardAccountState,
         snapshot: UsageSnapshot?,
         hasVisibleWindows: Bool,
+        hasUnavailableMiniMaxSubscription: Bool,
         locale: Locale
     ) -> String? {
         switch state {
@@ -486,14 +495,26 @@ struct DashboardAccountPresentation: Equatable {
         case .noData:
             AppStrings.Dashboard.noData.localized(locale: locale)
         case .failed:
-            hasVisibleWindows
+            hasUnavailableMiniMaxSubscription || hasVisibleWindows
                 ? nil
-                : snapshot?.remainingLabel ?? AppStrings.Dashboard.refreshFailedFallback.localized(locale: locale)
+                : snapshot?.remainingLabel
+                    ?? AppStrings.Dashboard.refreshFailedFallback.localized(locale: locale)
         case .normal, .refreshing, .stale, .warning:
             hasVisibleWindows
                 ? nil
                 : snapshot?.remainingLabel ?? AppStrings.Common.usageUnavailable.localized(locale: locale)
         }
+    }
+
+    private static func hasUnavailableMiniMaxSubscription(
+        _ row: AccountSnapshotRow
+    ) -> Bool {
+        guard row.account.providerID == MiniMaxProviderContract.providerID else {
+            return false
+        }
+        return row.refreshIssue?.warnings.contains(
+            MiniMaxProviderContract.unavailableSubscriptionWarning
+        ) == true
     }
 
     private static func refreshHelp(

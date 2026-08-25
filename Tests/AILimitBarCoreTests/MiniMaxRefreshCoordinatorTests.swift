@@ -220,7 +220,7 @@ final class MiniMaxRefreshCoordinatorTests: XCTestCase {
                 providerID: "minimax",
                 accountID: "account"
             ).first?.code,
-            .authentication
+            .insufficientPrivilege
         )
         let states = try environment.credentialStore.loadRefreshStates(
             providerID: "minimax",
@@ -229,6 +229,57 @@ final class MiniMaxRefreshCoordinatorTests: XCTestCase {
         XCTAssertNotNil(states.first?.lastSuccessfulRefreshAt)
         XCTAssertNotNil(states.first?.lastFailedRefreshAt)
         XCTAssertEqual(states.first?.consecutiveFailureCount, 2)
+    }
+
+    func testUnavailableSubscriptionProjectionRemainsDistinctFromAuthentication() async throws {
+        let environment = try makeEnvironment([
+            AccountSetup(accountID: "account", ordinarySlotIDs: ["subscription"])
+        ])
+        let client = ScriptedMiniMaxClient()
+        let coordinator = makeCoordinator(environment: environment, client: client)
+        let account = try XCTUnwrap(environment.accounts["account"])
+
+        await client.enqueue(.failure(.unavailableSubscription))
+        let unavailable = try await coordinator.refresh(account: account)
+        XCTAssertEqual(unavailable.failureDiagnosticCode, .insufficientPrivilege)
+        XCTAssertEqual(
+            try environment.credentialStore.loadDiagnostics(
+                providerID: account.providerID,
+                accountID: account.accountID
+            ).first?.code,
+            .insufficientPrivilege
+        )
+
+        let adapter = MiniMaxProviderAdapter(
+            refreshCoordinator: StaticMiniMaxRefresher(result: unavailable)
+        )
+        let failureSnapshot = try await adapter.fetchSnapshot(account: account)
+        XCTAssertEqual(
+            failureSnapshot.warnings,
+            [MiniMaxProviderContract.unavailableSubscriptionWarning]
+        )
+
+        await client.enqueue(.failure(.authenticationFailure))
+        let authentication = try await coordinator.refresh(account: account)
+        XCTAssertEqual(authentication.failureDiagnosticCode, .authentication)
+        XCTAssertEqual(
+            try environment.credentialStore.loadDiagnostics(
+                providerID: account.providerID,
+                accountID: account.accountID
+            ).first?.code,
+            .authentication
+        )
+
+        await client.enqueue(.success(5))
+        let success = try await coordinator.refresh(account: account)
+        XCTAssertNil(success.failureDiagnosticCode)
+        XCTAssertEqual(try consumedValue(success.snapshot), 5)
+        XCTAssertTrue(
+            try environment.credentialStore.loadDiagnostics(
+                providerID: account.providerID,
+                accountID: account.accountID
+            ).isEmpty
+        )
     }
 
     func testUnknownQuotaCategoryOnlyPreservesSnapshotAndPersistsSanitizedDiagnostic() async throws {

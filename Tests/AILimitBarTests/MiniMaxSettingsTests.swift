@@ -198,6 +198,53 @@ final class MiniMaxSettingsTests: XCTestCase {
         XCTAssertFalse(presentation.stateText.contains(credential.slot.keychainReference))
     }
 
+    func testMiniMaxUnavailableSubscriptionDiagnosticIsLocalizedAndDistinctFromAuthentication() {
+        let credential = miniMaxCredential()
+        let unavailable = CredentialContextDiagnostic(
+            providerID: credential.slot.providerID,
+            accountID: credential.slot.accountID,
+            slotID: credential.slot.slotID,
+            code: .insufficientPrivilege,
+            occurredAt: Date(timeIntervalSince1970: 1_000)
+        )
+        let authentication = CredentialContextDiagnostic(
+            providerID: credential.slot.providerID,
+            accountID: credential.slot.accountID,
+            slotID: credential.slot.slotID,
+            code: .authentication,
+            occurredAt: Date(timeIntervalSince1970: 1_000)
+        )
+
+        XCTAssertEqual(
+            MiniMaxCredentialRowPresentation(
+                credential: credential,
+                diagnostic: unavailable,
+                locale: Locale(identifier: "en_US")
+            ).stateText,
+            "Stored securely · Subscription unavailable or expired"
+        )
+        XCTAssertEqual(
+            MiniMaxCredentialRowPresentation(
+                credential: credential,
+                diagnostic: unavailable,
+                locale: Locale(identifier: "ru_RU")
+            ).stateText,
+            "Безопасно сохранён · Подписка недоступна или истекла"
+        )
+        XCTAssertNotEqual(
+            MiniMaxCredentialRowPresentation(
+                credential: credential,
+                diagnostic: unavailable,
+                locale: Locale(identifier: "en_US")
+            ).stateText,
+            MiniMaxCredentialRowPresentation(
+                credential: credential,
+                diagnostic: authentication,
+                locale: Locale(identifier: "en_US")
+            ).stateText
+        )
+    }
+
     private func miniMaxAccount() -> ProviderAccount {
         ProviderAccount(
             providerID: MiniMaxProviderContract.providerID,

@@ -39,6 +39,16 @@ discussion because they are part of the observed wire shape. A successful
 business response requires `base_resp.status_code == 0` before the app decodes
 the capacity entries.
 
+## Failure diagnostics
+
+A Token Plan response classified as an unavailable subscription is persisted as
+a distinct sanitized credential diagnostic. Dashboard, Account Details, and
+MiniMax Settings present fixed localized copy that the Token Plan subscription
+is unavailable or expired; they do not display upstream response text, key
+material, account or plan identifiers, or usage values. Invalid authentication,
+throttling, transient failures, and last-valid snapshot preservation remain
+separate behaviors.
+
 Although the array is named `model_remains`, the reviewed identifiers observed
 there are quota-category identifiers, not callable MiniMax model names. The
 official [Models guide](https://platform.minimax.io/docs/guides/models-intro)

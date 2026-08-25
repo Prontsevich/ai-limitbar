@@ -86,13 +86,17 @@ struct MiniMaxCredentialRowPresentation: Equatable {
         return switch diagnostic.code {
         case .authentication:
             AppStrings.MiniMax.authenticationFailed.localized(locale: locale)
+        case .insufficientPrivilege:
+            AppStrings.MiniMax.subscriptionUnavailableCredential.localized(
+                locale: locale
+            )
         case .throttled:
             AppStrings.MiniMax.throttled.localized(locale: locale)
         case .transientFailure:
             AppStrings.MiniMax.temporaryFailure.localized(locale: locale)
         case .credentialDisabled:
             AppStrings.MiniMax.storedDisabled.localized(locale: locale)
-        case .credentialMissing, .insufficientPrivilege:
+        case .credentialMissing:
             AppStrings.MiniMax.unavailable.localized(locale: locale)
         }
     }

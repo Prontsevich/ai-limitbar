@@ -468,6 +468,14 @@ extension AppStrings {
             english: "Stored securely · Authentication failed",
             russian: "Безопасно сохранён · Ошибка аутентификации"
         )
+        static let subscriptionUnavailable = MiniMaxLocalizedString(
+            english: "MiniMax Token Plan subscription is unavailable or expired",
+            russian: "Подписка MiniMax Token Plan недоступна или истекла"
+        )
+        static let subscriptionUnavailableCredential = MiniMaxLocalizedString(
+            english: "Stored securely · Subscription unavailable or expired",
+            russian: "Безопасно сохранён · Подписка недоступна или истекла"
+        )
         static let throttled = MiniMaxLocalizedString(
             english: "Stored securely · Refresh throttled",
             russian: "Безопасно сохранён · Обновление ограничено"

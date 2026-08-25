@@ -50,6 +50,7 @@ public struct MiniMaxAccountRefreshResult: Equatable, Sendable {
     public let suppressedSourceCount: Int
     public let configuredSourceCount: Int
     public let hasMappingDiagnostics: Bool
+    public let failureDiagnosticCode: CredentialContextDiagnosticCode?
 
     public init(
         snapshot: CapacitySnapshot?,
@@ -59,7 +60,8 @@ public struct MiniMaxAccountRefreshResult: Equatable, Sendable {
         deferredSourceCount: Int,
         suppressedSourceCount: Int,
         configuredSourceCount: Int,
-        hasMappingDiagnostics: Bool
+        hasMappingDiagnostics: Bool,
+        failureDiagnosticCode: CredentialContextDiagnosticCode? = nil
     ) {
         self.snapshot = snapshot
         self.completedAt = completedAt
@@ -69,6 +71,7 @@ public struct MiniMaxAccountRefreshResult: Equatable, Sendable {
         self.suppressedSourceCount = suppressedSourceCount
         self.configuredSourceCount = configuredSourceCount
         self.hasMappingDiagnostics = hasMappingDiagnostics
+        self.failureDiagnosticCode = failureDiagnosticCode
     }
 }
 
@@ -483,7 +486,8 @@ public actor MiniMaxRefreshCoordinator: MiniMaxAccountRefreshing {
             return try result(
                 account: account,
                 completedAt: failureCompletedAt,
-                failedSourceCount: 1
+                failedSourceCount: 1,
+                failureDiagnosticCode: failure.code
             )
         } catch NativeCapacityStoreError.accountUnavailable,
                 NativeCapacityStoreError.sourceIdentityChanged {
@@ -502,7 +506,8 @@ public actor MiniMaxRefreshCoordinator: MiniMaxAccountRefreshing {
         failedSourceCount: Int = 0,
         deferredSourceCount: Int = 0,
         suppressedSourceCount: Int = 0,
-        hasMappingDiagnostics: Bool = false
+        hasMappingDiagnostics: Bool = false,
+        failureDiagnosticCode: CredentialContextDiagnosticCode? = nil
     ) throws -> MiniMaxAccountRefreshResult {
         try Task.checkCancellation()
         return MiniMaxAccountRefreshResult(
@@ -518,7 +523,8 @@ public actor MiniMaxRefreshCoordinator: MiniMaxAccountRefreshing {
             deferredSourceCount: deferredSourceCount,
             suppressedSourceCount: suppressedSourceCount,
             configuredSourceCount: 1,
-            hasMappingDiagnostics: hasMappingDiagnostics
+            hasMappingDiagnostics: hasMappingDiagnostics,
+            failureDiagnosticCode: failureDiagnosticCode
         )
     }
 
@@ -589,9 +595,10 @@ public actor MiniMaxRefreshCoordinator: MiniMaxAccountRefreshing {
         policy: MiniMaxRefreshPolicy
     ) -> MiniMaxFailureProjection {
         switch error {
-        case MiniMaxAPIClientError.authenticationFailure,
-             MiniMaxAPIClientError.unavailableSubscription:
+        case MiniMaxAPIClientError.authenticationFailure:
             MiniMaxFailureProjection(code: .authentication)
+        case MiniMaxAPIClientError.unavailableSubscription:
+            MiniMaxFailureProjection(code: .insufficientPrivilege)
         case let MiniMaxAPIClientError.throttled(retryAfter):
             MiniMaxFailureProjection(
                 code: .throttled,
