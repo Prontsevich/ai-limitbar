@@ -126,6 +126,11 @@ jobs:
               "$RELEASE_ARCHITECTURE" \
               >"$pipeline_log" \
               2>&1; then
+            echo "::group::Release pipeline failure summary"
+            /usr/bin/sed -n -E \
+              '/^(error:|Private notarization diagnostics retained at:)/p' \
+              "$pipeline_log"
+            echo "::endgroup::"
             echo "::error::Release signing and notarization failed."
             exit 1
           fi
