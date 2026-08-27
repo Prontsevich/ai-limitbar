@@ -119,27 +119,86 @@ final class MiniMaxAPIClientTests: XCTestCase {
         let currentA = try metric("quota-a.current", in: result)
         XCTAssertEqual(currentA.window.kind, .rolling)
         XCTAssertEqual(currentA.availability, .known)
-        XCTAssertEqual(currentA.values?.remaining?.value, 7)
-        XCTAssertEqual(currentA.values?.remaining?.origin, .derived)
+        XCTAssertEqual(currentA.unit, CapacityUnit(kind: .percent))
+        XCTAssertEqual(currentA.values?.remaining?.value, 63.5)
+        XCTAssertEqual(currentA.values?.remaining?.origin, .reported)
+        XCTAssertEqual(currentA.values?.limit?.value, 100)
+        XCTAssertEqual(currentA.values?.limit?.origin, .reported)
+        XCTAssertEqual(currentA.values?.consumed?.value, 36.5)
+        XCTAssertEqual(currentA.values?.consumed?.origin, .derived)
+        XCTAssertEqual(currentA.derivations, [
+            Derivation(
+                kind: .consumedFromLimitMinusRemaining,
+                target: .consumed,
+                inputs: [.limit, .remaining]
+            )
+        ])
         XCTAssertEqual(currentA.accountContextID, "synthetic-team")
-        XCTAssertEqual(currentA.unit, CapacityUnit(
-            kind: .providerDefined,
-            providerUnitID: MiniMaxProviderContract.providerUnitID
-        ))
 
         let weeklyA = try metric("quota-a.weekly", in: result)
         XCTAssertEqual(weeklyA.window.kind, .fixed)
         XCTAssertEqual(weeklyA.availability, .known)
         XCTAssertEqual(weeklyA.values?.remaining?.value, 0)
+        XCTAssertEqual(weeklyA.values?.consumed?.value, 100)
 
         let currentB = try metric("quota-b.current", in: result)
-        XCTAssertEqual(currentB.availability, .unlimited)
-        XCTAssertNil(currentB.values?.limit)
-        XCTAssertNil(currentB.values?.remaining)
+        XCTAssertEqual(currentB.availability, .unknown)
+        XCTAssertNil(currentB.values)
 
         let weeklyB = try metric("quota-b.weekly", in: result)
         XCTAssertEqual(weeklyB.conditions, [.boost])
-        XCTAssertEqual(weeklyB.values?.remaining?.value, 18)
+        XCTAssertEqual(weeklyB.values?.remaining?.value, 78.25)
+        XCTAssertEqual(weeklyB.values?.consumed?.value, 21.75)
+    }
+
+    func testReportedPercentageRemainsPresentableForZeroCountsAndStatusThree() async throws {
+        let json = String(decoding: try fixture("synthetic-success"), as: UTF8.self)
+            .replacingOccurrences(
+                of: "\"current_interval_usage_count\": 3,\n      \"current_interval_status\": 3",
+                with: "\"current_interval_usage_count\": 0,\n      \"current_interval_remaining_percent\": 42.5,\n      \"current_interval_status\": 3"
+            )
+        MiniMaxURLProtocolStub.setHandler { _, stub in
+            stub.respond(statusCode: 200, data: Data(json.utf8))
+        }
+
+        let result = try await makeClient().fetchTokenPlanCapacity(
+            credential: try credential("synthetic-subscription-key")
+        )
+        let currentB = try metric("quota-b.current", in: result)
+
+        XCTAssertEqual(currentB.availability, .known)
+        XCTAssertEqual(currentB.unit, CapacityUnit(kind: .percent))
+        XCTAssertEqual(currentB.values?.remaining, CapacityValue(value: 42.5, origin: .reported))
+        XCTAssertEqual(currentB.values?.limit, CapacityValue(value: 100, origin: .reported))
+        XCTAssertEqual(currentB.values?.consumed, CapacityValue(value: 57.5, origin: .derived))
+        XCTAssertEqual(currentB.window.nextTransition?.kind, .reset)
+        XCTAssertEqual(
+            currentB.window.nextTransition?.at,
+            Date(timeIntervalSince1970: 1_893_477_600)
+        )
+    }
+
+    func testMissingOrOutOfRangePercentageUsesNonClaimingState() async throws {
+        let missingResult = try await fetchFixtureResult()
+        let missingCurrentB = try metric("quota-b.current", in: missingResult)
+        XCTAssertEqual(missingCurrentB.availability, .unknown)
+        XCTAssertNil(missingCurrentB.values)
+
+        let json = String(decoding: try fixture("synthetic-success"), as: UTF8.self)
+            .replacingOccurrences(
+                of: "\"current_interval_usage_count\": 3,\n      \"current_interval_status\": 3",
+                with: "\"current_interval_usage_count\": 3,\n      \"current_interval_remaining_percent\": 101,\n      \"current_interval_status\": 3"
+            )
+        MiniMaxURLProtocolStub.setHandler { _, stub in
+            stub.respond(statusCode: 200, data: Data(json.utf8))
+        }
+
+        let outOfRangeResult = try await makeClient().fetchTokenPlanCapacity(
+            credential: try credential("synthetic-subscription-key")
+        )
+        let outOfRangeCurrentB = try metric("quota-b.current", in: outOfRangeResult)
+        XCTAssertEqual(outOfRangeCurrentB.availability, .unknown)
+        XCTAssertNil(outOfRangeCurrentB.values)
     }
 
     func testBusinessStatusIsValidatedBeforeQuotaCategoriesAndProjectsSanitizedErrors() async throws {
@@ -353,6 +412,16 @@ final class MiniMaxAPIClientTests: XCTestCase {
         MiniMaxURLProtocolStub.setHandler { _, stub in
             stub.respond(statusCode: 200, headers: headers, data: Data(json.utf8))
         }
+    }
+
+    private func fetchFixtureResult() async throws -> MiniMaxCapacityResult {
+        let data = try fixture("synthetic-success")
+        MiniMaxURLProtocolStub.setHandler { _, stub in
+            stub.respond(statusCode: 200, data: data)
+        }
+        return try await makeClient().fetchTokenPlanCapacity(
+            credential: try credential("synthetic-subscription-key")
+        )
     }
 
     private func metric(_ id: String, in result: MiniMaxCapacityResult) throws -> CapacityMetric {

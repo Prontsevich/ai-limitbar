@@ -51,13 +51,15 @@ separate behaviors.
 
 Although the array is named `model_remains`, the reviewed identifiers observed
 there are quota-category identifiers, not callable MiniMax model names. The
-official [Models guide](https://platform.minimax.io/docs/guides/models-intro)
-lists callable model names separately (for example, MiniMax-M family models).
-AI Limitbar therefore applies a closed, code-reviewed mapping to two neutral
-product labels:
+official [Token Plan overview](https://platform.minimax.io/docs/token-plan/intro)
+describes a shared text, image, speech, and music quota alongside a distinct
+video-generation quota. AI Limitbar therefore applies this closed,
+code-reviewed mapping:
 
-- Quota category A
-- Quota category B
+- Wire identifier `general` → stable ID `quota-category-a` → local label
+  “Shared text & multimodal Token Plan quota”.
+- Wire identifier `video` → stable ID `quota-category-b` → local label
+  “Video generation Token Plan quota”.
 
 The raw identifiers are neither displayed, persisted as presentation data, nor
 placed in diagnostics or accessibility labels. They are never mapped to a
@@ -69,11 +71,17 @@ Each category retains two independent provider-defined windows:
 - Current — the provider's rolling window.
 - Weekly — the provider's weekly window.
 
-For every category/window pair the adapter preserves reported usage and total,
-derives remaining only as total minus used, keeps a provider-reported unlimited
-state without fabricating a finite total, and presents a reset only from a
-validated provider window transition. The app does not call these values
-requests, characters, images, generations, or tokens.
+For every category/window pair, a usable documented remaining percentage
+(`0...100`) is the sole quota value projected into the normalized contract. It
+uses the `percent` unit, with reported remaining percentage, reported `100`
+percentage-scale limit, and consumed percentage derived as the complement.
+The count and opaque status fields are decoded only for the strict wire shape;
+they do not determine quota availability, percentage, meter, or presentation.
+In particular, status `3` does not mean unlimited. A missing or unusable
+percentage produces the non-claiming `unknown` capacity state with no meter.
+The app presents reset information only from a validated provider window
+transition. It does not call any values requests, characters, images,
+generations, or tokens.
 
 ## HTTP, errors, and privacy
 
@@ -95,12 +103,16 @@ provider messages, opaque identifiers, or unrecognized response fields.
 
 ## Presentation
 
-Dashboard and Account Details use the same privacy-safe projection. They show
-Quota category A and Quota category B independently, with Current and Weekly
-rows, used/left percentage toggle where a finite percentage exists, used /
-remaining / total context, and reset information when available. Localized
-English and Russian labels are provided. No raw response identifier, model
-name, or combined total is shown.
+Dashboard and Account Details use the same privacy-safe projection. The
+Dashboard uses compact local labels: “Text & multimedia” and “Video generation”
+in English, or “Текст и мультимедиа” and “Генерация видео” in Russian. Account
+Details and accessibility labels use the expanded descriptions: the shared text
+& multimodal Token Plan quota and video generation Token Plan quota; in Russian,
+“Общая квота Token Plan для текста и мультимодальных задач” and “Квота Token
+Plan на генерацию видео”. Both surfaces retain independent Current and Weekly
+rows, a used/left percentage toggle where the provider reported a usable
+percentage, and reset information when available. No raw count values, response
+identifier, model name, status, or combined total is shown.
 
 The debug-only UI test host provides the `dashboard-minimax` scenario. It uses
 synthetic normalized capacity data only and is not a real-provider or Keychain
@@ -125,7 +137,8 @@ The MiniMax Core and app tests cover:
   before decoding capacity entries;
 - incremental response-size enforcement and HTTP error classification;
 - closed category mapping, unknown-category diagnostics, independent current
-  and weekly windows, and no raw identifier/model-name projection;
+  and weekly percentage windows, status-`3` presentation without an unlimited
+  inference, and no raw identifier/model-name projection;
 - Keychain-only single-slot lifecycle, recovery and deletion behavior, and
   metadata-only Settings presentation;
 - account isolation, including concurrent refreshes and late results after a

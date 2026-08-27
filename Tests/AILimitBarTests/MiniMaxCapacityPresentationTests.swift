@@ -17,10 +17,17 @@ final class MiniMaxCapacityPresentationTests: XCTestCase {
         )
 
         XCTAssertEqual(
-            presentation.categories.map(\.displayName),
+            presentation.categories.map(\.shortDisplayName),
             [
-                "Token Plan quota category A",
-                "Token Plan quota category B",
+                "Text & multimedia",
+                "Video generation",
+            ]
+        )
+        XCTAssertEqual(
+            presentation.categories.map(\.fullDisplayName),
+            [
+                "Shared text & multimodal Token Plan quota",
+                "Video generation Token Plan quota",
             ]
         )
         XCTAssertEqual(presentation.categories.map(\.windows.count), [2, 2])
@@ -28,12 +35,19 @@ final class MiniMaxCapacityPresentationTests: XCTestCase {
         let current = try XCTUnwrap(presentation.categories.first?.windows.first)
         XCTAssertEqual(current.id, "quota-category-a.current")
         XCTAssertEqual(current.displayName, "Current window")
-        XCTAssertEqual(current.capacityText, "Used 25 · Remaining 75 · Total 100")
+        XCTAssertEqual(current.capacityText, "")
         XCTAssertEqual(current.percentageText, "25% used")
         XCTAssertEqual(current.displayPercent, 25)
         XCTAssertEqual(current.meterPresentation?.displayPercent, 25)
         XCTAssertEqual(current.resetText, "resets in 1 hour")
-        XCTAssertTrue(current.accessibilityValue.contains(current.capacityText))
+        XCTAssertEqual(
+            current.accessibilityLabel,
+            "Shared text & multimodal Token Plan quota, Current window"
+        )
+        XCTAssertEqual(
+            current.accessibilityValue.components(separatedBy: "25% used").count,
+            2
+        )
         XCTAssertTrue(current.accessibilityValue.contains("25% used"))
 
         let visibleText = presentation.categories.flatMap { category in
@@ -53,8 +67,14 @@ final class MiniMaxCapacityPresentationTests: XCTestCase {
                 ]
             }
         }.joined(separator: " ").lowercased()
-        XCTAssertFalse(visibleText.contains("general"))
-        XCTAssertFalse(visibleText.contains("video"))
+        XCTAssertFalse(
+            presentation.categories.map { $0.shortDisplayName.lowercased() }
+                .contains("general")
+        )
+        XCTAssertFalse(
+            presentation.categories.map { $0.shortDisplayName.lowercased() }
+                .contains("video")
+        )
         XCTAssertFalse(visibleText.contains("provider metadata marker"))
     }
 
@@ -71,25 +91,37 @@ final class MiniMaxCapacityPresentationTests: XCTestCase {
         )
 
         XCTAssertEqual(
-            presentation.categories.map(\.displayName),
+            presentation.categories.map(\.shortDisplayName),
             [
-                "Категория квоты Token Plan A",
-                "Категория квоты Token Plan B",
+                "Текст и мультимедиа",
+                "Генерация видео",
+            ]
+        )
+        XCTAssertEqual(
+            presentation.categories.map(\.fullDisplayName),
+            [
+                "Общая квота Token Plan для текста и мультимодальных задач",
+                "Квота Token Plan на генерацию видео",
             ]
         )
         let current = try XCTUnwrap(presentation.categories.first?.windows.first)
         XCTAssertEqual(current.displayName, "Текущее окно")
-        XCTAssertEqual(
-            current.capacityText,
-            "Использовано 25 · Осталось 75 · Всего 100"
-        )
+        XCTAssertEqual(current.capacityText, "")
         XCTAssertTrue(current.percentageText?.contains("75") == true)
         XCTAssertTrue(current.percentageText?.contains("Ещё") == true)
         XCTAssertEqual(current.displayPercent, 25)
         XCTAssertEqual(current.meterPresentation?.displayPercent, 75)
-        XCTAssertTrue(current.accessibilityLabel.contains("Категория квоты"))
-        XCTAssertFalse(current.accessibilityValue.lowercased().contains("general"))
-        XCTAssertFalse(current.accessibilityValue.lowercased().contains("video"))
+        let percentageText = try XCTUnwrap(current.percentageText)
+        XCTAssertEqual(
+            current.accessibilityValue.components(separatedBy: percentageText).count,
+            2
+        )
+        XCTAssertEqual(
+            current.accessibilityLabel,
+            "Общая квота Token Plan для текста и мультимодальных задач, Текущее окно"
+        )
+        XCTAssertNotEqual(current.accessibilityLabel.lowercased(), "general")
+        XCTAssertNotEqual(current.accessibilityLabel.lowercased(), "video")
     }
 
     func testOnlyReviewedSafeMetricIdentitiesAreProjected() throws {
@@ -107,9 +139,7 @@ final class MiniMaxCapacityPresentationTests: XCTestCase {
                     id: "unreviewed-category.current",
                     contextID: context.contextID,
                     displayName: "general video provider metadata marker",
-                    consumed: 99,
-                    remaining: 1,
-                    limit: 100,
+                    remainingPercent: 1,
                     resetAt: now.addingTimeInterval(3_600),
                     observedAt: now
                 ),
@@ -118,9 +148,7 @@ final class MiniMaxCapacityPresentationTests: XCTestCase {
                     contextID: context.contextID,
                     sourceID: "unreviewed-source",
                     displayName: "general video provider metadata marker",
-                    consumed: 99,
-                    remaining: 1,
-                    limit: 100,
+                    remainingPercent: 1,
                     resetAt: now.addingTimeInterval(3_600),
                     observedAt: now
                 ),
@@ -148,7 +176,7 @@ final class MiniMaxCapacityPresentationTests: XCTestCase {
         )
     }
 
-    func testUnlimitedWindowKeepsSafeResetInformationWithoutMeter() throws {
+    func testUnknownWindowKeepsSafeResetInformationWithoutMeter() throws {
         let now = Date(timeIntervalSince1970: 1_800_000_000)
         let account = makeAccount()
         let context = makeContext()
@@ -163,12 +191,10 @@ final class MiniMaxCapacityPresentationTests: XCTestCase {
                     id: "quota-category-a.current",
                     contextID: context.contextID,
                     displayName: "general provider metadata marker",
-                    consumed: 3,
-                    remaining: 0,
-                    limit: 0,
+                    remainingPercent: 0,
                     resetAt: now.addingTimeInterval(3_600),
                     observedAt: now,
-                    availability: .unlimited
+                    availability: .unknown
                 )
             ]
         )
@@ -182,7 +208,7 @@ final class MiniMaxCapacityPresentationTests: XCTestCase {
         )
         let current = try XCTUnwrap(presentation.categories.first?.windows.first)
 
-        XCTAssertEqual(current.capacityText, "Unlimited")
+        XCTAssertEqual(current.capacityText, "Unknown")
         XCTAssertNil(current.percentageText)
         XCTAssertNil(current.meterPresentation)
         XCTAssertEqual(current.resetText, "resets in 1 hour")
@@ -262,9 +288,7 @@ final class MiniMaxCapacityPresentationTests: XCTestCase {
                     id: "quota-category-a.current",
                     contextID: context.contextID,
                     displayName: "general provider metadata marker",
-                    consumed: 25,
-                    remaining: 75,
-                    limit: 100,
+                    remainingPercent: 75,
                     resetAt: anchor.addingTimeInterval(3_600),
                     observedAt: anchor
                 ),
@@ -272,9 +296,7 @@ final class MiniMaxCapacityPresentationTests: XCTestCase {
                     id: "quota-category-a.weekly",
                     contextID: context.contextID,
                     displayName: "general provider weekly marker",
-                    consumed: 50,
-                    remaining: 150,
-                    limit: 200,
+                    remainingPercent: 75,
                     resetAt: anchor.addingTimeInterval(3 * 24 * 3_600),
                     observedAt: anchor
                 ),
@@ -282,9 +304,7 @@ final class MiniMaxCapacityPresentationTests: XCTestCase {
                     id: "quota-category-b.current",
                     contextID: context.contextID,
                     displayName: "video provider metadata marker",
-                    consumed: 2,
-                    remaining: 8,
-                    limit: 10,
+                    remainingPercent: 80,
                     resetAt: anchor.addingTimeInterval(2 * 3_600),
                     observedAt: anchor
                 ),
@@ -292,9 +312,7 @@ final class MiniMaxCapacityPresentationTests: XCTestCase {
                     id: "quota-category-b.weekly",
                     contextID: context.contextID,
                     displayName: "video provider weekly marker",
-                    consumed: 8,
-                    remaining: 32,
-                    limit: 40,
+                    remainingPercent: 80,
                     resetAt: anchor.addingTimeInterval(5 * 24 * 3_600),
                     observedAt: anchor
                 ),
@@ -307,9 +325,7 @@ final class MiniMaxCapacityPresentationTests: XCTestCase {
         contextID: String,
         sourceID: String = MiniMaxProviderContract.sourceID,
         displayName: String,
-        consumed: Decimal,
-        remaining: Decimal,
-        limit: Decimal,
+        remainingPercent: Decimal,
         resetAt: Date,
         observedAt: Date,
         availability: CapacityAvailability = .known
@@ -321,21 +337,35 @@ final class MiniMaxCapacityPresentationTests: XCTestCase {
             capability: "quota-windows",
             displayName: displayName,
             availability: availability,
-            unit: CapacityUnit(
-                kind: .providerDefined,
-                providerUnitID: MiniMaxProviderContract.providerUnitID
-            ),
-            values: CapacityValues(
-                consumed: CapacityValue(value: consumed, origin: .reported),
-                remaining: CapacityValue(value: remaining, origin: .derived),
-                limit: CapacityValue(value: limit, origin: .reported)
-            ),
+            unit: CapacityUnit(kind: .percent),
+            values: availability == .known
+                ? CapacityValues(
+                    consumed: CapacityValue(
+                        value: 100 - remainingPercent,
+                        origin: .derived
+                    ),
+                    remaining: CapacityValue(
+                        value: remainingPercent,
+                        origin: .reported
+                    ),
+                    limit: CapacityValue(value: 100, origin: .reported)
+                )
+                : nil,
             window: CapacityWindow(
                 kind: id.hasSuffix(".weekly") ? .fixed : .rolling,
                 nextTransition: CapacityTransition(kind: .reset, at: resetAt)
             ),
             freshness: ObservationFreshness(observedAt: observedAt),
-            confidence: .live
+            confidence: .live,
+            derivations: availability == .known
+                ? [
+                    Derivation(
+                        kind: .consumedFromLimitMinusRemaining,
+                        target: .consumed,
+                        inputs: [.limit, .remaining]
+                    )
+                ]
+                : []
         )
     }
 }

@@ -465,36 +465,28 @@ struct UITestHostFixture {
                 miniMaxMetric(
                     id: "quota-category-a.current",
                     contextID: rootContext.contextID,
-                    consumed: 40,
-                    remaining: 60,
-                    limit: 100,
+                    remainingPercent: 60,
                     resetAt: anchor.addingTimeInterval(2 * 3_600),
                     observedAt: anchor
                 ),
                 miniMaxMetric(
                     id: "quota-category-a.weekly",
                     contextID: rootContext.contextID,
-                    consumed: 120,
-                    remaining: 380,
-                    limit: 500,
+                    remainingPercent: 76,
                     resetAt: anchor.addingTimeInterval(3 * 24 * 3_600),
                     observedAt: anchor
                 ),
                 miniMaxMetric(
                     id: "quota-category-b.current",
                     contextID: rootContext.contextID,
-                    consumed: 3,
-                    remaining: 17,
-                    limit: 20,
+                    remainingPercent: 85,
                     resetAt: anchor.addingTimeInterval(4 * 3_600),
                     observedAt: anchor
                 ),
                 miniMaxMetric(
                     id: "quota-category-b.weekly",
                     contextID: rootContext.contextID,
-                    consumed: 9,
-                    remaining: 31,
-                    limit: 40,
+                    remainingPercent: 77.5,
                     resetAt: anchor.addingTimeInterval(5 * 24 * 3_600),
                     observedAt: anchor
                 ),
@@ -541,9 +533,7 @@ struct UITestHostFixture {
     private static func miniMaxMetric(
         id: String,
         contextID: String,
-        consumed: Decimal,
-        remaining: Decimal,
-        limit: Decimal,
+        remainingPercent: Decimal,
         resetAt: Date,
         observedAt: Date
     ) -> CapacityMetric {
@@ -554,14 +544,17 @@ struct UITestHostFixture {
             capability: "quota-windows",
             displayName: "Synthetic reviewed quota capacity",
             availability: .known,
-            unit: CapacityUnit(
-                kind: .providerDefined,
-                providerUnitID: MiniMaxProviderContract.providerUnitID
-            ),
+            unit: CapacityUnit(kind: .percent),
             values: CapacityValues(
-                consumed: CapacityValue(value: consumed, origin: .reported),
-                remaining: CapacityValue(value: remaining, origin: .derived),
-                limit: CapacityValue(value: limit, origin: .reported)
+                consumed: CapacityValue(
+                    value: 100 - remainingPercent,
+                    origin: .derived
+                ),
+                remaining: CapacityValue(
+                    value: remainingPercent,
+                    origin: .reported
+                ),
+                limit: CapacityValue(value: 100, origin: .reported)
             ),
             window: CapacityWindow(
                 kind: id.hasSuffix(".weekly") ? .fixed : .rolling,
@@ -571,9 +564,9 @@ struct UITestHostFixture {
             confidence: .live,
             derivations: [
                 Derivation(
-                    kind: .remainingFromLimitMinusConsumed,
-                    target: .remaining,
-                    inputs: [.limit, .consumed]
+                    kind: .consumedFromLimitMinusRemaining,
+                    target: .consumed,
+                    inputs: [.limit, .remaining]
                 )
             ]
         )

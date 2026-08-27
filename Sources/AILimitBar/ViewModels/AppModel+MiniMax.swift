@@ -43,6 +43,23 @@ extension AppModel {
                     providerID: account.providerID,
                     accountID: account.accountID
                 )
+#if DEBUG
+            if let syntheticAdapter = adapter(for: account.providerID)
+                as? UITestScriptedProviderAdapter,
+               syntheticAdapter.preservesNativePresentationFixture {
+                return
+            }
+#endif
+            if let snapshot = try nativeCapacitySnapshotStore.load(
+                providerID: account.providerID,
+                accountID: account.accountID,
+                surface: MiniMaxProviderContract.surface,
+                sources: MiniMaxProviderContract.sources
+            ) {
+                nativeCapacitySnapshots[account.id] = snapshot
+            } else {
+                nativeCapacitySnapshots.removeValue(forKey: account.id)
+            }
         } catch {
             credentialContextsByAccount.removeValue(forKey: account.id)
             credentialRefreshStatesByAccount.removeValue(forKey: account.id)

@@ -540,9 +540,7 @@ public actor MiniMaxRefreshCoordinator: MiniMaxAccountRefreshing {
                   $0.accountContextID == slot.contextID
                       && $0.sourceID == MiniMaxProviderContract.sourceID
                       && $0.capability == "quota-windows"
-                      && $0.unit.kind == .providerDefined
-                      && $0.unit.providerUnitID
-                        == MiniMaxProviderContract.providerUnitID
+                      && $0.unit == CapacityUnit(kind: .percent)
                       && $0.freshness.observedAt == result.observedAt
                       && $0.confidence == .live
               })

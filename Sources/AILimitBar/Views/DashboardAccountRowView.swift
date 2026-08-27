@@ -310,7 +310,9 @@ private struct MiniMaxCapacityDashboardContent: View {
                             LimitWindowProgressRow(
                                 window: meter,
                                 tint: TerminalTheme.border,
-                                supportingText: window.capacityText,
+                                supportingText: window.capacityText.isEmpty
+                                    ? nil
+                                    : window.capacityText,
                                 supportingAccessibilityValue: window.accessibilityValue,
                                 onToggle: {
                                     onToggleWindow(window.id)
@@ -333,10 +335,12 @@ private struct MiniMaxCapacityDashboardContent: View {
 
                                     Spacer(minLength: 8)
 
-                                    Text(window.capacityText)
-                                        .font(TerminalTheme.emphasizedBodyFont)
-                                        .foregroundStyle(TerminalTheme.primary)
-                                        .multilineTextAlignment(.trailing)
+                                    if !window.capacityText.isEmpty {
+                                        Text(window.capacityText)
+                                            .font(TerminalTheme.emphasizedBodyFont)
+                                            .foregroundStyle(TerminalTheme.primary)
+                                            .multilineTextAlignment(.trailing)
+                                    }
                                 }
 
                                 if let resetText = window.resetText {

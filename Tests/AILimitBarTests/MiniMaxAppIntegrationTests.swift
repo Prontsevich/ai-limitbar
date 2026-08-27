@@ -42,6 +42,99 @@ final class MiniMaxAppIntegrationTests: XCTestCase {
         XCTAssertFalse(projection.source.contains(InjectedMiniMaxAPIClient.rawMarker))
         XCTAssertFalse(projection.source.contains(MiniMaxAppIntegrationKeychain.secretMarker))
 
+        let cachedNative = try XCTUnwrap(model.nativeCapacitySnapshot(for: account))
+        XCTAssertEqual(
+            cachedNative.metrics.map(\.metricID),
+            [
+                "quota-category-a.current",
+                "quota-category-a.weekly",
+                "quota-category-b.current",
+                "quota-category-b.weekly",
+            ]
+        )
+        XCTAssertEqual(
+            cachedNative.metrics.map(\.values?.consumed?.value),
+            [4, 8, 12, 16]
+        )
+        XCTAssertEqual(
+            cachedNative.metrics.map(\.unit),
+            Array(repeating: CapacityUnit(kind: .percent), count: 4)
+        )
+        XCTAssertEqual(
+            cachedNative.metrics.map(\.window.kind),
+            [.rolling, .fixed, .rolling, .fixed]
+        )
+        XCTAssertEqual(
+            cachedNative.metrics.map(\.window.durationSeconds),
+            [18_000, 604_800, 18_000, 604_800]
+        )
+        XCTAssertTrue(cachedNative.metrics.allSatisfy {
+            guard let endsAt = $0.window.endsAt else {
+                return false
+            }
+            return $0.window.nextTransition == CapacityTransition(
+                kind: .reset,
+                at: endsAt
+            )
+        })
+        XCTAssertEqual(
+            cachedNative.metrics.map(\.values?.remaining),
+            [
+                CapacityValue(value: 96, origin: .reported),
+                CapacityValue(value: 92, origin: .reported),
+                CapacityValue(value: 88, origin: .reported),
+                CapacityValue(value: 84, origin: .reported),
+            ]
+        )
+        XCTAssertTrue(cachedNative.metrics.allSatisfy {
+            $0.values?.consumed?.origin == .derived
+                && $0.values?.limit == CapacityValue(value: 100, origin: .reported)
+                && $0.derivations == [
+                    Derivation(
+                        kind: .consumedFromLimitMinusRemaining,
+                        target: .consumed,
+                        inputs: [.limit, .remaining]
+                    )
+                ]
+        })
+        let presentation = try XCTUnwrap(
+            MiniMaxCapacityPresentation(
+                account: account,
+                snapshot: cachedNative,
+                now: cachedNative.observedAt,
+                locale: Locale(identifier: "en_US")
+            )
+        )
+        XCTAssertEqual(
+            presentation.categories.flatMap(\.windows).map(\.id),
+            cachedNative.metrics.map(\.metricID)
+        )
+        XCTAssertEqual(
+            presentation.categories.flatMap(\.windows).map(\.capacityText),
+            Array(repeating: "", count: 4)
+        )
+        XCTAssertEqual(
+            presentation.categories.flatMap(\.windows).map(\.percentageText),
+            ["4% used", "8% used", "12% used", "16% used"]
+        )
+        let visibleText = presentation.categories.flatMap { category in
+            [category.displayName, category.accessibilityValue]
+                + category.windows.flatMap {
+                    [$0.displayName, $0.capacityText, $0.accessibilityValue]
+                }
+        }.joined(separator: " ").lowercased()
+        XCTAssertFalse(
+            presentation.categories.map { $0.displayName.lowercased() }
+                .contains("general")
+        )
+        XCTAssertFalse(
+            presentation.categories.map { $0.displayName.lowercased() }
+                .contains("video")
+        )
+        XCTAssertFalse(visibleText.contains("unrecognized-category-marker"))
+        XCTAssertFalse(visibleText.contains("total 100"))
+        XCTAssertFalse(visibleText.contains("remaining 96"))
+
         let native = try XCTUnwrap(
             try model.nativeCapacitySnapshotStore.load(
                 providerID: account.providerID,
@@ -51,17 +144,31 @@ final class MiniMaxAppIntegrationTests: XCTestCase {
             )
         )
         XCTAssertEqual(native.savedAccountID, account.accountID)
+        XCTAssertEqual(native.metrics, cachedNative.metrics)
         XCTAssertEqual(
             native.metrics.map(\.metricID),
-            ["quota-category-a.current"]
+            [
+                "quota-category-a.current",
+                "quota-category-a.weekly",
+                "quota-category-b.current",
+                "quota-category-b.weekly",
+            ]
         )
         XCTAssertEqual(
             native.metrics.map(\.accountContextID),
-            ["\(account.accountID)-\(AppModel.miniMaxRootContextSuffix)"]
+            Array(
+                repeating: "\(account.accountID)-\(AppModel.miniMaxRootContextSuffix)",
+                count: 4
+            )
         )
         XCTAssertEqual(
             native.metrics.map(\.displayName),
-            ["Included usage — current rolling window"]
+            [
+                "Included usage — current rolling window",
+                "Included usage — weekly window",
+                "Included usage — current rolling window",
+                "Included usage — weekly window",
+            ]
         )
         XCTAssertTrue(model.diagnosticStore.load().allSatisfy {
             !$0.message.contains(InjectedMiniMaxAPIClient.rawMarker)
@@ -943,35 +1050,87 @@ private actor InjectedMiniMaxAPIClient: MiniMaxAPIClient {
         return MiniMaxCapacityResult(
             observedAt: observedAt,
             metrics: [
-                CapacityMetric(
-                    metricID: "quota-category-a.current",
-                    accountContextID: contextID,
-                    sourceID: MiniMaxProviderContract.sourceID,
-                    capability: "quota-windows",
-                    displayName: "unrecognized-category-marker \(Self.rawMarker)",
-                    availability: .known,
-                    unit: CapacityUnit(
-                        kind: .providerDefined,
-                        providerUnitID: MiniMaxProviderContract.providerUnitID
-                    ),
-                    values: CapacityValues(
-                        consumed: CapacityValue(value: 4, origin: .reported)
-                    ),
-                    window: CapacityWindow(
-                        kind: .rolling,
-                        durationSeconds: 18_000,
-                        startsAt: observedAt,
-                        endsAt: observedAt.addingTimeInterval(18_000),
-                        nextTransition: CapacityTransition(
-                            kind: .reset,
-                            at: observedAt.addingTimeInterval(18_000)
-                        )
-                    ),
-                    freshness: ObservationFreshness(observedAt: observedAt),
-                    confidence: .live
-                )
+                makeMetric(
+                    id: "quota-category-a.current",
+                    contextID: contextID,
+                    observedAt: observedAt,
+                    consumed: 4,
+                    windowKind: .rolling,
+                    durationSeconds: 18_000
+                ),
+                makeMetric(
+                    id: "quota-category-a.weekly",
+                    contextID: contextID,
+                    observedAt: observedAt,
+                    consumed: 8,
+                    windowKind: .fixed,
+                    durationSeconds: 604_800
+                ),
+                makeMetric(
+                    id: "quota-category-b.current",
+                    contextID: contextID,
+                    observedAt: observedAt,
+                    consumed: 12,
+                    windowKind: .rolling,
+                    durationSeconds: 18_000
+                ),
+                makeMetric(
+                    id: "quota-category-b.weekly",
+                    contextID: contextID,
+                    observedAt: observedAt,
+                    consumed: 16,
+                    windowKind: .fixed,
+                    durationSeconds: 604_800
+                ),
             ],
             diagnostics: []
+        )
+    }
+
+    private func makeMetric(
+        id: String,
+        contextID: String,
+        observedAt: Date,
+        consumed: Decimal,
+        windowKind: CapacityWindowKind,
+        durationSeconds: UInt
+    ) -> CapacityMetric {
+        CapacityMetric(
+            metricID: id,
+            accountContextID: contextID,
+            sourceID: MiniMaxProviderContract.sourceID,
+            capability: "quota-windows",
+            displayName: "unrecognized-category-marker \(Self.rawMarker)",
+            availability: .known,
+            unit: CapacityUnit(kind: .percent),
+            values: CapacityValues(
+                consumed: CapacityValue(value: consumed, origin: .derived),
+                remaining: CapacityValue(value: 100 - consumed, origin: .reported),
+                limit: CapacityValue(value: 100, origin: .reported)
+            ),
+            window: CapacityWindow(
+                kind: windowKind,
+                durationSeconds: durationSeconds,
+                startsAt: observedAt,
+                endsAt: observedAt.addingTimeInterval(
+                    TimeInterval(durationSeconds)
+                ),
+                nextTransition: CapacityTransition(
+                    kind: .reset,
+                    at: observedAt.addingTimeInterval(
+                        TimeInterval(durationSeconds)
+                    )
+                )
+            ),
+            freshness: ObservationFreshness(observedAt: observedAt),
+            confidence: .live,
+            derivations: [
+                Derivation(
+                    kind: .consumedFromLimitMinusRemaining,
+                    target: .consumed,
+                    inputs: [.limit, .remaining]
+                )
+            ]
         )
     }
 }
@@ -1038,12 +1197,11 @@ private actor BarrierMiniMaxAPIClient: MiniMaxAPIClient {
                     capability: "quota-windows",
                     displayName: "Local test capacity",
                     availability: .known,
-                    unit: CapacityUnit(
-                        kind: .providerDefined,
-                        providerUnitID: MiniMaxProviderContract.providerUnitID
-                    ),
+                    unit: CapacityUnit(kind: .percent),
                     values: CapacityValues(
-                        consumed: CapacityValue(value: 1, origin: .reported)
+                        consumed: CapacityValue(value: 1, origin: .derived),
+                        remaining: CapacityValue(value: 99, origin: .reported),
+                        limit: CapacityValue(value: 100, origin: .reported)
                     ),
                     window: CapacityWindow(
                         kind: .rolling,
@@ -1052,7 +1210,14 @@ private actor BarrierMiniMaxAPIClient: MiniMaxAPIClient {
                         endsAt: observedAt.addingTimeInterval(18_000)
                     ),
                     freshness: ObservationFreshness(observedAt: observedAt),
-                    confidence: .live
+                    confidence: .live,
+                    derivations: [
+                        Derivation(
+                            kind: .consumedFromLimitMinusRemaining,
+                            target: .consumed,
+                            inputs: [.limit, .remaining]
+                        )
+                    ]
                 )
             ],
             diagnostics: []

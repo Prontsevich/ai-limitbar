@@ -404,13 +404,21 @@ extension AppStrings {
     }
 
     enum MiniMax {
-        static let quotaCategoryA = MiniMaxLocalizedString(
-            english: "Token Plan quota category A",
-            russian: "Категория квоты Token Plan A"
+        static let quotaCategoryAShort = MiniMaxLocalizedString(
+            english: "Text & multimedia",
+            russian: "Текст и мультимедиа"
         )
-        static let quotaCategoryB = MiniMaxLocalizedString(
-            english: "Token Plan quota category B",
-            russian: "Категория квоты Token Plan B"
+        static let quotaCategoryAFull = MiniMaxLocalizedString(
+            english: "Shared text & multimodal Token Plan quota",
+            russian: "Общая квота Token Plan для текста и мультимодальных задач"
+        )
+        static let quotaCategoryBShort = MiniMaxLocalizedString(
+            english: "Video generation",
+            russian: "Генерация видео"
+        )
+        static let quotaCategoryBFull = MiniMaxLocalizedString(
+            english: "Video generation Token Plan quota",
+            russian: "Квота Token Plan на генерацию видео"
         )
         static let currentWindow = MiniMaxLocalizedString(
             english: "Current window",

@@ -72,9 +72,10 @@ The launcher terminates only a previous `AILimitBarTest` process. A production
   preserves the synthetic native fixture instead of reloading nonexistent
   credential metadata from the isolated database.
 - `dashboard-minimax` renders one synthetic MiniMax account with two separate,
-  neutral quota categories. Each has independent Current and Weekly windows,
-  counts, percentage/used-left toggle where finite, and reset information. It
-  contains no credential, raw response identifier, or callable-model mapping.
+  neutral quota categories. Each has independent percentage-based Current and
+  Weekly windows, a Used/Remaining meter where a reported percentage is
+  present, and reset information. It contains no credential, raw response
+  identifier, or callable-model mapping.
 - `settings` opens the real Settings surface with healthy synthetic accounts.
 - `settings-dirty-editor` opens Accounts with the first synthetic account in
   edit mode so an account-name edit can exercise the discard confirmation flow.

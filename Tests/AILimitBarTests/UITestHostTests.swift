@@ -286,20 +286,21 @@ final class UITestHostTests: XCTestCase {
         )
         XCTAssertEqual(english.categories.count, 2)
         XCTAssertEqual(
-            english.categories.map(\.displayName),
+            english.categories.map(\.shortDisplayName),
             [
-                "Token Plan quota category A",
-                "Token Plan quota category B",
+                "Text & multimedia",
+                "Video generation",
             ]
         )
         XCTAssertEqual(english.categories.map(\.windows.count), [2, 2])
-        XCTAssertEqual(
-            english.categories.first?.windows.first?.capacityText,
-            "Used 40 · Remaining 60 · Total 100"
-        )
+        XCTAssertEqual(english.categories.first?.windows.first?.capacityText, "")
         XCTAssertEqual(
             english.categories.first?.windows.first?.percentageText,
             "40% used"
+        )
+        XCTAssertFalse(
+            english.categories.first?.windows.first?.accessibilityValue
+                .contains("40% used, 40% used") == true
         )
 
         let russian = try XCTUnwrap(
@@ -311,14 +312,15 @@ final class UITestHostTests: XCTestCase {
             )
         )
         XCTAssertEqual(
-            russian.categories.map(\.displayName),
+            russian.categories.map(\.shortDisplayName),
             [
-                "Категория квоты Token Plan A",
-                "Категория квоты Token Plan B",
+                "Текст и мультимедиа",
+                "Генерация видео",
             ]
         )
 
-        let presentationText = [english, russian].flatMap { presentation in
+        let presentations = [english, russian]
+        let presentationText = presentations.flatMap { presentation in
             presentation.categories.flatMap { category in
                 [
                     category.displayName,
@@ -341,9 +343,15 @@ final class UITestHostTests: XCTestCase {
             as: UTF8.self
         ).lowercased()
         for rawIdentifier in ["general", "video"] {
-            XCTAssertFalse(presentationText.contains(rawIdentifier))
+            XCTAssertFalse(
+                presentations.flatMap(\.categories)
+                    .flatMap { [$0.shortDisplayName, $0.fullDisplayName] }
+                    .map { $0.lowercased() }
+                    .contains(rawIdentifier)
+            )
             XCTAssertFalse(storedFixture.contains(rawIdentifier))
         }
+        XCTAssertFalse(presentationText.contains("provider metadata marker"))
     }
 
     func testFieldsetHeaderControlMasksAreIndividualAndExact() {

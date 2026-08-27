@@ -115,10 +115,13 @@ struct MiniMaxQuotaWindowPresentation: Identifiable, Equatable {
 
 struct MiniMaxQuotaCategoryPresentation: Identifiable, Equatable {
     let id: String
-    let displayName: String
+    let shortDisplayName: String
+    let fullDisplayName: String
     let windows: [MiniMaxQuotaWindowPresentation]
     let accessibilityIdentifier: String
     let accessibilityValue: String
+
+    var displayName: String { shortDisplayName }
 }
 
 struct MiniMaxCapacityPresentation: Equatable {
@@ -147,8 +150,7 @@ struct MiniMaxCapacityPresentation: Equatable {
         let knownContextIDs = Set(snapshot.accountContexts.map(\.contextID))
         let safeMetrics = snapshot.metrics.filter {
             $0.sourceID == MiniMaxProviderContract.sourceID
-                && $0.unit.kind == .providerDefined
-                && $0.unit.providerUnitID == MiniMaxProviderContract.providerUnitID
+                && $0.unit == CapacityUnit(kind: .percent)
                 && knownContextIDs.contains($0.accountContextID)
         }
         var metricByID: [String: CapacityMetric] = [:]
@@ -162,7 +164,7 @@ struct MiniMaxCapacityPresentation: Equatable {
                 return Self.windowPresentation(
                     metric: metricByID[metricID],
                     metricID: metricID,
-                    categoryName: category.displayName,
+                    categoryName: category.fullDisplayName,
                     windowName: window.displayName,
                     mode: displayModeForWindow(metricID),
                     now: now,
@@ -171,7 +173,8 @@ struct MiniMaxCapacityPresentation: Equatable {
             }
             return MiniMaxQuotaCategoryPresentation(
                 id: category.id,
-                displayName: category.displayName,
+                shortDisplayName: category.shortDisplayName,
+                fullDisplayName: category.fullDisplayName,
                 windows: windows,
                 accessibilityIdentifier: "dashboard.minimax.category.\(account.accountID).\(category.id)",
                 accessibilityValue: windows
@@ -183,15 +186,17 @@ struct MiniMaxCapacityPresentation: Equatable {
 
     private static func categoryDescriptors(
         locale: Locale
-    ) -> [(id: String, displayName: String)] {
+    ) -> [(id: String, shortDisplayName: String, fullDisplayName: String)] {
         [
             (
                 "quota-category-a",
-                AppStrings.MiniMax.quotaCategoryA.localized(locale: locale)
+                AppStrings.MiniMax.quotaCategoryAShort.localized(locale: locale),
+                AppStrings.MiniMax.quotaCategoryAFull.localized(locale: locale)
             ),
             (
                 "quota-category-b",
-                AppStrings.MiniMax.quotaCategoryB.localized(locale: locale)
+                AppStrings.MiniMax.quotaCategoryBShort.localized(locale: locale),
+                AppStrings.MiniMax.quotaCategoryBFull.localized(locale: locale)
             ),
         ]
     }
@@ -257,29 +262,24 @@ struct MiniMaxCapacityPresentation: Equatable {
         switch metric.availability {
         case .known:
             let values = metric.values
-            let consumed = values?.consumed?.value
-            let limit = values?.limit?.value
-            let remaining = values?.remaining?.value ?? {
-                guard let consumed, let limit else { return nil }
-                return limit - consumed
-            }()
-            if let consumed, let remaining, let limit {
-                capacityText = AppStrings.MiniMax.capacitySummary.formatted(
-                    locale: locale,
-                    AppFormatters.decimal(consumed, locale: locale),
-                    AppFormatters.decimal(remaining, locale: locale),
-                    AppFormatters.decimal(limit, locale: locale)
-                )
+            if let remaining = values?.remaining,
+               remaining.origin == .reported,
+               values?.limit?.value == 100,
+               values?.limit?.origin == .reported,
+               values?.consumed?.origin == .derived {
+                let remainingPercent = NSDecimalNumber(decimal: remaining.value)
+                    .doubleValue
+                if remainingPercent.isFinite,
+                   (0 ... 100).contains(remainingPercent) {
+                    let used = 100 - remainingPercent
+                    capacityText = ""
+                    usedPercent = used
+                } else {
+                    capacityText = AppStrings.Common.unknown.localized(locale: locale)
+                    usedPercent = nil
+                }
             } else {
                 capacityText = AppStrings.Common.unknown.localized(locale: locale)
-            }
-            if let consumed, let limit {
-                let total = NSDecimalNumber(decimal: limit).doubleValue
-                let used = NSDecimalNumber(decimal: consumed).doubleValue
-                usedPercent = total > 0 && total.isFinite && used.isFinite
-                    ? min(max((used / total) * 100, 0), 100)
-                    : nil
-            } else {
                 usedPercent = nil
             }
         case .unlimited:
@@ -307,6 +307,7 @@ struct MiniMaxCapacityPresentation: Equatable {
         }
         let accessibilityValue = [percentageText, capacityText, resetText]
             .compactMap { $0 }
+            .filter { !$0.isEmpty }
             .joined(separator: ", ")
         let meterPresentation = displayPercent.flatMap { displayPercent in
             percentageText.map { percentageText in

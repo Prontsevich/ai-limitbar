@@ -150,7 +150,19 @@ final class MiniMaxRefreshCoordinatorTests: XCTestCase {
         XCTAssertFalse(snapshot.metrics.contains {
             $0.accountContextID == credentialContextID
         })
+        XCTAssertEqual(snapshot.metrics.first?.unit, CapacityUnit(kind: .percent))
         XCTAssertEqual(snapshot.metrics.first?.values?.consumed?.value, 4)
+        XCTAssertEqual(snapshot.metrics.first?.values?.consumed?.origin, .derived)
+        XCTAssertEqual(snapshot.metrics.first?.values?.remaining?.value, 96)
+        XCTAssertEqual(snapshot.metrics.first?.values?.remaining?.origin, .reported)
+        XCTAssertEqual(snapshot.metrics.first?.values?.limit?.value, 100)
+        XCTAssertEqual(snapshot.metrics.first?.derivations, [
+            Derivation(
+                kind: .consumedFromLimitMinusRemaining,
+                target: .consumed,
+                inputs: [.limit, .remaining]
+            )
+        ])
         XCTAssertEqual(
             snapshot.metrics.first?.displayName,
             "Included usage — current rolling window"
@@ -982,15 +994,17 @@ private actor ScriptedMiniMaxClient: MiniMaxAPIClient {
                         capability: "quota-windows",
                         displayName: "Token Plan capacity A",
                         availability: .known,
-                        unit: CapacityUnit(
-                            kind: .providerDefined,
-                            providerUnitID: MiniMaxProviderContract.providerUnitID
-                        ),
+                        unit: CapacityUnit(kind: .percent),
                         values: CapacityValues(
                             consumed: CapacityValue(
                                 value: value,
+                                origin: .derived
+                            ),
+                            remaining: CapacityValue(
+                                value: 100 - value,
                                 origin: .reported
-                            )
+                            ),
+                            limit: CapacityValue(value: 100, origin: .reported)
                         ),
                         window: CapacityWindow(
                             kind: .rolling,
@@ -1003,7 +1017,14 @@ private actor ScriptedMiniMaxClient: MiniMaxAPIClient {
                             )
                         ),
                         freshness: ObservationFreshness(observedAt: observedAt),
-                        confidence: .live
+                        confidence: .live,
+                        derivations: [
+                            Derivation(
+                                kind: .consumedFromLimitMinusRemaining,
+                                target: .consumed,
+                                inputs: [.limit, .remaining]
+                            )
+                        ]
                     )
                 ],
                 diagnostics: hasMappingDiagnostic

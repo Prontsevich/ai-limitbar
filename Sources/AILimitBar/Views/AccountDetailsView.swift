@@ -216,7 +216,7 @@ struct AccountDetailsView: View {
         ForEach(presentation.categories) { category in
             TerminalRule()
             VStack(alignment: .leading, spacing: 8) {
-                Text(category.displayName)
+                Text(category.fullDisplayName)
                     .font(TerminalTheme.legendFont)
                     .foregroundStyle(TerminalTheme.primary)
                     .accessibilityAddTraits(.isHeader)
@@ -226,6 +226,7 @@ struct AccountDetailsView: View {
                         label: window.displayName.uppercased(with: locale),
                         value: [window.percentageText, window.capacityText]
                             .compactMap { $0 }
+                            .filter { !$0.isEmpty }
                             .joined(separator: "\n"),
                         valueColor: TerminalTheme.primary
                     )

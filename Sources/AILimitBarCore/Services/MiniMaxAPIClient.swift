@@ -657,14 +657,8 @@ private struct MiniMaxTokenPlanQuotaCategory: Decodable, Equatable {
     let startTime: Int64
     let endTime: Int64
     let remainsTime: Int64
-    let currentIntervalTotalCount: Int64
-    let currentIntervalUsageCount: Int64
-    let currentIntervalRemainingPercent: Double?
-    let currentWeeklyTotalCount: Int64
-    let currentWeeklyUsageCount: Int64
-    let currentWeeklyRemainingPercent: Double?
-    let currentIntervalStatus: Int?
-    let currentWeeklyStatus: Int?
+    let currentIntervalRemainingPercent: Decimal?
+    let currentWeeklyRemainingPercent: Decimal?
     let weeklyStartTime: Int64
     let weeklyEndTime: Int64
     let weeklyRemainsTime: Int64
@@ -682,38 +676,20 @@ private struct MiniMaxTokenPlanQuotaCategory: Decodable, Equatable {
         startTime = try container.decode(Int64.self, forKey: .startTime)
         endTime = try container.decode(Int64.self, forKey: .endTime)
         remainsTime = try container.decode(Int64.self, forKey: .remainsTime)
-        currentIntervalTotalCount = try container.decode(
-            Int64.self,
-            forKey: .currentIntervalTotalCount
-        )
-        currentIntervalUsageCount = try container.decode(
-            Int64.self,
-            forKey: .currentIntervalUsageCount
-        )
+        _ = try container.decode(Int64.self, forKey: .currentIntervalTotalCount)
+        _ = try container.decode(Int64.self, forKey: .currentIntervalUsageCount)
         currentIntervalRemainingPercent = try container.decodeIfPresent(
-            Double.self,
+            Decimal.self,
             forKey: .currentIntervalRemainingPercent
         )
-        currentWeeklyTotalCount = try container.decode(
-            Int64.self,
-            forKey: .currentWeeklyTotalCount
-        )
-        currentWeeklyUsageCount = try container.decode(
-            Int64.self,
-            forKey: .currentWeeklyUsageCount
-        )
+        _ = try container.decode(Int64.self, forKey: .currentWeeklyTotalCount)
+        _ = try container.decode(Int64.self, forKey: .currentWeeklyUsageCount)
         currentWeeklyRemainingPercent = try container.decodeIfPresent(
-            Double.self,
+            Decimal.self,
             forKey: .currentWeeklyRemainingPercent
         )
-        currentIntervalStatus = try container.decodeIfPresent(
-            Int.self,
-            forKey: .currentIntervalStatus
-        )
-        currentWeeklyStatus = try container.decodeIfPresent(
-            Int.self,
-            forKey: .currentWeeklyStatus
-        )
+        _ = try container.decodeIfPresent(Int.self, forKey: .currentIntervalStatus)
+        _ = try container.decodeIfPresent(Int.self, forKey: .currentWeeklyStatus)
         weeklyStartTime = try container.decode(
             Int64.self,
             forKey: .weeklyStartTime
@@ -734,10 +710,8 @@ private struct MiniMaxTokenPlanQuotaCategory: Decodable, Equatable {
         guard !providerIdentifier.isEmpty,
               remainsTime >= 0,
               weeklyRemainsTime >= 0,
-              Self.isValidStatus(currentIntervalStatus),
-              Self.isValidStatus(currentWeeklyStatus),
-              currentIntervalRemainingPercent?.isFinite != false,
-              currentWeeklyRemainingPercent?.isFinite != false,
+              currentIntervalRemainingPercent?.isNaN != true,
+              currentWeeklyRemainingPercent?.isNaN != true,
               weeklyBoostPermille.map({ $0 >= 0 }) != false
         else {
             throw MiniMaxPayloadValidationError.invalidValue
@@ -762,9 +736,7 @@ private struct MiniMaxTokenPlanQuotaCategory: Decodable, Equatable {
         try metric(
             idSuffix: "current",
             displayNameSuffix: "current rolling window",
-            total: currentIntervalTotalCount,
-            consumed: currentIntervalUsageCount,
-            status: currentIntervalStatus,
+            remainingPercent: currentIntervalRemainingPercent,
             conditions: [],
             window: Self.window(
                 kind: .rolling,
@@ -785,9 +757,7 @@ private struct MiniMaxTokenPlanQuotaCategory: Decodable, Equatable {
         try metric(
             idSuffix: "weekly",
             displayNameSuffix: "weekly window",
-            total: currentWeeklyTotalCount,
-            consumed: currentWeeklyUsageCount,
-            status: currentWeeklyStatus,
+            remainingPercent: currentWeeklyRemainingPercent,
             conditions: weeklyBoostPermille.map({ $0 > 1_000 }) == true
                 ? [.boost]
                 : [],
@@ -805,9 +775,7 @@ private struct MiniMaxTokenPlanQuotaCategory: Decodable, Equatable {
     private func metric(
         idSuffix: String,
         displayNameSuffix: String,
-        total: Int64,
-        consumed: Int64,
-        status: Int?,
+        remainingPercent: Decimal?,
         conditions: [CapacityCondition],
         window: CapacityWindow,
         category: MiniMaxReviewedQuotaCategory,
@@ -818,39 +786,34 @@ private struct MiniMaxTokenPlanQuotaCategory: Decodable, Equatable {
         let values: CapacityValues?
         let derivations: [Derivation]
 
-        if status == 3 {
-            availability = .unlimited
-            values = CapacityValues(
-                consumed: CapacityValue(
-                    value: Decimal(consumed),
-                    origin: .reported
-                )
-            )
-            derivations = []
-        } else {
-            let remaining = Decimal(total) - Decimal(consumed)
+        if let remainingPercent,
+           Self.isUsablePercentage(remainingPercent) {
             availability = .known
             values = CapacityValues(
                 consumed: CapacityValue(
-                    value: Decimal(consumed),
-                    origin: .reported
-                ),
-                remaining: CapacityValue(
-                    value: remaining,
+                    value: 100 - remainingPercent,
                     origin: .derived
                 ),
+                remaining: CapacityValue(
+                    value: remainingPercent,
+                    origin: .reported
+                ),
                 limit: CapacityValue(
-                    value: Decimal(total),
+                    value: 100,
                     origin: .reported
                 )
             )
             derivations = [
                 Derivation(
-                    kind: .remainingFromLimitMinusConsumed,
-                    target: .remaining,
-                    inputs: [.limit, .consumed]
+                    kind: .consumedFromLimitMinusRemaining,
+                    target: .consumed,
+                    inputs: [.limit, .remaining]
                 )
             ]
+        } else {
+            availability = .unknown
+            values = nil
+            derivations = []
         }
 
         return CapacityMetric(
@@ -861,10 +824,7 @@ private struct MiniMaxTokenPlanQuotaCategory: Decodable, Equatable {
             displayName: "\(category.displayName) — \(displayNameSuffix)",
             availability: availability,
             conditions: conditions,
-            unit: CapacityUnit(
-                kind: .providerDefined,
-                providerUnitID: MiniMaxProviderContract.providerUnitID
-            ),
+            unit: CapacityUnit(kind: .percent),
             values: values,
             window: window,
             freshness: ObservationFreshness(observedAt: observedAt),
@@ -873,8 +833,8 @@ private struct MiniMaxTokenPlanQuotaCategory: Decodable, Equatable {
         )
     }
 
-    private static func isValidStatus(_ status: Int?) -> Bool {
-        status.map { (1 ... 3).contains($0) } ?? true
+    private static func isUsablePercentage(_ value: Decimal) -> Bool {
+        value >= 0 && value <= 100
     }
 
     private static func window(
