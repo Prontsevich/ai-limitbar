@@ -73,9 +73,6 @@ jobs:
             runner: macos-15-intel
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 90
-    env:
-      AILIMITBAR_CI_PRIVATE_DIRECTORY: ${{ runner.temp }}/AILimitBar-ci-release-private
-      AILIMITBAR_CI_KEYCHAIN_PATH: ${{ runner.temp }}/AILimitBar-ci-release.keychain-db
     steps:
       - name: Check out protected source
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -104,6 +101,8 @@ jobs:
 
       - name: Configure ephemeral release credentials
         env:
+          AILIMITBAR_CI_PRIVATE_DIRECTORY: ${{ runner.temp }}/AILimitBar-ci-release-private
+          AILIMITBAR_CI_KEYCHAIN_PATH: ${{ runner.temp }}/AILimitBar-ci-release.keychain-db
           AILIMITBAR_CI_DEVELOPER_ID_P12_BASE64: ${{ secrets.DEVELOPER_ID_P12_BASE64 }}
           AILIMITBAR_CI_DEVELOPER_ID_P12_PASSWORD: ${{ secrets.DEVELOPER_ID_P12_PASSWORD }}
           AILIMITBAR_CI_PROVISIONING_PROFILE_BASE64: ${{ secrets.DEVELOPER_ID_PROVISIONING_PROFILE_BASE64 }}
