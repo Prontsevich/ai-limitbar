@@ -57,7 +57,9 @@ credential_step = credential_steps.fetch(0)
 credential_index = steps.index(credential_step)
 abort "Xcode 26 must be selected before credential use" unless toolchain_index && toolchain_index < credential_index
 abort "Xcode 26 selection is missing" unless steps.fetch(toolchain_index).fetch("run").include?("Xcode_26")
+abort "Xcode version selection must not close xcodebuild stdout early" if steps.fetch(toolchain_index).fetch("run").include?("xcodebuild -version |")
 abort "credential setup script is not used" unless credential_step["run"] == "/bin/bash script/setup_ci_release_credentials.sh"
+abort "credential setup step is missing an outcome identifier" unless credential_step["id"] == "release_credentials"
 required_secrets = %w[
   DEVELOPER_ID_P12_BASE64
   DEVELOPER_ID_P12_PASSWORD
@@ -103,7 +105,7 @@ retention_days = upload.dig("with", "retention-days")
 abort "artifact retention is not short-lived" unless retention_days.is_a?(Integer) && retention_days <= 3
 
 cleanup = steps.fetch(cleanup_index)
-abort "cleanup must always run" unless cleanup["if"] == "${{ always() }}"
+abort "cleanup must run after credential setup" unless cleanup["if"] == "${{ always() && steps.release_credentials.outcome == 'success' }}"
 abort "cleanup script is not used" unless cleanup["run"] == "/bin/bash script/cleanup_ci_release_credentials.sh"
 
 forbidden_publication = /(?:gh\s+release|create-release|softprops\/action-gh-release|actions\/create-release|contents:\s*write)/

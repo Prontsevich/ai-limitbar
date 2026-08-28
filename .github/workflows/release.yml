@@ -91,8 +91,9 @@ jobs:
           }
           xcode_version="$(
             DEVELOPER_DIR="$developer_directory" \
-              /usr/bin/xcodebuild -version | /usr/bin/head -n 1
+              /usr/bin/xcodebuild -version
           )"
+          xcode_version="${xcode_version%%$'\n'*}"
           [[ "$xcode_version" == "Xcode 26"* ]] || {
             echo "::error::The selected toolchain is not Xcode 26."
             exit 1
@@ -100,6 +101,7 @@ jobs:
           printf 'DEVELOPER_DIR=%s\n' "$developer_directory" >>"$GITHUB_ENV"
 
       - name: Configure ephemeral release credentials
+        id: release_credentials
         env:
           AILIMITBAR_CI_PRIVATE_DIRECTORY: ${{ runner.temp }}/AILimitBar-ci-release-private
           AILIMITBAR_CI_KEYCHAIN_PATH: ${{ runner.temp }}/AILimitBar-ci-release.keychain-db
@@ -175,7 +177,7 @@ jobs:
           fi
 
       - name: Destroy ephemeral release credentials
-        if: ${{ always() }}
+        if: ${{ always() && steps.release_credentials.outcome == 'success' }}
         run: /bin/bash script/cleanup_ci_release_credentials.sh
 
       - name: Upload architecture-specific artifact
