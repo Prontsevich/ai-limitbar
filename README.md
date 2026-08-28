@@ -53,11 +53,10 @@ Download the matching archive from the
 
 Unpack the archive and move `AILimitBar.app` to Applications.
 
-Release builds are ad-hoc signed and are not notarized by Apple. On first
-launch, macOS may block the app because the developer cannot be verified. If
-you trust this repository and its release, try opening the app once, then use
-**System Settings → Privacy & Security → Open Anyway**. See Apple's
-[Gatekeeper instructions](https://support.apple.com/guide/mac-help/open-an-app-by-overriding-security-settings-mh40617/mac).
+New releases created through the verified draft flow will be signed with a
+Developer ID Application certificate and notarized by Apple. Historical
+releases may use a different signing and notarization policy; check the details
+of the release you download.
 
 ## Roadmap
 
@@ -67,8 +66,7 @@ migration, terminal dashboard, Settings redesign, Claude `/usage` CLI, English
 and Russian localization, General Settings, and GitHub Release distribution.
 
 **Planned directions 📋** — additional provider research, per-limit thresholds,
-notifications, dashboard appearance, trusted macOS distribution, and a passive
-WidgetKit extension.
+notifications, dashboard appearance, and a passive WidgetKit extension.
 
 ## Documentation
 
@@ -79,6 +77,7 @@ WidgetKit extension.
 | [`docs/dashboard-design.md`](docs/dashboard-design.md) | Dashboard design contract |
 | [`docs/settings-design.md`](docs/settings-design.md) | Settings design contract |
 | [`docs/providers/`](docs/providers/) | Per-provider implementation notes |
+| [`CHANGELOG.md`](CHANGELOG.md) / [`CHANGELOG.ru.md`](CHANGELOG.ru.md) | Bilingual release-note source |
 
 Private strategy, priorities, project documents, and implementation tasks are
 managed in Linear. GitHub is the public surface for source code, pull requests,
@@ -86,8 +85,8 @@ releases, and user-reported bugs or feature requests. Private Linear issue IDs
 and planning discussions are not copied into public branches, commits, issues,
 or pull requests.
 
-GitHub Releases are the public changelog. Release notes are assembled from
-merged pull requests and completed work, with private planning details removed.
+GitHub Releases use bilingual notes rendered from the reviewed changelog
+sources, with private planning details removed.
 
 ## Contributing
 
@@ -101,10 +100,7 @@ Report bugs and feature ideas through the public
 direct feedback to [prontsevich@gmail.com](mailto:prontsevich@gmail.com), or
 message [@s_prontsevich](https://t.me/s_prontsevich) on Telegram.
 
-If you find AI Limitbar useful, consider supporting its development.
-All contributions go toward **Apple Developer Program membership** — enabling
-Developer ID signing, notarized builds, and a smoother install experience for
-everyone.
+If you find AI Limitbar useful, consider supporting its continued development.
 
 [![Boosty](https://img.shields.io/badge/Boosty-Support-FF6B00?logo=boosty&logoColor=white)](https://boosty.to/sergey.pro)
 

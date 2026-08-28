@@ -509,7 +509,7 @@ or notarization authentication do not agree. It isolates the matching derived
 Developer ID identity and a temporary `notarytool` profile in one ephemeral
 file-based Keychain.
 
-Native `macos-15` Apple Silicon and `macos-15-intel` jobs each invoke the same
+Native `macos-26` Apple Silicon and `macos-26-intel` jobs each invoke the same
 local release notarization wrapper, then independently extract and validate the
 final archive's exact bundle shape, architecture, signature, entitlements,
 stapler ticket, and Gatekeeper evidence before uploading a three-day workflow
@@ -517,9 +517,26 @@ artifact. Pipeline and credential diagnostics remain private, and an always-
 running cleanup step verifies an invocation-specific ownership marker before
 removing the ephemeral Keychain, decoded material, and private diagnostics on
 success or failure. Pre-existing collision paths are never treated as owned,
-and cleanup must succeed before artifact upload. The workflow has no tag
-trigger and does not create a GitHub Release; public publication and clean-Mac
-validation remain separate gates.
+and cleanup must succeed before artifact upload. The validation workflow has no
+tag trigger and does not create a GitHub Release.
+
+A separate protected, manual-only draft publisher accepts a canonical version,
+build number, and successful `Release` validation run ID. It has only `actions:
+read` and `contents: write` permissions; it does not request the
+`protected-release` Environment, signing secrets, or notarization secrets. The
+publisher checks that the validation run belongs to this repository, completed
+successfully from a manual dispatch of `Release` on `main`, and has the exact
+same source commit as the publisher dispatch. It downloads only the expected
+native `macos-26` `arm64` and `macos-26-intel` `x86_64` artifacts, verifies
+nonempty ZIP archives, renders bilingual English/Russian notes from the
+changelog sources, appends SHA-256 checksums, refuses an existing tag or
+release conflict, creates an annotated tag at that exact commit, and creates a
+GitHub draft release only. If a prior publisher attempt stopped after creating
+the matching annotated tag or draft, a rerun verifies that the tag resolves to
+the same commit, refreshes the draft title and notes, and uploads the two
+expected assets with replacement. A published release or any mismatched tag or
+release remains a hard failure. A user publishes the draft after reviewing its
+notes, checksums, and assets.
 
 ### About AI Limitbar
 

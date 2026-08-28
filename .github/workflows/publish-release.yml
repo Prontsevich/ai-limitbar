@@ -1,0 +1,205 @@
+name: Publish Draft Release
+
+run-name: Publish draft release ${{ inputs.version }} from validation run ${{ inputs.validation_run_id }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Release version in MAJOR.MINOR.PATCH format
+        required: true
+        type: string
+      build_number:
+        description: Bundle build number with one to three numeric components
+        required: true
+        type: string
+      validation_run_id:
+        description: Successful Release validation workflow run ID
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: publish-draft-release-${{ inputs.version }}-${{ inputs.build_number }}
+  cancel-in-progress: false
+
+jobs:
+  authorize:
+    name: Authorize protected main-branch draft publication
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Reject untrusted dispatch context
+        env:
+          RELEASE_EVENT_NAME: ${{ github.event_name }}
+          RELEASE_REF: ${{ github.ref }}
+          RELEASE_REF_PROTECTED: ${{ github.ref_protected }}
+          RELEASE_VERSION: ${{ inputs.version }}
+          RELEASE_BUILD_NUMBER: ${{ inputs.build_number }}
+          VALIDATION_RUN_ID: ${{ inputs.validation_run_id }}
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_EVENT_NAME" == "workflow_dispatch" ]] || {
+            echo "::error::Draft publication is manual-only."
+            exit 1
+          }
+          [[ "$RELEASE_REF" == "refs/heads/main" ]] || {
+            echo "::error::Draft publication requires the main branch."
+            exit 1
+          }
+          [[ "$RELEASE_REF_PROTECTED" == "true" ]] || {
+            echo "::error::Draft publication requires a protected main ref."
+            exit 1
+          }
+          [[ "$RELEASE_VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] || {
+            echo "::error::Version must use canonical MAJOR.MINOR.PATCH."
+            exit 1
+          }
+          [[ "$RELEASE_BUILD_NUMBER" =~ ^[0-9]+(\.[0-9]+){0,2}$ ]] || {
+            echo "::error::Build number must contain one to three numeric components."
+            exit 1
+          }
+          [[ "$VALIDATION_RUN_ID" =~ ^[1-9][0-9]*$ ]] || {
+            echo "::error::Validation run ID must be numeric."
+            exit 1
+          }
+
+  publish-draft:
+    name: Create draft release from validated artifacts
+    needs: authorize
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out dispatch source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Verify validation and create draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_VERSION: ${{ inputs.version }}
+          RELEASE_BUILD_NUMBER: ${{ inputs.build_number }}
+          VALIDATION_RUN_ID: ${{ inputs.validation_run_id }}
+          RELEASE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          temporary_directory="$(mktemp -d)"
+          cleanup() {
+            rm -rf "$temporary_directory"
+          }
+          trap cleanup EXIT
+
+          fail() {
+            echo "::error::$1"
+            exit 1
+          }
+
+          validation_repository="$(gh api "repos/$GH_REPO/actions/runs/$VALIDATION_RUN_ID" --jq '.repository.full_name')"
+          validation_status="$(gh api "repos/$GH_REPO/actions/runs/$VALIDATION_RUN_ID" --jq '.status')"
+          validation_conclusion="$(gh api "repos/$GH_REPO/actions/runs/$VALIDATION_RUN_ID" --jq '.conclusion')"
+          validation_event="$(gh api "repos/$GH_REPO/actions/runs/$VALIDATION_RUN_ID" --jq '.event')"
+          validation_workflow="$(gh api "repos/$GH_REPO/actions/runs/$VALIDATION_RUN_ID" --jq '.name')"
+          validation_title="$(gh api "repos/$GH_REPO/actions/runs/$VALIDATION_RUN_ID" --jq '.display_title')"
+          validation_branch="$(gh api "repos/$GH_REPO/actions/runs/$VALIDATION_RUN_ID" --jq '.head_branch')"
+          validation_sha="$(gh api "repos/$GH_REPO/actions/runs/$VALIDATION_RUN_ID" --jq '.head_sha')"
+
+          [[ "$validation_repository" == "$GH_REPO" ]] || fail "Validation run belongs to another repository."
+          [[ "$validation_status" == "completed" && "$validation_conclusion" == "success" ]] || fail "Validation run is not successful."
+          [[ "$validation_event" == "workflow_dispatch" ]] || fail "Validation run was not manually dispatched."
+          [[ "$validation_workflow" == "Release" ]] || fail "Validation run is not the Release workflow."
+          [[ "$validation_title" == "Protected release validation $RELEASE_VERSION ($RELEASE_BUILD_NUMBER)" ]] || fail "Validation run does not match the requested version and build number."
+          [[ "$validation_branch" == "main" ]] || fail "Validation run did not validate main."
+          [[ "$validation_sha" == "$RELEASE_SHA" ]] || fail "Validation run did not validate this source commit."
+
+          tag="v$RELEASE_VERSION"
+          existing_tag_object="$(
+            gh api "repos/$GH_REPO/git/matching-refs/tags/$tag" \
+              --jq ".[] | select(.ref == \"refs/tags/$tag\") | .object.sha"
+          )"
+          if [[ -n "$existing_tag_object" ]]; then
+            existing_tag_type="$(gh api "repos/$GH_REPO/git/ref/tags/$tag" --jq '.object.type')"
+            [[ "$existing_tag_type" == "tag" ]] || fail "Existing $tag is not an annotated tag."
+            existing_tag_target_type="$(gh api "repos/$GH_REPO/git/tags/$existing_tag_object" --jq '.object.type')"
+            existing_tag_commit="$(gh api "repos/$GH_REPO/git/tags/$existing_tag_object" --jq '.object.sha')"
+            [[ "$existing_tag_target_type" == "commit" && "$existing_tag_commit" == "$RELEASE_SHA" ]] || fail "Existing $tag does not point to this source commit."
+          else
+            tag_object_sha="$(
+              gh api --method POST "repos/$GH_REPO/git/tags" \
+                -f tag="$tag" \
+                -f message="Release $tag" \
+                -f object="$RELEASE_SHA" \
+                -f type=commit \
+                --jq '.sha'
+            )"
+            gh api --method POST "repos/$GH_REPO/git/refs" \
+              -f ref="refs/tags/$tag" \
+              -f sha="$tag_object_sha" >/dev/null
+          fi
+
+          /bin/bash script/render_release_notes.sh "$tag" >"$temporary_directory/release-notes.md"
+
+          archives=()
+          for architecture in arm64 x86_64; do
+            artifact_name="AILimitBar-$RELEASE_VERSION-$architecture"
+            archive_name="$artifact_name.zip"
+            mapfile -t artifact_ids < <(
+              gh api --paginate "repos/$GH_REPO/actions/runs/$VALIDATION_RUN_ID/artifacts" \
+                --jq ".artifacts[] | select(.name == \"$artifact_name\") | .id"
+            )
+            [[ "${#artifact_ids[@]}" -eq 1 ]] || fail "Expected exactly one $artifact_name artifact."
+
+            downloaded_artifact="$temporary_directory/$artifact_name-artifact.zip"
+            gh api --method GET "repos/$GH_REPO/actions/artifacts/${artifact_ids[0]}/zip" >"$downloaded_artifact"
+            [[ -f "$downloaded_artifact" && ! -L "$downloaded_artifact" && -s "$downloaded_artifact" ]] || fail "Downloaded $artifact_name artifact is missing or unsafe."
+            unzip -tq "$downloaded_artifact" >/dev/null || fail "Downloaded $artifact_name artifact is not a valid ZIP archive."
+
+            artifact_directory="$temporary_directory/$artifact_name"
+            mkdir "$artifact_directory"
+            unzip -q "$downloaded_artifact" -d "$artifact_directory"
+            mapfile -t extracted_archives < <(find "$artifact_directory" -type f -name "$archive_name")
+            [[ "${#extracted_archives[@]}" -eq 1 ]] || fail "Expected exactly one $archive_name in the downloaded artifact."
+
+            archive="$temporary_directory/$archive_name"
+            cp "${extracted_archives[0]}" "$archive"
+            [[ -f "$archive" && ! -L "$archive" && -s "$archive" ]] || fail "Extracted $archive_name is missing or unsafe."
+            [[ "$(basename "$archive")" == "$archive_name" ]] || fail "Extracted archive name is unexpected."
+            unzip -tq "$archive" >/dev/null || fail "Extracted $archive_name is not a valid ZIP archive."
+            archives+=("$archive")
+          done
+
+          {
+            printf '\n\n## Checksums\n\n```text\n'
+            for archive in "${archives[@]}"; do
+              checksum="$(sha256sum "$archive")"
+              printf '%s  %s\n' "${checksum%% *}" "$(basename "$archive")"
+            done
+            printf '```\n'
+          } >>"$temporary_directory/release-notes.md"
+
+          existing_release="$(
+            gh api --paginate "repos/$GH_REPO/releases?per_page=100" \
+              --jq ".[] | select(.tag_name == \"$tag\") | [.draft, .tag_name] | @tsv"
+          )"
+          if [[ -n "$existing_release" ]]; then
+            [[ "$existing_release" != *$'\n'* ]] || fail "More than one release uses $tag."
+            IFS=$'\t' read -r existing_release_draft existing_release_tag <<<"$existing_release"
+            [[ "$existing_release_draft" == "true" && "$existing_release_tag" == "$tag" ]] || fail "Existing release for $tag is not a matching draft."
+            gh release edit "$tag" \
+              --draft \
+              --title "$tag" \
+              --notes-file "$temporary_directory/release-notes.md"
+          else
+            gh release create "$tag" \
+              --draft \
+              --verify-tag \
+              --title "$tag" \
+              --notes-file "$temporary_directory/release-notes.md"
+          fi
+
+          gh release upload "$tag" --clobber "${archives[@]}"
