@@ -49,13 +49,12 @@ publish_run = steps.fetch(1).fetch("run")
   completed
   success
   workflow_dispatch
-  Release
   display_title
   validation_repository
   validation_status
   validation_conclusion
   validation_event
-  validation_workflow
+  validation_workflow_path
   validation_title
   head_branch
   head_sha
@@ -80,6 +79,8 @@ abort "publisher must append checksums" unless publish_run.include?("## Checksum
 abort "publisher must bind the run to this repository" unless publish_run.include?("validation_repository\" == \"$GH_REPO")
 abort "publisher must bind the run to the requested source SHA" unless publish_run.include?("validation_sha\" == \"$RELEASE_SHA")
 abort "publisher must bind the run to the requested version and build" unless publish_run.include?("Protected release validation $RELEASE_VERSION ($RELEASE_BUILD_NUMBER)")
+abort "publisher must bind the run to the Release workflow path" unless publish_run.include?("validation_workflow_path\" == \".github/workflows/release.yml")
+abort "publisher must not use run name for Release identity" if publish_run.include?("actions/runs/$VALIDATION_RUN_ID\" --jq '.name'")
 abort "publisher must verify an existing tag is annotated" unless publish_run.include?("existing_tag_type\" == \"tag")
 abort "publisher must verify an existing tag target" unless publish_run.include?("existing_tag_target_type\" == \"commit") && publish_run.include?("existing_tag_commit\" == \"$RELEASE_SHA")
 abort "publisher must reject a published or mismatched release" unless publish_run.include?("existing_release_draft\" == \"true") && publish_run.include?("Existing release for $tag is not a matching draft.")
