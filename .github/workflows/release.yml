@@ -68,9 +68,9 @@ jobs:
       matrix:
         include:
           - architecture: arm64
-            runner: macos-15
+            runner: macos-26
           - architecture: x86_64
-            runner: macos-15-intel
+            runner: macos-26-intel
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 90
     steps:

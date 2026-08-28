@@ -43,8 +43,8 @@ abort "protected ref gate is missing" unless authorization_run.include?("RELEASE
 
 matrix = build.dig("strategy", "matrix", "include")
 expected_matrix = [
-  {"architecture" => "arm64", "runner" => "macos-15"},
-  {"architecture" => "x86_64", "runner" => "macos-15-intel"}
+  {"architecture" => "arm64", "runner" => "macos-26"},
+  {"architecture" => "x86_64", "runner" => "macos-26-intel"}
 ]
 abort "release runner matrix is incorrect" unless matrix == expected_matrix
 abort "matrix runner selection is missing" unless build["runs-on"] == "${{ matrix.runner }}"
